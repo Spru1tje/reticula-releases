@@ -12,6 +12,8 @@ EX = os.path.join(ROOT, "example_data", "DSC")
 
 @pytest.fixture(scope="module")
 def real():
+    if not os.path.exists(REAL):      # a real (private) STARe export; not in the public repository
+        pytest.skip("private test data not in the public repository: Mettler_STARe_SG_DSC_1.1_1K_REAL.txt")
     return dsc.read_dsc(REAL)
 
 
