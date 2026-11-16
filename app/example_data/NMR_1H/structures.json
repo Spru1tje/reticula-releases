@@ -1,0 +1,3 @@
+{"_source": "Public Bruker example data from cheminfo/bruker-data-test (MIT licence): aspirin 300 MHz XWIN-NMR 3.5 (CDCl3); 1-naphthoic acid 500 MHz TopSpin 3.5 (acetone-d6, not referenced).",
+ "aspirin_300_XWIN35.zip": "CC(=O)Oc1ccccc1C(=O)O",
+ "naphtoic_500_TS35_dspfvs12.zip": "OC(=O)c1cccc2ccccc12"}

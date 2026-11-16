@@ -1,0 +1,80 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;font-size:12px;color:#0B1F3A;background:transparent}
+ #row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+ .pane{position:relative;user-select:none;border:1px solid #D5DEEA;border-radius:8px;background:#fff}
+ .pane img{display:block}
+ .chip{position:absolute;transform:translate(-50%,-50%);min-width:18px;padding:1px 5px;border-radius:10px;font-size:11px;font-weight:600;
+   text-align:center;cursor:grab;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);color:#fff;white-space:nowrap}
+ .chip.un{background:#9AA9BC} .chip.fix{outline:2px solid #F97316}
+ .zone{position:absolute;border:1px dashed rgba(15,118,110,.45);border-radius:3px;background:rgba(20,184,166,.05)}
+ .zone.hot{background:rgba(249,115,22,.18);border-color:#F97316}
+ .zone .zl{position:absolute;left:50%;transform:translateX(-50%);bottom:-16px;font-size:10px;color:#46607F;white-space:nowrap}
+ #bin{margin-top:6px;padding:6px 10px;border:1.5px dashed #9AA9BC;border-radius:8px;color:#46607F;display:inline-block}
+ #bin.hot{background:#FFF1E6;border-color:#F97316}
+ #bar{display:flex;gap:8px;align-items:center;margin:0 0 6px}
+ button{border:1px solid #9FB4CF;background:#fff;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+ button:hover{background:#E6F4F1}
+ #hint{color:#46607F;font-size:11px;margin-top:4px}
+</style></head><body>
+<div id="bar"><b>Assignment</b><span id="sum"></span>
+ <button id="reset" title="Forget the manual corrections; back to the automatic assignment">↺ Automatic assignment</button></div>
+<div id="row"><div class="pane" id="mol"><img id="molimg"></div><div class="pane" id="spec"><img id="specimg"></div></div>
+<div id="bin">⊘ drop here = not observed / unassigned</div>
+<div id="hint">Drag a numbered H chip from the structure onto a multiplet (dashed box) to assign it there, or onto ⊘ to leave it
+ unassigned. Orange ring = set by you. Click a multiplet to see its atoms.</div>
+<script>
+const COL=["#0072B2","#D55E00","#009E73","#CC79A7","#E69F00","#56B4E9","#8C6D1F","#000000","#6A3D9A","#B15928"];
+function send(type,data){window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:type},data),"*");}
+function setValue(v){send("streamlit:setComponentValue",{value:v,dataType:"json"});}
+function setHeight(){send("streamlit:setFrameHeight",{height:document.body.scrollHeight+10});}
+let A=null, drag=null, hot=null, sel=null;
+function emit(o){o.key=A.skey; o.t=Date.now(); setValue(o);}
+function colorOf(mi){ if(mi===null||mi===undefined) return null; const k=A.zones.findIndex(z=>z.mi===mi); return COL[(k<0?0:k)%COL.length]; }
+function build(){
+  const mol=document.getElementById("mol"), spec=document.getElementById("spec");
+  [...document.querySelectorAll(".chip,.zone")].forEach(e=>e.remove());
+  const ms=document.getElementById("molimg"), ss=document.getElementById("specimg");
+  ms.style.width=A.mw+"px"; ss.style.width=A.sw+"px";
+  for(const z of A.zones){
+    const d=document.createElement("div"); d.className="zone"+(sel===z.mi?" hot":""); d.dataset.mi=z.mi;
+    d.style.left=z.x0+"px"; d.style.top=z.y0+"px"; d.style.width=Math.max(6,z.x1-z.x0)+"px"; d.style.height=(z.y1-z.y0)+"px";
+    const c=colorOf(z.mi); if(A.assign_by_zone[z.mi]&&A.assign_by_zone[z.mi].length){d.style.borderColor=c; d.style.background=c+"22";}
+    d.title=z.title;
+    d.onclick=()=>{sel=(sel===z.mi?null:z.mi); build();};
+    spec.appendChild(d);
+  }
+  let nA=0;
+  for(const g of A.groups){
+    const d=document.createElement("div"); const mi=A.assign[g.gid];
+    d.className="chip"+(mi===null||mi===undefined?" un":"")+(g.fixed?" fix":"");
+    if(mi!==null&&mi!==undefined){d.style.background=colorOf(mi); nA++;}
+    if(sel!==null&&mi===sel){d.style.boxShadow="0 0 0 3px #F97316";}
+    d.style.left=g.x+"px"; d.style.top=g.y+"px"; d.textContent=g.text; d.title=g.title;
+    d.onmousedown=(e)=>{ e.preventDefault(); const ox=e.clientX, oy=e.clientY; d.style.cursor="grabbing"; d.style.zIndex=9;
+      const mv=(ev)=>{ d.style.transform=`translate(calc(-50% + ${ev.clientX-ox}px), calc(-50% + ${ev.clientY-oy}px))`;
+        d.style.pointerEvents="none"; const t=document.elementFromPoint(ev.clientX,ev.clientY); d.style.pointerEvents="";
+        document.querySelectorAll(".zone.hot,#bin.hot").forEach(x=>{ if(!(sel!==null&&x.dataset&&+x.dataset.mi===sel)) x.classList.remove("hot");});
+        hot=null; if(t){ const z=t.closest(".zone"); if(z){z.classList.add("hot"); hot={mi:+z.dataset.mi};}
+          else if(t.closest("#bin")){document.getElementById("bin").classList.add("hot"); hot={mi:null};} } };
+      const up=()=>{ window.removeEventListener("mousemove",mv); window.removeEventListener("mouseup",up);
+        d.style.cursor="grab"; d.style.transform=""; d.style.zIndex="";
+        document.querySelectorAll("#bin.hot").forEach(x=>x.classList.remove("hot"));
+        if(hot){ const h=hot; hot=null; if(h.mi===null) emit({op:"unassign",gid:g.gid}); else emit({op:"assign",gid:g.gid,mi:h.mi}); }
+        else build(); };
+      window.addEventListener("mousemove",mv); window.addEventListener("mouseup",up); };
+    mol.appendChild(d);
+  }
+  document.getElementById("sum").textContent=` ${nA}/${A.groups.length} H groups assigned`;
+  setHeight();
+}
+document.getElementById("reset").onclick=()=>emit({op:"reset"});
+window.addEventListener("message",(ev)=>{
+  if(ev.data.type!=="streamlit:render") return;
+  const a=ev.data.args; const first=!A||A.mol_src!==a.mol_src||A.spec_src!==a.spec_src; A=a;
+  A.assign_by_zone={}; for(const g of A.groups){const mi=A.assign[g.gid]; if(mi!==null&&mi!==undefined){(A.assign_by_zone[mi]=A.assign_by_zone[mi]||[]).push(g.gid);}}
+  if(first){ const m=document.getElementById("molimg"), s=document.getElementById("specimg"); let n=0;
+    const done=()=>{ if(++n>=2) build(); }; m.onload=done; s.onload=done; m.src=A.mol_src; s.src=A.spec_src; }
+  else build();
+});
+send("streamlit:componentReady",{apiVersion:1});
+</script></body></html>

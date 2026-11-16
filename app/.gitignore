@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+exports/
+build/
+dist/
+.venv/
+*.egg-info/
+tests/data/TEM_*
+tests/data/olympus_sis/
+tests/data/*_REAL.*

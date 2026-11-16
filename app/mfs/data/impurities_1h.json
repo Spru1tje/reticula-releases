@@ -1,0 +1,1519 @@
+{
+"source": "Fulmer, G. R. et al. Organometallics 2010, 29, 2176-2179 (doi:10.1021/om100106e), Table 1; DMSO from Gottlieb, H. E. et al. J. Org. Chem. 1997, 62, 7512-7515. Ranges stored as [lo, hi].",
+"signals": [
+{
+"name": "water",
+"proton": "OH",
+"mult": "s",
+"shifts": {
+"THF-d8": 2.46,
+"CD2Cl2": 1.52,
+"CDCl3": 1.56,
+"Toluene-d8": 0.43,
+"C6D6": 0.4,
+"C6D5Cl": 1.03,
+"Acetone-d6": 2.84,
+"DMSO-d6": 3.33,
+"CD3CN": 2.13,
+"TFE-d3": 3.66,
+"CD3OD": 4.87
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "acetic acid",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 1.89,
+"CD2Cl2": 2.06,
+"CDCl3": 2.1,
+"Toluene-d8": 1.57,
+"C6D6": 1.52,
+"C6D5Cl": 1.76,
+"Acetone-d6": 1.96,
+"DMSO-d6": 1.91,
+"CD3CN": 1.96,
+"TFE-d3": 2.06,
+"CD3OD": 1.99,
+"D2O": 2.08
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "acetone",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 2.05,
+"CD2Cl2": 2.12,
+"CDCl3": 2.17,
+"Toluene-d8": 1.57,
+"C6D6": 1.55,
+"C6D5Cl": 1.77,
+"Acetone-d6": 2.09,
+"DMSO-d6": 2.09,
+"CD3CN": 2.08,
+"TFE-d3": 2.19,
+"CD3OD": 2.15,
+"D2O": 2.22
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "acetonitrile",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 1.95,
+"CD2Cl2": 1.97,
+"CDCl3": 2.1,
+"Toluene-d8": 0.69,
+"C6D6": 0.58,
+"C6D5Cl": 1.21,
+"Acetone-d6": 2.05,
+"DMSO-d6": 2.07,
+"CD3CN": 1.96,
+"TFE-d3": 1.95,
+"CD3OD": 2.03,
+"D2O": 2.06
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "benzene",
+"proton": "CH",
+"mult": "s",
+"shifts": {
+"THF-d8": 7.31,
+"CD2Cl2": 7.35,
+"CDCl3": 7.36,
+"Toluene-d8": 7.12,
+"C6D6": 7.15,
+"C6D5Cl": 7.2,
+"Acetone-d6": 7.36,
+"DMSO-d6": 7.37,
+"CD3CN": 7.37,
+"TFE-d3": 7.36,
+"CD3OD": 7.33
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "tert-butyl alcohol",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 1.15,
+"CD2Cl2": 1.24,
+"CDCl3": 1.28,
+"Toluene-d8": 1.03,
+"C6D6": 1.05,
+"C6D5Cl": 1.12,
+"Acetone-d6": 1.18,
+"DMSO-d6": 1.11,
+"CD3CN": 1.16,
+"TFE-d3": 1.28,
+"CD3OD": 1.4,
+"D2O": 1.24
+},
+"nH": 9,
+"src": "Fulmer 2010"
+},
+{
+"name": "tert-butyl alcohol",
+"proton": "OH",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.16,
+"Toluene-d8": 0.58,
+"C6D6": 0.63,
+"C6D5Cl": 1.3,
+"DMSO-d6": 4.19,
+"CD3CN": 2.18,
+"TFE-d3": 2.2
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "chloroform",
+"proton": "CH",
+"mult": "s",
+"shifts": {
+"THF-d8": 7.89,
+"CD2Cl2": 7.32,
+"CDCl3": 7.26,
+"Toluene-d8": 6.1,
+"C6D6": 6.15,
+"C6D5Cl": 6.74,
+"Acetone-d6": 8.02,
+"DMSO-d6": 8.32,
+"CD3CN": 7.58,
+"TFE-d3": 7.33,
+"CD3OD": 7.9
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "18-crown-6",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.57,
+"CD2Cl2": 3.59,
+"CDCl3": 3.67,
+"Toluene-d8": 3.36,
+"C6D6": 3.39,
+"C6D5Cl": 3.41,
+"Acetone-d6": 3.59,
+"DMSO-d6": 3.51,
+"CD3CN": 3.51,
+"TFE-d3": 3.64,
+"CD3OD": 3.64,
+"D2O": 3.8
+},
+"nH": 24,
+"src": "Fulmer 2010"
+},
+{
+"name": "cyclohexane",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 1.44,
+"CD2Cl2": 1.44,
+"CDCl3": 1.43,
+"Toluene-d8": 1.4,
+"C6D6": 1.4,
+"C6D5Cl": 1.37,
+"Acetone-d6": 1.43,
+"DMSO-d6": 1.4,
+"CD3CN": 1.44,
+"TFE-d3": 1.47,
+"CD3OD": 1.45
+},
+"nH": 12,
+"src": "Fulmer 2010"
+},
+{
+"name": "1,2-dichloroethane",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.77,
+"CD2Cl2": 3.76,
+"CDCl3": 3.73,
+"Toluene-d8": 2.91,
+"C6D6": 2.9,
+"C6D5Cl": 3.26,
+"Acetone-d6": 3.87,
+"DMSO-d6": 3.9,
+"CD3CN": 3.81,
+"TFE-d3": 3.71,
+"CD3OD": 3.78
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "dichloromethane",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 5.51,
+"CD2Cl2": 5.33,
+"CDCl3": 5.3,
+"Toluene-d8": 4.32,
+"C6D6": 4.27,
+"C6D5Cl": 4.77,
+"Acetone-d6": 5.63,
+"DMSO-d6": 5.76,
+"CD3CN": 5.44,
+"TFE-d3": 5.24,
+"CD3OD": 5.49
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "diethyl ether",
+"proton": "CH3",
+"mult": "t, 7",
+"shifts": {
+"THF-d8": 1.12,
+"CD2Cl2": 1.15,
+"CDCl3": 1.21,
+"Toluene-d8": 1.1,
+"C6D6": 1.11,
+"C6D5Cl": 1.1,
+"Acetone-d6": 1.11,
+"DMSO-d6": 1.09,
+"CD3CN": 1.12,
+"TFE-d3": 1.2,
+"CD3OD": 1.18,
+"D2O": 1.17
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "diethyl ether",
+"proton": "CH2",
+"mult": "q, 7",
+"shifts": {
+"THF-d8": 3.38,
+"CD2Cl2": 3.43,
+"CDCl3": 3.48,
+"Toluene-d8": 3.25,
+"C6D6": 3.26,
+"C6D5Cl": 3.31,
+"Acetone-d6": 3.41,
+"DMSO-d6": 3.38,
+"CD3CN": 3.42,
+"TFE-d3": 3.58,
+"CD3OD": 3.49,
+"D2O": 3.56
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "diglyme",
+"proton": "CH2",
+"mult": "m",
+"shifts": {
+"THF-d8": 3.43,
+"CD2Cl2": 3.57,
+"CDCl3": 3.65,
+"Toluene-d8": 3.43,
+"C6D6": 3.46,
+"C6D5Cl": 3.49,
+"Acetone-d6": 3.56,
+"DMSO-d6": 3.51,
+"CD3CN": 3.53,
+"TFE-d3": 3.67,
+"CD3OD": 3.61,
+"D2O": 3.67
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "diglyme",
+"proton": "CH2",
+"mult": "m",
+"shifts": {
+"THF-d8": 3.53,
+"CD2Cl2": 3.5,
+"CDCl3": 3.57,
+"Toluene-d8": 3.31,
+"C6D6": 3.34,
+"C6D5Cl": 3.37,
+"Acetone-d6": 3.47,
+"DMSO-d6": 3.38,
+"CD3CN": 3.45,
+"TFE-d3": 3.62,
+"CD3OD": 3.58,
+"D2O": 3.61
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "diglyme",
+"proton": "OCH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.28,
+"CD2Cl2": 3.33,
+"CDCl3": 3.39,
+"Toluene-d8": 3.12,
+"C6D6": 3.11,
+"C6D5Cl": 3.16,
+"Acetone-d6": 3.28,
+"DMSO-d6": 3.24,
+"CD3CN": 3.29,
+"TFE-d3": 3.41,
+"CD3OD": 3.35,
+"D2O": 3.37
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "dimethylformamide",
+"proton": "CH",
+"mult": "s",
+"shifts": {
+"THF-d8": 7.91,
+"CD2Cl2": 7.96,
+"CDCl3": 8.02,
+"Toluene-d8": 7.57,
+"C6D6": 7.63,
+"C6D5Cl": 7.73,
+"Acetone-d6": 7.96,
+"DMSO-d6": 7.95,
+"CD3CN": 7.92,
+"TFE-d3": 7.86,
+"CD3OD": 7.97,
+"D2O": 7.92
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "dimethylformamide",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 2.88,
+"CD2Cl2": 2.91,
+"CDCl3": 2.96,
+"Toluene-d8": 2.37,
+"C6D6": 2.36,
+"C6D5Cl": 2.51,
+"Acetone-d6": 2.94,
+"DMSO-d6": 2.89,
+"CD3CN": 2.89,
+"TFE-d3": 2.98,
+"CD3OD": 2.99,
+"D2O": 3.01
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "dimethylformamide",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 2.76,
+"CD2Cl2": 2.82,
+"CDCl3": 2.88,
+"Toluene-d8": 1.96,
+"C6D6": 1.86,
+"C6D5Cl": 2.3,
+"Acetone-d6": 2.78,
+"DMSO-d6": 2.73,
+"CD3CN": 2.77,
+"TFE-d3": 2.88,
+"CD3OD": 2.86,
+"D2O": 2.85
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "1,4-dioxane",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.56,
+"CD2Cl2": 3.65,
+"CDCl3": 3.71,
+"Toluene-d8": 3.33,
+"C6D6": 3.35,
+"C6D5Cl": 3.45,
+"Acetone-d6": 3.59,
+"DMSO-d6": 3.57,
+"CD3CN": 3.6,
+"TFE-d3": 3.76,
+"CD3OD": 3.66,
+"D2O": 3.75
+},
+"nH": 8,
+"src": "Fulmer 2010"
+},
+{
+"name": "DME",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.28,
+"CD2Cl2": 3.34,
+"CDCl3": 3.4,
+"Toluene-d8": 3.12,
+"C6D6": 3.12,
+"C6D5Cl": 3.17,
+"Acetone-d6": 3.28,
+"DMSO-d6": 3.24,
+"CD3CN": 3.28,
+"TFE-d3": 3.4,
+"CD3OD": 3.35,
+"D2O": 3.37
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "DME",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.43,
+"CD2Cl2": 3.49,
+"CDCl3": 3.55,
+"Toluene-d8": 3.31,
+"C6D6": 3.33,
+"C6D5Cl": 3.37,
+"Acetone-d6": 3.46,
+"DMSO-d6": 3.43,
+"CD3CN": 3.45,
+"TFE-d3": 3.61,
+"CD3OD": 3.52,
+"D2O": 3.6
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethane",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 0.85,
+"CD2Cl2": 0.85,
+"CDCl3": 0.87,
+"Toluene-d8": 0.81,
+"C6D6": 0.8,
+"C6D5Cl": 0.79,
+"Acetone-d6": 0.83,
+"DMSO-d6": 0.82,
+"CD3CN": 0.85,
+"TFE-d3": 0.85,
+"CD3OD": 0.85,
+"D2O": 0.82
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethanol",
+"proton": "CH3",
+"mult": "t, 7",
+"shifts": {
+"THF-d8": 1.1,
+"CD2Cl2": 1.19,
+"CDCl3": 1.25,
+"Toluene-d8": 0.97,
+"C6D6": 0.96,
+"C6D5Cl": 1.06,
+"Acetone-d6": 1.12,
+"DMSO-d6": 1.06,
+"CD3CN": 1.12,
+"TFE-d3": 1.22,
+"CD3OD": 1.19,
+"D2O": 1.17
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethanol",
+"proton": "CH2",
+"mult": "q, 7",
+"shifts": {
+"THF-d8": 3.51,
+"CD2Cl2": 3.66,
+"CDCl3": 3.72,
+"Toluene-d8": 3.36,
+"C6D6": 3.34,
+"C6D5Cl": 3.51,
+"Acetone-d6": 3.57,
+"DMSO-d6": 3.44,
+"CD3CN": 3.54,
+"TFE-d3": 3.71,
+"CD3OD": 3.6,
+"D2O": 3.65
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethanol",
+"proton": "OH",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.3,
+"CD2Cl2": 1.33,
+"CDCl3": 1.32,
+"Toluene-d8": 0.83,
+"C6D6": 0.5,
+"C6D5Cl": 1.39,
+"Acetone-d6": 3.39,
+"DMSO-d6": 4.63,
+"CD3CN": 2.47
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethyl acetate",
+"proton": "CH3CO",
+"mult": "s",
+"shifts": {
+"THF-d8": 1.94,
+"CD2Cl2": 2.0,
+"CDCl3": 2.05,
+"Toluene-d8": 1.69,
+"C6D6": 1.65,
+"C6D5Cl": 1.78,
+"Acetone-d6": 1.97,
+"DMSO-d6": 1.99,
+"CD3CN": 1.97,
+"TFE-d3": 2.03,
+"CD3OD": 2.01,
+"D2O": 2.07
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethyl acetate",
+"proton": "CH2CH3",
+"mult": "q, 7",
+"shifts": {
+"THF-d8": 4.04,
+"CD2Cl2": 4.08,
+"CDCl3": 4.12,
+"Toluene-d8": 3.87,
+"C6D6": 3.89,
+"C6D5Cl": 3.96,
+"Acetone-d6": 4.05,
+"DMSO-d6": 4.03,
+"CD3CN": 4.06,
+"TFE-d3": 4.14,
+"CD3OD": 4.09,
+"D2O": 4.14
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethyl acetate",
+"proton": "CH2CH3",
+"mult": "t, 7",
+"shifts": {
+"THF-d8": 1.19,
+"CD2Cl2": 1.23,
+"CDCl3": 1.26,
+"Toluene-d8": 0.94,
+"C6D6": 0.92,
+"C6D5Cl": 1.04,
+"Acetone-d6": 1.2,
+"DMSO-d6": 1.17,
+"CD3CN": 1.2,
+"TFE-d3": 1.26,
+"CD3OD": 1.24,
+"D2O": 1.24
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethylene",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 5.36,
+"CD2Cl2": 5.4,
+"CDCl3": 5.4,
+"Toluene-d8": 5.25,
+"C6D6": 5.25,
+"C6D5Cl": 5.29,
+"Acetone-d6": 5.38,
+"DMSO-d6": 5.41,
+"CD3CN": 5.41,
+"TFE-d3": 5.4,
+"CD3OD": 5.39,
+"D2O": 5.44
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "ethylene glycol",
+"proton": "CH2",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.48,
+"CD2Cl2": 3.66,
+"CDCl3": 3.76,
+"Toluene-d8": 3.36,
+"C6D6": 3.41,
+"C6D5Cl": 3.58,
+"Acetone-d6": 3.28,
+"DMSO-d6": 3.34,
+"CD3CN": 3.51,
+"TFE-d3": 3.72,
+"CD3OD": 3.59,
+"D2O": 3.65
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "H grease",
+"proton": "CH3",
+"mult": "m",
+"shifts": {
+"Acetone-d6": 0.9,
+"TFE-d3": [
+0.88,
+0.94
+],
+"CD3OD": [
+0.86,
+0.93
+]
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "H grease",
+"proton": "CH2",
+"mult": "br s",
+"shifts": {
+"THF-d8": 1.29,
+"CD2Cl2": 1.27,
+"CDCl3": 1.25,
+"Toluene-d8": 1.33,
+"C6D6": 1.32,
+"C6D5Cl": 1.3,
+"Acetone-d6": 1.29,
+"DMSO-d6": 1.24,
+"TFE-d3": 1.33,
+"CD3OD": 1.29
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "hexamethylbenzene",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 2.18,
+"CD2Cl2": 2.2,
+"CDCl3": 2.24,
+"Toluene-d8": 2.1,
+"C6D6": 2.13,
+"C6D5Cl": 2.1,
+"Acetone-d6": 2.17,
+"DMSO-d6": 2.14,
+"CD3CN": 2.19,
+"TFE-d3": 2.24,
+"CD3OD": 2.19
+},
+"nH": 18,
+"src": "Fulmer 2010"
+},
+{
+"name": "n-hexane",
+"proton": "CH3",
+"mult": "t, 7",
+"shifts": {
+"THF-d8": 0.89,
+"CD2Cl2": 0.89,
+"CDCl3": 0.88,
+"Toluene-d8": 0.88,
+"C6D6": 0.89,
+"C6D5Cl": 0.85,
+"Acetone-d6": 0.88,
+"DMSO-d6": 0.86,
+"CD3CN": 0.89,
+"TFE-d3": 0.91,
+"CD3OD": 0.9
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "n-hexane",
+"proton": "CH2",
+"mult": "m",
+"shifts": {
+"THF-d8": 1.29,
+"CD2Cl2": 1.27,
+"CDCl3": 1.26,
+"Toluene-d8": 1.22,
+"C6D6": 1.24,
+"C6D5Cl": 1.19,
+"Acetone-d6": 1.28,
+"DMSO-d6": 1.25,
+"CD3CN": 1.28,
+"TFE-d3": 1.31,
+"CD3OD": 1.29
+},
+"nH": 8,
+"src": "Fulmer 2010"
+},
+{
+"name": "HMDSO",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 0.07,
+"CD2Cl2": 0.07,
+"CDCl3": 0.07,
+"Toluene-d8": 0.1,
+"C6D6": 0.12,
+"C6D5Cl": 0.1,
+"Acetone-d6": 0.07,
+"DMSO-d6": 0.06,
+"CD3CN": 0.07,
+"TFE-d3": 0.08,
+"CD3OD": 0.07,
+"D2O": 0.28
+},
+"nH": 18,
+"src": "Fulmer 2010"
+},
+{
+"name": "HMPA",
+"proton": "CH3",
+"mult": "d,9.5",
+"shifts": {
+"THF-d8": 2.58,
+"CD2Cl2": 2.6,
+"CDCl3": 2.65,
+"Toluene-d8": 2.42,
+"C6D6": 2.4,
+"C6D5Cl": 2.47,
+"Acetone-d6": 2.59,
+"DMSO-d6": 2.53,
+"CD3CN": 2.57,
+"TFE-d3": 2.63,
+"CD3OD": 2.64,
+"D2O": 2.61
+},
+"nH": 18,
+"src": "Fulmer 2010"
+},
+{
+"name": "hydrogen",
+"proton": "H2",
+"mult": "s",
+"shifts": {
+"THF-d8": 4.55,
+"CD2Cl2": 4.59,
+"CDCl3": 4.62,
+"Toluene-d8": 4.5,
+"C6D6": 4.47,
+"C6D5Cl": 4.49,
+"Acetone-d6": 4.54,
+"DMSO-d6": 4.61,
+"CD3CN": 4.57,
+"TFE-d3": 4.53,
+"CD3OD": 4.56
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "imidazole",
+"proton": "CH(2)",
+"mult": "s",
+"shifts": {
+"THF-d8": 7.48,
+"CD2Cl2": 7.63,
+"CDCl3": 7.67,
+"Toluene-d8": 7.3,
+"C6D6": 7.33,
+"C6D5Cl": 7.53,
+"Acetone-d6": 7.62,
+"DMSO-d6": 7.63,
+"CD3CN": 7.57,
+"TFE-d3": 7.61,
+"CD3OD": 7.67,
+"D2O": 7.78
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "imidazole",
+"proton": "CH(4,5)",
+"mult": "s",
+"shifts": {
+"THF-d8": 6.94,
+"CD2Cl2": 7.07,
+"CDCl3": 7.1,
+"Toluene-d8": 6.86,
+"C6D6": 6.9,
+"C6D5Cl": 7.01,
+"Acetone-d6": 7.04,
+"DMSO-d6": 7.01,
+"CD3CN": 7.01,
+"TFE-d3": 7.03,
+"CD3OD": 7.05,
+"D2O": 7.14
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "methane",
+"proton": "CH4",
+"mult": "s",
+"shifts": {
+"THF-d8": 0.19,
+"CD2Cl2": 0.21,
+"CDCl3": 0.22,
+"Toluene-d8": 0.17,
+"C6D6": 0.16,
+"C6D5Cl": 0.15,
+"Acetone-d6": 0.17,
+"DMSO-d6": 0.2,
+"CD3CN": 0.2,
+"TFE-d3": 0.18,
+"CD3OD": 0.2,
+"D2O": 0.18
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "methanol",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.27,
+"CD2Cl2": 3.42,
+"CDCl3": 3.49,
+"Toluene-d8": 3.03,
+"C6D6": 3.07,
+"C6D5Cl": 3.25,
+"Acetone-d6": 3.31,
+"DMSO-d6": 3.16,
+"CD3CN": 3.28,
+"TFE-d3": 3.44,
+"CD3OD": 3.34,
+"D2O": 3.34
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "methanol",
+"proton": "OH",
+"mult": "s",
+"shifts": {
+"THF-d8": 3.02,
+"CD2Cl2": 1.09,
+"CDCl3": 1.09,
+"C6D5Cl": 1.3,
+"Acetone-d6": 3.12,
+"DMSO-d6": 4.01,
+"CD3CN": 2.16
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "nitromethane",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 4.31,
+"CD2Cl2": 4.31,
+"CDCl3": 4.33,
+"Toluene-d8": 3.01,
+"C6D6": 2.94,
+"C6D5Cl": 3.59,
+"Acetone-d6": 4.43,
+"DMSO-d6": 4.42,
+"CD3CN": 4.31,
+"TFE-d3": 4.28,
+"CD3OD": 4.34,
+"D2O": 4.4
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "n-pentane",
+"proton": "CH3",
+"mult": "t, 7",
+"shifts": {
+"THF-d8": 0.89,
+"CD2Cl2": 0.89,
+"CDCl3": 0.88,
+"Toluene-d8": 0.87,
+"C6D6": 0.87,
+"C6D5Cl": 0.84,
+"Acetone-d6": 0.88,
+"DMSO-d6": 0.86,
+"CD3CN": 0.89,
+"TFE-d3": 0.9,
+"CD3OD": 0.9
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "n-pentane",
+"proton": "CH2",
+"mult": "m",
+"shifts": {
+"THF-d8": 1.31,
+"CD2Cl2": 1.3,
+"CDCl3": 1.27,
+"Toluene-d8": 1.25,
+"C6D6": 1.23,
+"C6D5Cl": 1.23,
+"Acetone-d6": 1.27,
+"DMSO-d6": 1.27,
+"CD3CN": 1.29,
+"TFE-d3": 1.33,
+"CD3OD": 1.29
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "propane",
+"proton": "CH3",
+"mult": "t, 7.3",
+"shifts": {
+"THF-d8": 0.9,
+"CD2Cl2": 0.9,
+"CDCl3": 0.9,
+"Toluene-d8": 0.89,
+"C6D6": 0.86,
+"C6D5Cl": 0.84,
+"Acetone-d6": 0.88,
+"DMSO-d6": 0.87,
+"CD3CN": 0.9,
+"TFE-d3": 0.9,
+"CD3OD": 0.91,
+"D2O": 0.88
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "propane",
+"proton": "CH2",
+"mult": "sept",
+"shifts": {
+"THF-d8": 1.33,
+"CD2Cl2": 1.32,
+"CDCl3": 1.32,
+"Toluene-d8": 1.32,
+"C6D6": 1.26,
+"C6D5Cl": 1.26,
+"Acetone-d6": 1.31,
+"DMSO-d6": 1.29,
+"CD3CN": 1.33,
+"TFE-d3": 1.33,
+"CD3OD": 1.34,
+"D2O": 1.3
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "2-propanol",
+"proton": "CH3",
+"mult": "d, 6",
+"shifts": {
+"THF-d8": 1.08,
+"CD2Cl2": 1.17,
+"CDCl3": 1.22,
+"Toluene-d8": 0.95,
+"C6D6": 0.95,
+"C6D5Cl": 1.04,
+"Acetone-d6": 1.1,
+"DMSO-d6": 1.04,
+"CD3CN": 1.09,
+"TFE-d3": 1.2,
+"CD3OD": 1.5,
+"D2O": 1.17
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "2-propanol",
+"proton": "CH",
+"mult": "sept, 6",
+"shifts": {
+"THF-d8": 3.82,
+"CD2Cl2": 3.97,
+"CDCl3": 4.04,
+"Toluene-d8": 3.65,
+"C6D6": 3.67,
+"C6D5Cl": 3.82,
+"Acetone-d6": 3.9,
+"DMSO-d6": 3.78,
+"CD3CN": 3.87,
+"TFE-d3": 4.05,
+"CD3OD": 3.92,
+"D2O": 4.02
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "propylene",
+"proton": "CH3",
+"mult": "dt, 6.4",
+"shifts": {
+"THF-d8": 1.69,
+"CD2Cl2": 1.71,
+"CDCl3": 1.73,
+"Toluene-d8": 1.55,
+"C6D6": 1.55,
+"C6D5Cl": 1.58,
+"Acetone-d6": 1.68,
+"DMSO-d6": 1.68,
+"CD3CN": 1.7,
+"TFE-d3": 1.7,
+"CD3OD": 1.7,
+"D2O": 1.7
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "propylene",
+"proton": "CH2(1)",
+"mult": "dm, 10",
+"shifts": {
+"THF-d8": 4.89,
+"CD2Cl2": 4.93,
+"CDCl3": 4.94,
+"Toluene-d8": 4.92,
+"C6D6": 4.95,
+"C6D5Cl": 4.91,
+"Acetone-d6": 4.9,
+"DMSO-d6": 4.94,
+"CD3CN": 4.93,
+"TFE-d3": 4.93,
+"CD3OD": 4.91,
+"D2O": 4.95
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "propylene",
+"proton": "CH2(2)",
+"mult": "dm, 17",
+"shifts": {
+"THF-d8": 4.99,
+"CD2Cl2": 5.03,
+"CDCl3": 5.03,
+"Toluene-d8": 4.98,
+"C6D6": 5.01,
+"C6D5Cl": 4.98,
+"Acetone-d6": 5.0,
+"DMSO-d6": 5.03,
+"CD3CN": 5.04,
+"TFE-d3": 5.03,
+"CD3OD": 5.01,
+"D2O": 5.06
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "propylene",
+"proton": "CH",
+"mult": "m",
+"shifts": {
+"THF-d8": 5.79,
+"CD2Cl2": 5.84,
+"CDCl3": 5.83,
+"Toluene-d8": 5.7,
+"C6D6": 5.72,
+"C6D5Cl": 5.72,
+"Acetone-d6": 5.81,
+"DMSO-d6": 5.8,
+"CD3CN": 5.85,
+"TFE-d3": 5.87,
+"CD3OD": 5.82,
+"D2O": 5.9
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyridine",
+"proton": "CH(2,6)",
+"mult": "m",
+"shifts": {
+"THF-d8": 8.54,
+"CD2Cl2": 8.59,
+"CDCl3": 8.62,
+"Toluene-d8": 8.47,
+"C6D6": 8.53,
+"C6D5Cl": 8.51,
+"Acetone-d6": 8.58,
+"DMSO-d6": 8.58,
+"CD3CN": 8.57,
+"TFE-d3": 8.45,
+"CD3OD": 8.53,
+"D2O": 8.52
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyridine",
+"proton": "CH(3,5)",
+"mult": "m",
+"shifts": {
+"THF-d8": 7.25,
+"CD2Cl2": 7.28,
+"CDCl3": 7.29,
+"Toluene-d8": 6.67,
+"C6D6": 6.66,
+"C6D5Cl": 6.9,
+"Acetone-d6": 7.35,
+"DMSO-d6": 7.39,
+"CD3CN": 7.33,
+"TFE-d3": 7.4,
+"CD3OD": 7.44,
+"D2O": 7.45
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyridine",
+"proton": "CH(4)",
+"mult": "m",
+"shifts": {
+"THF-d8": 7.65,
+"CD2Cl2": 7.68,
+"CDCl3": 7.68,
+"Toluene-d8": 6.99,
+"C6D6": 6.98,
+"C6D5Cl": 7.25,
+"Acetone-d6": 7.76,
+"DMSO-d6": 7.79,
+"CD3CN": 7.73,
+"TFE-d3": 7.82,
+"CD3OD": 7.85,
+"D2O": 7.87
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyrrole",
+"proton": "NH",
+"mult": "br t",
+"shifts": {
+"THF-d8": 9.96,
+"CD2Cl2": 8.69,
+"CDCl3": 8.4,
+"Toluene-d8": 7.71,
+"C6D6": 7.8,
+"C6D5Cl": 8.61,
+"Acetone-d6": 10.02,
+"DMSO-d6": 10.75,
+"CD3CN": 9.27
+},
+"nH": 1,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyrrole",
+"proton": "CH(2,5)",
+"mult": "m",
+"shifts": {
+"THF-d8": 6.66,
+"CD2Cl2": 6.79,
+"CDCl3": 6.83,
+"Toluene-d8": 6.43,
+"C6D6": 6.48,
+"C6D5Cl": 6.62,
+"Acetone-d6": 6.77,
+"DMSO-d6": 6.73,
+"CD3CN": 6.75,
+"TFE-d3": 6.84,
+"CD3OD": 6.72,
+"D2O": 6.93
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyrrole",
+"proton": "CH(3,4)",
+"mult": "m",
+"shifts": {
+"THF-d8": 6.02,
+"CD2Cl2": 6.19,
+"CDCl3": 6.26,
+"Toluene-d8": 6.27,
+"C6D6": 6.37,
+"C6D5Cl": 6.27,
+"Acetone-d6": 6.07,
+"DMSO-d6": 6.01,
+"CD3CN": 6.1,
+"TFE-d3": 6.24,
+"CD3OD": 6.08,
+"D2O": 6.26
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyrrolidine",
+"proton": "CH2(2,5)",
+"mult": "m",
+"shifts": {
+"THF-d8": 2.75,
+"CD2Cl2": 2.82,
+"CDCl3": 2.87,
+"Toluene-d8": 2.54,
+"C6D6": 2.54,
+"C6D5Cl": 2.64,
+"DMSO-d6": 2.67,
+"CD3CN": 2.75,
+"TFE-d3": 3.11,
+"CD3OD": 2.8,
+"D2O": 3.07
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "pyrrolidine",
+"proton": "CH2(3,4)",
+"mult": "m",
+"shifts": {
+"THF-d8": 1.59,
+"CD2Cl2": 1.67,
+"CDCl3": 1.68,
+"Toluene-d8": 1.36,
+"C6D6": 1.33,
+"C6D5Cl": 1.43,
+"DMSO-d6": 1.55,
+"CD3CN": 1.61,
+"TFE-d3": 1.93,
+"CD3OD": 1.72,
+"D2O": 1.87
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "silicone grease",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 0.11,
+"CD2Cl2": 0.09,
+"CDCl3": 0.07,
+"Toluene-d8": 0.26,
+"C6D6": 0.29,
+"C6D5Cl": 0.14,
+"Acetone-d6": 0.13,
+"DMSO-d6": -0.06,
+"CD3CN": 0.08,
+"TFE-d3": 0.16,
+"CD3OD": 0.1
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "tetrahydrofuran",
+"proton": "CH2(2,5)",
+"mult": "m",
+"shifts": {
+"THF-d8": 3.62,
+"CD2Cl2": 3.69,
+"CDCl3": 3.76,
+"Toluene-d8": 3.54,
+"C6D6": 3.57,
+"C6D5Cl": 3.59,
+"Acetone-d6": 3.63,
+"DMSO-d6": 3.6,
+"CD3CN": 3.64,
+"TFE-d3": 3.78,
+"CD3OD": 3.71,
+"D2O": 3.74
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "tetrahydrofuran",
+"proton": "CH2(3,4)",
+"mult": "m",
+"shifts": {
+"THF-d8": 1.79,
+"CD2Cl2": 1.82,
+"CDCl3": 1.85,
+"Toluene-d8": 1.43,
+"C6D6": 1.4,
+"C6D5Cl": 1.55,
+"Acetone-d6": 1.79,
+"DMSO-d6": 1.76,
+"CD3CN": 1.8,
+"TFE-d3": 1.91,
+"CD3OD": 1.87,
+"D2O": 1.88
+},
+"nH": 4,
+"src": "Fulmer 2010"
+},
+{
+"name": "toluene",
+"proton": "CH3",
+"mult": "s",
+"shifts": {
+"THF-d8": 2.31,
+"CD2Cl2": 2.34,
+"CDCl3": 2.36,
+"Toluene-d8": 2.11,
+"C6D6": 2.11,
+"C6D5Cl": 2.16,
+"Acetone-d6": 2.32,
+"DMSO-d6": 2.3,
+"CD3CN": 2.33,
+"TFE-d3": 2.33,
+"CD3OD": 2.32
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "toluene",
+"proton": "CH(2,4,6)",
+"mult": "m",
+"shifts": {
+"THF-d8": 7.1,
+"CD2Cl2": 7.15,
+"CDCl3": 7.17,
+"C6D6": 7.02,
+"DMSO-d6": 7.18,
+"CD3CN": [
+7.1,
+7.3
+],
+"TFE-d3": [
+7.1,
+7.3
+],
+"CD3OD": 7.16
+},
+"nH": 3,
+"src": "Fulmer 2010"
+},
+{
+"name": "toluene",
+"proton": "CH(3,5)",
+"mult": "m",
+"shifts": {
+"THF-d8": 7.19,
+"CD2Cl2": 7.24,
+"CDCl3": 7.25,
+"Toluene-d8": 7.09,
+"C6D6": 7.13,
+"DMSO-d6": 7.25,
+"CD3CN": [
+7.1,
+7.3
+],
+"TFE-d3": [
+7.1,
+7.3
+],
+"CD3OD": 7.16
+},
+"nH": 2,
+"src": "Fulmer 2010"
+},
+{
+"name": "triethylamine",
+"proton": "CH3",
+"mult": "t, 7",
+"shifts": {
+"THF-d8": 0.97,
+"CD2Cl2": 0.99,
+"CDCl3": 1.03,
+"Toluene-d8": 0.95,
+"C6D6": 0.96,
+"C6D5Cl": 0.93,
+"Acetone-d6": 0.96,
+"DMSO-d6": 0.93,
+"CD3CN": 0.96,
+"TFE-d3": 1.31,
+"CD3OD": 1.05,
+"D2O": 0.99
+},
+"nH": 9,
+"src": "Fulmer 2010"
+},
+{
+"name": "triethylamine",
+"proton": "CH2",
+"mult": "q,7",
+"shifts": {
+"THF-d8": 2.46,
+"CD2Cl2": 2.48,
+"CDCl3": 2.53,
+"Toluene-d8": 2.39,
+"C6D6": 2.4,
+"C6D5Cl": 2.39,
+"Acetone-d6": 2.45,
+"DMSO-d6": 2.43,
+"CD3CN": 2.45,
+"TFE-d3": 3.12,
+"CD3OD": 2.58,
+"D2O": 2.57
+},
+"nH": 6,
+"src": "Fulmer 2010"
+},
+{
+"name": "dimethyl sulfoxide",
+"proton": "CH3",
+"mult": "s",
+"nH": 6,
+"src": "Gottlieb 1997",
+"shifts": {
+"CDCl3": 2.62,
+"Acetone-d6": 2.52,
+"DMSO-d6": 2.54,
+"C6D6": 1.68,
+"CD3CN": 2.5,
+"CD3OD": 2.65,
+"D2O": 2.71
+}
+},
+{
+"name": "tetramethylsilane",
+"proton": "CH3",
+"mult": "s",
+"nH": 12,
+"src": "reference",
+"shifts": {
+"THF-d8": 0.0,
+"CD2Cl2": 0.0,
+"CDCl3": 0.0,
+"Toluene-d8": 0.0,
+"C6D6": 0.0,
+"Acetone-d6": 0.0,
+"DMSO-d6": 0.0,
+"CD3CN": 0.0,
+"CD3OD": 0.0
+}
+}
+]
+}

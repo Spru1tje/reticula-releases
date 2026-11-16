@@ -1,0 +1,5 @@
+# Building the Windows / macOS apps (pkg/*.spec)
+-r app/requirements.txt
+pyinstaller>=6.10
+pyinstaller-hooks-contrib>=2024.8
+hdf5plugin>=4.4

@@ -1,0 +1,188 @@
+"""Reticula page module: SDS-PAGE, Zeta / DLS and XPS pages.
+
+Moved verbatim out of app.py in v2.13. Names that the code takes from the app (helpers such as show(), dl(), files_input(),
+the sidebar values WIDTH / ASPECT / FONT, the cached reader wrapper R …) are listed in INJECTED and filled in by
+mfs.pages.bind(globals()) on every run of app.py, so the code behaves exactly as it did inside app.py."""
+# ruff: noqa: F821
+from __future__ import annotations
+import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
+import numpy as np
+import pandas as pd
+import streamlit as st
+import matplotlib.pyplot as plt
+
+from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
+from mfs import figctl as F, figctl_ui as FU, ui as UI, __version__
+from mfs.chem import SPECIES, FRAMEWORKS, molar_mass
+
+INJECTED = (
+    'EX',
+    'R',
+    '_F',
+    '_apply_sample_list',
+    'dl',
+    'files_input',
+    'newfig',
+    'safe_name',
+    'sample_names_list',
+    'sample_table',
+    'show',
+    'store_put',
+)
+
+
+def page_sds():
+    st.header("SDS-PAGE – Bio-Rad Gel Doc EZ / Image Lab")
+    st.caption("Image Lab: Analysis Table → 'Lane and Bands' → Export → CSV/Excel. Add a time column (or map lane → time below).")
+    files = files_input("Image Lab export", ["csv", "txt", "xlsx", "xls"], "SDS-PAGE/*.csv", "sds", multiple=False)
+    if not files:
+        return
+    b = R.read_imagelab(files[0], files[0].name)
+    if "time" not in b or b["time"].isna().all():
+        lanes = sorted(b.lane.unique())
+        lt = st.data_editor(pd.DataFrame({"lane": lanes, "time": [float(i) for i in range(len(lanes))]}), key="lt")
+        b = b.merge(lt, on="lane")
+    renorm = st.checkbox("Re-normalise band % to 100 % per lane", True)
+    if renorm:
+        b["band_pct"] = 100 * b.band_pct / b.groupby("lane").band_pct.transform("sum")
+    st.dataframe(b, width="stretch")
+    tunit = st.selectbox("time unit", ["h", "min", "d"])
+    def draw(ax, b=b):
+        P.draw_bands(ax, b, time_label=f"Time ({tunit})")
+    fig, ax = newfig(); draw(ax)
+    show(fig, "SDS-PAGE_bands", b, draw, "SDS-PAGE", units={"x": "time_h"})
+    st.caption("Tip: fit the intact-protein band with the Kinetics tab (first-order) to report k_obs for HEWL.")
+
+
+def page_zeta():
+    st.header("Zeta potential / DLS – Malvern Zetasizer")
+    st.caption("Zetasizer software: File → Export (choose parameters Sample Name, Z-Ave, PdI, Zeta Potential, Zeta Deviation and Sizes[]/Intensities[]) → CSV.")
+    files = files_input("Zetasizer CSV", ["csv", "txt"], "Zeta-DLS/*.csv", "zeta", multiple=False)
+    if not files:
+        return
+    z = dict(R.read_zetasizer(files[0], files[0].name))
+    _sel = sample_names_list(list(pd.unique(z["summary"]["sample"].astype(str))), "zeta_samples")
+    z["summary"] = _apply_sample_list(z["summary"], "sample", None, _sel)
+    if z.get("dist") is not None:
+        z["dist"] = _apply_sample_list(z["dist"], "sample", None, _sel)
+    zs = z["summary"].groupby("sample", sort=False).agg(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean")).reset_index()
+    st.dataframe(zs, width="stretch")
+    zs["label"] = zs["sample"].str.replace("ZrO2", "ZrO$_2$")
+    def draw_zeta(ax, zs=zs):
+        cols = S.colours_for(zs["label"]); xs = np.arange(len(zs))
+        ax.bar(xs, zs.zeta, 0.65, yerr=zs.zeta_sd, color=cols, edgecolor="k", lw=0.6, error_kw=dict(lw=0.7, capsize=2.5))
+        ax.axhline(0, color="k", lw=0.6); ax.set_xticks(xs, zs.label, rotation=30, ha="right")
+        ax.tick_params(axis="x", which="minor", bottom=False, top=False); ax.set_ylabel(r"$\zeta$-potential (mV)")
+    fig, ax = newfig(); draw_zeta(ax)
+    show(fig, "zeta", zs, draw_zeta, "Zeta potential")
+    if z["dist"] is not None:
+        dd = z["dist"].groupby(["sample", "size_nm"], sort=False).intensity.mean().reset_index()
+        tr = [(s_.replace("ZrO2", "ZrO$_2$"), g_.size_nm.values, g_.intensity.values) for s_, g_ in dd.groupby("sample", sort=False)]
+        def draw_dls(ax, tr=tr):
+            P.draw_overlay(ax, tr, "Hydrodynamic diameter (nm)", "Intensity (%)", logx=True); ax.set_ylim(bottom=0)
+        fig, ax = newfig(); draw_dls(ax)
+        show(fig, "DLS", dd, draw_dls, "DLS")
+
+
+def page_xps():
+    from mfs import xps as XP
+    st.header("XPS")
+    st.caption("CasaXPS / Avantage exported region (BE, counts) as CSV/TXT; simple VAMAS (.vms) regions. Shirley or Tougaard "
+               "background, doublet fitting (Zr 3d, Hf 4f, S 2p with fixed spin–orbit splitting and area ratio), atomic-% with RSFs.")
+    multi = st.checkbox("➕ Use the multi-region EXAMPLE instead (ZrO₂@Sulfo-MOF-801: Zr 3d, Hf 4f, S 2p, O 1s, C 1s – synthetic)", False, key="xps_multi")
+    files = files_input("Spectra", ["csv", "txt", "vms", "dat"], "XPS/*Hf4f*.csv", "xps")
+    if multi:
+        files = [_F(p_) for p_ in sorted(glob.glob(os.path.join(EX, "XPS", "ZrO2@Sulfo-MOF801_*.csv")))]
+    if not files:
+        return
+    samples = sample_table(files, "xps_tab" + ("_m" if multi else ""))
+    spec = []
+    for nm, f in samples:
+        try:
+            d = R.read_xps(f, f.name)
+        except Exception as e:
+            st.error(f"{f.name}: {e}"); continue
+        reg = XP.guess_region(d.x.values)
+        grp = re.sub(r"\s*\(\d+\)$", "", nm)
+        grp = re.sub(r"[ _-]*(Zr ?3d|Hf ?4[fd]|S ?2p|O ?1s|C ?1s|N ?1s|F ?1s|Ti ?2p)\b", "", grp, flags=re.I).strip(" _-") or nm
+        spec.append({"name": nm, "group": grp, "region": reg, "x": d.x.values, "y": d.y.values})
+    st.dataframe(pd.DataFrame([{"spectrum": d_["name"], "sample": d_["group"], "region (from BE range)": d_["region"],
+                                "BE range (eV)": f"{d_['x'].min():.1f}–{d_['x'].max():.1f}"} for d_ in spec]), hide_index=True, width="stretch")
+    regions = sorted({d_["region"] for d_ in spec if d_["region"]})
+    c1, c2, c3 = st.columns(3)
+    show_reg = c1.selectbox("Overview: region", regions or ["(all)"], key="xps_ovreg")
+    bgk = c2.radio("Background", ["Shirley", "Tougaard", "linear", "none"], horizontal=True, key="xps_bg")
+    region = c3.text_input("Region label", show_reg if regions else "Hf 4f", key="xps_lab_" + str(show_reg))
+    tr = [(d_["name"], d_["x"], d_["y"]) for d_ in spec if not regions or d_["region"] == show_reg]
+    lo_, hi_ = (min(t[1].min() for t in tr), max(t[1].max() for t in tr)) if tr else (13.0, 23.0)
+    lo, hi = st.slider("Binding energy (eV)", 0.0, 1200.0, (float(np.floor(lo_)), float(np.ceil(hi_))), 0.5, key="xps_rng_" + str(show_reg))
+
+    def draw(ax, tr=tr):
+        P.draw_xps(ax, tr, (lo, hi), bgk == "Shirley"); ax.text(0.03, 0.96, region, transform=ax.transAxes, va="top")
+    fig, ax = newfig(); draw(ax)
+    show(fig, "XPS", None, draw, "XPS")
+
+    st.subheader("Peak fitting")
+    names = [d_["name"] for d_ in spec]
+    c1, c2, c3 = st.columns(3)
+    pick = c1.selectbox("Spectrum", names, key="xps_fit_pick", format_func=lambda n_: re.sub(r"\$_(\d)\$", lambda m_: chr(0x2080 + int(m_.group(1))), n_))
+    d_ = spec[names.index(pick)]
+    regs = list(XP.DOUBLETS) + list(XP.SINGLETS) + ["other (singlets)"]
+    rsel = c2.selectbox("Region / doublet constraint", regs, index=regs.index(d_["region"]) if d_["region"] in regs else len(regs) - 1,
+                        key="xps_fit_reg_" + pick)
+    eta = c3.slider("Lorentzian fraction (GL mix)", 0.0, 1.0, 0.3, 0.05, key="xps_eta")
+    dd = XP.DOUBLETS.get(rsel)
+    if dd:
+        st.caption(f"{rsel}: {dd['major']} + {dd['minor']} at +{dd['split']} eV, area {dd['minor']}/{dd['major']} = {dd['ratio']:.3f}, same FWHM.")
+    x, y = d_["x"], d_["y"]
+    bg0 = XP.shirley(x, y)
+    xpk = float(x[np.argmax(y - bg0)])
+    defaults = {"Zr 3d": [("Zr–O (MOF / ZrO₂)", xpk)], "Hf 4f": [("Hf–O", xpk)], "S 2p": [("sulfonate / sulfate", xpk)],
+                "O 1s": [("O lattice (M–O)", 530.2), ("O carboxylate / OH", 531.8)], "C 1s": [("C–C / C–H", 284.8), ("O–C=O", 288.6)]}
+    comp0 = pd.DataFrame([{"name": n_, "BE guess (eV)": round(c_, 2), "doublet": bool(dd), "fix BE": False}
+                          for n_, c_ in defaults.get(rsel, [("component 1", xpk)])])
+    comps = st.data_editor(comp0, num_rows="dynamic", key="xps_comp_" + pick + rsel, hide_index=True)
+    try:
+        fr = XP.fit(x, y, [{"name": r_["name"], "center": float(r_["BE guess (eV)"]), "region": rsel if (r_["doublet"] and dd) else None,
+                            "fix_center": bool(r_["fix BE"])} for _, r_ in comps.dropna(subset=["BE guess (eV)"]).iterrows()],
+                    background=bgk.lower(), eta=eta)
+        tab = pd.DataFrame(fr["rows"]); st.dataframe(tab.style.format(precision=2), hide_index=True, width="stretch")
+        st.caption(f"Background: {bgk}{' (universal cross-section B·T/(C+T²)², C = 1643 eV², B scaled to the high-BE end)' if bgk == 'Tougaard' else ''}. "
+                   f"Residual RMS = {100 * fr['rms_rel']:.1f} % of the peak height.")
+        st.session_state.setdefault("xps_areas", {}).setdefault(d_["group"], {})[rsel] = float(tab["area (total)"].sum())
+
+        def draw_f(ax, fr=fr):
+            XP.draw_fit(ax, fr); ax.legend(frameon=False, fontsize=6); ax.text(0.03, 0.96, f"{pick}\n{rsel}", transform=ax.transAxes, va="top", fontsize=7)
+        fig, ax = newfig(0.85); draw_f(ax)
+        show(fig, f"XPS_fit_{safe_name(pick)}", pd.DataFrame({"BE": fr["x"], "counts": fr["y"], "background": fr["bg"], "envelope": fr["fit"]}),
+             draw_f, f"XPS fit {pick}")
+    except Exception as e:
+        st.warning(f"Fit failed: {e}")
+
+    st.subheader("Atomic % (RSF-corrected)")
+    st.caption("Areas above the chosen background, per region, per sample (whole doublets). Default RSFs: Scofield cross-sections "
+               "(Al Kα, C 1s = 1) without transmission/IMFP correction – replace them with your instrument library's RSFs.")
+    rsf = st.data_editor(pd.DataFrame({"region": list(XP.RSF_SCOFIELD), "RSF": list(XP.RSF_SCOFIELD.values())}), key="xps_rsf", hide_index=True)
+    rsfd = dict(zip(rsf.region, rsf.RSF))
+    areas = {}
+    for s_ in spec:
+        if not s_["region"]:
+            continue
+        b_ = XP.shirley(s_["x"], s_["y"]) if bgk == "Shirley" else (XP.tougaard(s_["x"], s_["y"])[0] if bgk == "Tougaard" else
+                                                                      np.interp(s_["x"], [s_["x"][0], s_["x"][-1]], [s_["y"][:3].mean(), s_["y"][-3:].mean()]))
+        o = np.argsort(s_["x"]); A_ = float(np.trapezoid(np.clip((s_["y"] - b_)[o], 0, None), s_["x"][o]))
+        areas.setdefault(s_["group"], {})[s_["region"]] = A_
+    if areas:
+        at = []
+        for g_, ar_ in areas.items():
+            pc = XP.atomic_percent(ar_, rsfd)
+            row = {"sample": g_}; row.update({f"{k} at.%": v for k, v in pc.items()})
+            M_ = {k: pc.get(k, 0) for k in ("Zr 3d", "Hf 4f")}
+            if sum(M_.values()):
+                row["Hf/(Zr+Hf)"] = M_["Hf 4f"] / sum(M_.values())
+                if "S 2p" in pc:
+                    row["S/(Zr+Hf)"] = pc["S 2p"] / sum(M_.values())
+            at.append(row)
+            store_put(g_, "xps", {k: v for k, v in row.items() if k != "sample"}, "XPS page")
+        att = pd.DataFrame(at); st.dataframe(att.style.format(precision=2), hide_index=True, width="stretch")
+        dl(st, "CSV atomic %", att.to_csv(index=False).encode("utf-8-sig"), "XPS_atomic_percent.csv", "xps_at_csv")

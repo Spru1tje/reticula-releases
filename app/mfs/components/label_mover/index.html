@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;font-size:12px;color:#0B1F3A;background:transparent}
+ #bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 6px}
+ button{border:1px solid #9FB4CF;background:#fff;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+ button:hover{background:#E6F4F1} button:disabled{opacity:.45;cursor:default}
+ #wrap{position:relative;user-select:none;display:inline-block;max-width:100%}
+ #img{display:block;max-width:100%;height:auto}
+ .it{position:absolute;border:1px dashed rgba(15,118,110,.55);border-radius:3px;cursor:move;background:rgba(20,184,166,.04)}
+ .it:hover{border-color:#0F766E;background:rgba(20,184,166,.12)} .it.sel{border:1.5px solid #F97316;background:rgba(249,115,22,.10)}
+ #hint{color:#46607F;font-size:11px;margin-top:4px}
+ #ed{display:none;position:absolute;z-index:5;font-size:12px;padding:2px 4px;border:1.5px solid #F97316;border-radius:4px}
+</style></head><body>
+<div id="bar">
+ <span id="selname" style="font-weight:600">Drag a label on the figure</span>
+ <button id="edit" disabled title="Change the text of the selected label (or double-click it)">✎ Edit text</button>
+ <button id="all" disabled title="Put every sample label of this panel at the same place relative to its own trace">📌 Save this offset for every sample</button>
+ <button id="reset" title="All labels back to their automatic position and text">↺ Reset labels</button>
+</div>
+<div id="wrap"><img id="img"><input id="ed" type="text"></div>
+<div id="hint">Drag = move · double-click = edit text · labels keep their place relative to their trace when the offset changes · exports use these positions</div>
+<script>
+function send(type,data){window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:type},data),"*");}
+function setValue(v){send("streamlit:setComponentValue",{value:v,dataType:"json"});}
+function setHeight(){send("streamlit:setFrameHeight",{height:document.body.scrollHeight+8});}
+let A=null, sel=null;
+function scale(){const im=document.getElementById("img"); return im.clientWidth/A.w;}
+function emit(o){o.key=A.skey; o.t=Date.now(); setValue(o);}
+function layout(){
+  const wrap=document.getElementById("wrap"); [...wrap.querySelectorAll(".it")].forEach(e=>e.remove());
+  const s=scale();
+  for(const it of A.items){
+    const d=document.createElement("div"); d.className="it"+(sel===it.id?" sel":""); d.title=it.label+(it.kind==="legend"?"":" (double-click to edit)");
+    d.style.left=(it.x0*s-3)+"px"; d.style.top=(it.y0*s-3)+"px"; d.style.width=(it.w*s+6)+"px"; d.style.height=(it.h*s+6)+"px";
+    d.dataset.id=it.id; wrap.appendChild(d);
+    let st=null;
+    d.onmousedown=ev=>{ev.preventDefault(); select(it); st=[ev.clientX,ev.clientY,parseFloat(d.style.left),parseFloat(d.style.top)];
+      const mv=e=>{d.style.left=(st[2]+e.clientX-st[0])+"px"; d.style.top=(st[3]+e.clientY-st[1])+"px";};
+      const up=e=>{window.removeEventListener("mousemove",mv); window.removeEventListener("mouseup",up);
+        const dx=(e.clientX-st[0])/s, dy=(e.clientY-st[1])/s; if(Math.abs(dx)+Math.abs(dy)<1.5) return;
+        emit({op:"move",id:it.id,fx:(it.ax+dx)/A.w,fy:1-(it.ay+dy)/A.h});};
+      window.addEventListener("mousemove",mv); window.addEventListener("mouseup",up);};
+    d.ondblclick=()=>{ if(it.kind!=="legend") editText(it,d); };
+  }
+}
+function select(it){ sel=it.id; document.getElementById("selname").textContent="Selected: "+it.label;
+  document.getElementById("edit").disabled=(it.kind==="legend"); document.getElementById("all").disabled=(it.kind!=="data");
+  document.querySelectorAll(".it").forEach(e=>e.classList.toggle("sel",e.dataset.id===it.id)); }
+function editText(it,d){ const ed=document.getElementById("ed"); ed.style.display="block"; ed.style.left=d.style.left; ed.style.top=d.style.top;
+  ed.style.width=Math.max(120,parseFloat(d.style.width))+"px"; ed.value=it.label; ed.focus(); ed.select();
+  const done=ok=>{ed.style.display="none"; ed.onkeydown=null; ed.onblur=null; if(ok && ed.value!==it.label) emit({op:"text",id:it.id,text:ed.value});};
+  ed.onkeydown=e=>{if(e.key==="Enter") done(true); else if(e.key==="Escape") done(false);}; ed.onblur=()=>done(true); }
+document.getElementById("edit").onclick=()=>{const it=A.items.find(i=>i.id===sel); const d=document.querySelector(`.it[data-id="${CSS.escape(sel)}"]`); if(it&&d) editText(it,d);};
+document.getElementById("all").onclick=()=>{ if(sel) emit({op:"all",id:sel}); };
+document.getElementById("reset").onclick=()=>emit({op:"reset"});
+window.addEventListener("message",ev=>{
+  const d=ev.data; if(!d||d.type!=="streamlit:render") return;
+  A=d.args; const im=document.getElementById("img");
+  im.onload=()=>{layout(); setHeight();}; if(im.src!==A.src) im.src=A.src; else {layout(); setHeight();}
+});
+window.addEventListener("resize",()=>{ if(A) layout(); });
+send("streamlit:componentReady",{apiVersion:1});
+</script></body></html>

@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+dist_installer/
+tesseract/
+reticula.icns
+reticula.iconset/
+dmg_root/
+*.spec.bak
+exports/
+app/exports/
+selftest*.json
+selftest_pretty.txt
+test-results.xml
+# private measurements used only by local tests (tests skip when they are absent)
+app/tests/data/TEM_*
+app/tests/data/olympus_sis/
+app/tests/data/*TriStar*REAL*

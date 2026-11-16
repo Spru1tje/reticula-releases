@@ -1,0 +1,62 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "LICENSE"]
+  pull_request:
+  workflow_call:        # the release workflow runs the same tests first
+
+jobs:
+  unit-and-app:
+    name: pytest (calculations + Streamlit AppTest pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            app/requirements.txt
+            requirements-dev.txt
+      - name: System packages (Tesseract for the scale-bar OCR tests)
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - name: Install
+        run: pip install -r requirements-dev.txt
+      - name: Test
+        working-directory: app
+        env:
+          MFS_NO_UPDATE_CHECK: "1"
+        run: |
+          python -m pytest -q -p no:cacheprovider \
+            --ignore-glob='tests/*_e2e_browser.py' --ignore=tests/test_downloads_browser.py \
+            --junitxml=../test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+
+  browser:
+    name: real-browser tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true       # slower and more sensitive to the runner; does not block a release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            app/requirements.txt
+            requirements-dev.txt
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - run: pip install -r requirements-dev.txt && python -m playwright install --with-deps chromium
+      - name: Test
+        working-directory: app
+        env:
+          MFS_NO_UPDATE_CHECK: "1"
+        run: python -m pytest -q -p no:cacheprovider tests/test_downloads_browser.py $(ls tests/*_e2e_browser.py)

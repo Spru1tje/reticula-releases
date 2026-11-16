@@ -1,0 +1,413 @@
+# Changelog
+
+## 2.13.0 — 2026-11-17
+
+Built by Stijn Germonpré.
+
+### New: ¹H NMR page
+- Bruker raw import (Avance II + NEO, TopSpin 2-4; fid or processed 1r; JCAMP-DX), automatic phase / baseline / referencing.
+- Offline structure editor (Ketcher); ¹H shift prediction from an nmrshiftdb2 HOSE-code table (held-out MAE 0.22 ppm, median 0.09 ppm).
+- Automatic peak → atom assignment with drag-to-correct, impurity check (Fulmer 2010 + Gottlieb tables), labelled figure, qNMR, SI export (zip / PDF).
+- The former digestion page is kept as the *digestion* sub-mode (linker : modulator ratios feed the defect calculator).
+- ¹³C / DEPT import exists in the code but is hidden in the interface.
+
+### N₂ / BET
+- Redesigned graphs: isotherm, BET / Rouquerol, t-plot, PSD with a cumulative axis (the PSD inset was removed: no graphs in graphs).
+- **BET range sensitivity**: the table shows the range of areas over all fitting windows that were evaluated (only the valid ones when any satisfies all
+  Rouquerol criteria). `analysis.bet_range_spread()`.
+- The Rouquerol window search is vectorised: ~11× faster (0.44 s → 0.04 s for 150 points) with identical results (tested against the previous
+  implementation on the examples and 40 random isotherms).
+
+### For people outside the original lab
+- **No lab-specific defaults any more**: sample colours follow the palette in list order; name → colour rules are optional (sidebar *Sample → colour
+  rules*, with an *Example-set rules* button for the bundled data). A file name is only turned into a display name for the bundled example files.
+- **Sample database** reads any Excel sample list (**Sample ID** column; other columns optional). The bundled list is a synthetic example; the author's
+  synthesis pipeline is no longer part of the program.
+- ICP / XRF: molar ratios ± σ for **any elements** with a chosen reference metal (the Zr/Hf/S special case is unchanged).
+- Requirements list completed (rdkit, streamlit-ketcher, pytesseract, streamlit-image-coordinates, h5py).
+
+### Code and build
+- `app.py` (3,800 lines) split: the page code now lives in `mfs/pages/*.py`, moved verbatim; tests check that every name a page takes from the app is declared.
+- One cross-platform launcher; Windows installer and macOS dmg are built by GitHub Actions on a tag (tests → build → self-test of the built app → release).
+- The scheduled 30-minute macOS retry workflow is gone.
+
+## 2.12.0 — 2026-11-16
+
+Built by Stijn Germonpré.
+
+- **Particle sizer — sphere model** (auto-detected from the image's own isolated particles; Particle shape: auto / spheres / off):
+  - outlines sit on the real edge (sub-pixel, calibrated on manually sized SiO2-NH2 TEM: O10 pooled 211 ± 23 nm vs manual 209 ± 19 nm;
+    v2.10 overestimated by ~+30 nm at low magnification);
+  - touching doubles / triples are split by circle fits (dotted outlines);
+  - occlusion: an overlapping particle keeps its full diameter (darker overlap lens);
+  - each fit gets a confidence score; below the threshold (slider, default 0.5) it is auto-excluded and drawn orange-dashed —
+    click to put it back. Cubic / irregular particles (e.g. MOF-801) are unchanged.
+- **Movable, editable labels on every graph**: drag sample labels / legends, double-click to edit text; positions follow each
+  trace's offset; "Save this offset for every sample"; reset; exports use the moved positions; undo/redo and projects keep them.
+- Update check on macOS prefers the download for the Mac's own architecture (macOS_arm64 / macOS_x86_64).
+- O10-type images with tiny specks no longer break the automatic size estimate.
+
+## 2.11.0 — 2026-11-16
+
+Built by Stijn Germonpré.
+
+- **Loading screen** instead of a white page on start (progress + stage), heavy libraries pre-loaded meanwhile.
+- **Faster pages**: figure preview cache, decimated previews of large data, cached readers, fragment-based redraws.
+- **Unified sample list** on every plotting page: show/hide (shift-click ranges), colour, rename, drag to reorder, "Stack evenly".
+- **Shape model** clearly visible next to "Detect particles" (toggle + learned-template hint); also in Batch processing ("SEM/TEM particles").
+- **Defect calculator for any node/metal**: node library (Zr6/Hf6/Ce6/Th6, Cu/Zn paddlewheel, Zn4O, Al-OH chains, Fe3O/Cr3O trimers,
+  MOF-74, Ti8, ZIF) + custom nodes and linkers; molar masses computed automatically; TGA residue per metal. Zr/Hf results unchanged.
+- **Project files (.reticula)**: save / open the whole session; Windows file association.
+- **Global figure style** with journal presets (ACS, RSC, Nature, Elsevier, Wiley, …) applied on every page.
+- **Undo / redo** for exclusions and edits on every page.
+- **Update check** (opt-in, asked once): banner with Download / Later / Skip this version; never installs by itself; silent offline.
+- Single-file installer Reticula_Setup_<version>.exe next to the split download.
+
+## 2.10.0 — 2026-11-16
+
+Built by Stijn Germonpré.
+
+### Particle sizer: better recognition on real TEM images
+- New default splitting **"adaptive v2.10"**: background flattening (smooth background from the support pixels, so
+  uneven illumination does not matter) → particle contrast; hysteresis threshold from the background noise (seeds above
+  max(Otsu, 8σ), grown down to the *Sensitivity* × σ, default 4) so light-grey particles next to dark ones are found;
+  particle width estimated from the image (or typed: *Expected particle width*); one marker per particle from a blob
+  filter at the particle scale plus the distance map of the locally darker cores, greedy non-maximum suppression;
+  marker watershed on the contrast. Regions > 2× the particle area or with solidity < 0.80 are aggregates (excluded by
+  default). Edge-cut particles are still removed (*Exclude particles cut by the image edge*, on by default).
+- Optional **shape prior** (off by default, *Shape prior* checkbox, *Prior strength*, *Prior k*): learns the outline
+  (radial profile, corner count from its Fourier harmonics, orientation spread, aspect ratio) and the size distribution
+  from the confident isolated particles; weight w = n/(n+k) · consistency · strength. Rotated templates at the learned
+  scale (normalised cross-correlation) seed a watershed inside aggregates and oversized particles; pieces are kept only
+  if their size is inside the learned distribution and the outline matches the template. Panel *Learned shape prior*
+  shows the template, example particles, the size histogram and the weight; prior splits have a dotted outline.
+- User's TEM image (MOF-801 nanocubes, 120 hand-checked cubes outside the dense clumps): recall 58 % → 82 % (prior off)
+  → 91 % (prior on); precision 77 % → 92 % / 91 %; ECD 29.6 ± 16.5 nm (v2.9, many fragments) → 38.3 ± 7.5 nm / 37.7 ± 6.8 nm.
+- Cleaner overlay (picker and exported figure): thin teal outline = included, dotted = shape-prior split, red dashed
+  outline + light fill = aggregate / excluded; numbers off by default (*# Numbers* button / *Show particle numbers*,
+  hover for a tooltip). Working resolution default 1536 px.
+- The v2.8 watershed and the v2.6 legacy split remain selectable.
+
+## 2.9.0 — 2026-11-13
+
+Built by Stijn Germonpré.
+
+### Work is kept when you switch pages
+- Every page keeps its uploads, settings and results when you open another page and come back (un-keyed widgets get a
+  deterministic key from page + widget + parameters; uploaded files are kept per uploader and shown as "kept from
+  earlier", ✖ forgets them; particle exclusions are kept).
+- **Unsaved-work dialog**: leaving a page with changes asks *Do you want to save your current work?* –
+  **Save** (kept in the session and written to `Documents\Reticula\workspace\<page>.json` + files, restored on the next
+  start), **Don't save** (page reverts to its last saved state, or to the defaults), **Cancel** (stay). Home tiles go
+  through the same guard. Sidebar: "● n unsaved change(s) · 💾 Save page" and "💾 Saved page work" (forget all).
+- Defect calculator: methods a–h and the consensus are identical to v2.8 (regression test on the stored example inputs and
+  on data pulled from the TGA / ICP / NMR / N₂ pages after navigating).
+
+### SEM / TEM particle sizer: click to exclude
+- Interactive picker on the image (offline HTML/SVG component, no full rerun per click): green = included,
+  red = excluded by you, orange = aggregate (auto-excluded); one click toggles, drag a box to exclude (Shift / "Box:
+  include" to include), undo (Ctrl+Z), reset to auto, include all, exclude all aggregates; live N, mean ± SD and
+  histogram next to the image. Statistics, figures, CSV and the sample store use only included particles; the
+  exclusion list is saved with the sample. The outline editor (merge / split / delete / add) is the secondary mode.
+- Default polarity is now **dark particles on a lighter background (TEM)** everywhere (sizer UI, `segment()` API,
+  helper script); "bright (SEM)" stays an option – the bundled SEM example images need "bright".
+
+### UV/Vis (new page)
+- Readers: Implen NanoPhotometer / NPOS Excel export (results sheet + per-sample spectra, layout-agnostic), Implen
+  `.ids` (zip/XML/text containers; encrypted archives give export advice), Cary-style paired columns, generic CSV/TXT
+  (decimal comma), wavelength-across tables, JCAMP-DX.
+- Overlay (ACS style), absorbance ⇄ %T ⇄ %R, Kubelka–Munk, blank/baseline subtraction, zeroing, Savitzky–Golay
+  smoothing, normalisation, peak picking with λmax table → sample store.
+- Beer–Lambert calibration: linear / through origin / quadratic, R², s_y/x, LOD (3.3 s/m), LOQ (10 s/m), unknowns with
+  SE and dilution, ε; assay presets BCA, Bradford, Lowry, Biuret, ninhydrin, OPA (+ degree of hydrolysis), A280, A205.
+- Kinetics at one λ (times from the names), first-order fit, "send to the Kinetics page".
+- Diffuse reflectance → Tauc (direct / indirect) with automatic or manual linear window, Eg table → sample store.
+- 1st / 2nd derivative spectra with zero-crossing / minimum band positions. All figures go to CSV / SI bundle.
+
+### PXRD
+- Reads Rigaku SmartLab Studio II **.rasx** (Data*/Profile*.txt, intensity = counts × attenuator factor,
+  MesurementConditions*.xml metadata) and legacy **.ras** (*RAS_INT_START blocks); several scans per file;
+  scans whose axis is not 2θ/θ are flagged; target, Kα1/Kα2, kV/mA, range, step and speed go to the sample store.
+
+### Credits
+- "Built by Stijn Germonpré" under the version in the sidebar, the About box, the launcher window and the installer
+  welcome page; installer publisher = Stijn Germonpré.
+
+## 2.8.0 — 2026-11-13
+
+### Structure (CIF) (new page)
+- Reads SHELXL/Olex2, COD and CSD CIFs (multi-block, symmetry operators, Uij, disorder groups, `_geom_*` loops with ESDs).
+- Figures in pure matplotlib: **ORTEP** ellipsoids from the Uij at 30/50/70 % probability with principal axes, ball-and-stick,
+  stick, space-filling; labels for all / non-H atoms with **automatic placement** (away from the bonded neighbours, repel
+  pass, leader lines) plus manual per-label offsets; H atoms all / polar only / none and an H-size slider; disorder parts;
+  views along a, b, c, [uvw], (hkl) normal or a **best view** (mean plane, tilted to separate overlapping atoms) with
+  rotation sliders; cell edges, axis triad; grow to the ASU, complete molecules, packing, cell or supercell; metal
+  coordination polyhedra for MOFs; optional title (off by default); PNG/TIFF/SVG/PDF export.
+- **H-bonds** D–H···A (H···A < Σr_vdW, angle ≥ 120°) dashed in the figure and as a table with symmetry codes.
+- **SI tables**: crystal data and structure refinement (incl. Rint, completeness, GooF, R1/wR2 for I > 2σ(I) and all data,
+  peak/hole, Flack, CCDC), bond lengths, angles, torsions with ESDs, H-bonds → DOCX and XLSX.
+- **Simulated PXRD** with hkl labels (close reflections share a label) and an overlay on a measured pattern (scale + linear
+  background, residual panel, Rwp).
+- **MOF pore tools**: largest included (Di) and free (Df, periodic percolation) sphere, void fraction, probe-occupiable
+  fraction and Monte-Carlo accessible surface area (m² g⁻¹, m² cm⁻³), method stated.
+- **Hirshfeld surface (experimental)**: approximate d_norm point cloud and 2D fingerprint with contact percentages.
+- py3Dmol was not added: it loads 3Dmol.js from a CDN and would not work offline in the exe.
+
+### SEM / TEM particle sizing
+- New **watershed** splitting (default): h-maxima markers of the distance map with a minimum marker distance tied to the
+  automatically estimated particle radius (sliders), priority-flood watershed on the distance map, the image gradient
+  (facet edges) or both; regions with solidity < 0.85 or > 2× the median area are re-split, otherwise classed
+  **aggregate** (excluded from the statistics unless included). Bright round **support holes** (holey carbon) are
+  excluded before the threshold; info strip and edge-touching particles excluded as before.
+- **Manual corrections**: click to delete, merge, split along a cut line or add a particle; undo/clear; coloured,
+  numbered labels per particle ('A' = aggregate). The v2.6 method stays available ("legacy").
+
+### Multi-image SEM panels
+- Scale-bar label, magnification and panel letters are sized to the panel (4.5–9 pt, one uniform font for all panels,
+  user override), the bar thickness is set in points per panel, the label is aligned to the bar end, and every label is
+  shrunk until it lies inside its own panel with padding (no more overlap with the neighbouring image).
+
+### Windows launcher (white page)
+- MIME types for .js/.mjs/.css/… forced before Streamlit starts (a registry mapping of .js to text/plain gave a white
+  page), 127.0.0.1 everywhere, browser opened only after /_stcore/health is ok and the JS bundle is served correctly,
+  old Reticula servers on 8501–8510 stopped, cache-busting URL, proxy variables ignored for the local server;
+  status line, log path, "Reload app" and "Open log" in the launcher window.
+
+## 2.7.0 — 2026-11-13
+
+### Figure composer
+- **Journal templates** ACS (3.25 / 7.0 in), RSC (8.3 / 17.1 cm), Wiley (8.5 / 17.5 cm): width, font size and panel-label
+  style set from the template; a **check** flags a wrong width and any text below the journal minimum.
+
+### Batch processing (new page)
+- One technique (PXRD, FTIR, Raman, XPS, TGA, DSC, N₂ isotherm), all files of a folder (recursive), an upload or the
+  example folder; one figure per file, overlay or stacked; **one preset** (saved figure-settings JSON or the house style);
+  journal width; PNG/TIFF/PDF/SVG + CSV in a ZIP and optionally in an output folder; per-file log; preset saved in the ZIP.
+
+### SI export bundle (new page)
+- Every figure shown is collected (sidebar switch, on by default) with its data, its figure settings and the analysis
+  settings at capture time. One ZIP: figures/ (PDF, PNG, SVG), data/, **SI_parameters.xlsx** (Figures, Parameters,
+  Results per sample), SI_parameters.csv, the defect SI table (DOCX/XLSX), README.
+
+### Sample database (new page)
+- Local **SQLite** database `Documents\Reticula\reticula.db`. Imports the sample IDs of the synthesis pipeline
+  (Master_sample_overview.xlsx; a copy is bundled, point it to your Synthesis_Pipeline folder to link the protocol
+  PDF/DOCX files), shows paper, family, parent and children, basis and source DOI, opens/downloads the protocol; syncs every
+  result of the sample store; links data files whose names contain a sample ID (batch from `-B<n>`, technique from the
+  name/folder); notes per sample; download of the database file.
+
+## 2.6.0 — 2026-11-13
+
+### SEM / TEM
+- **Particle sizing**: automatic (Otsu or manual threshold, smoothing, opening, hole filling, splitting of touching
+  particles with distance-transform markers – over-split pieces that share a long boundary are merged back –, edge
+  particles excluded, min/max size) or **click-to-measure** (two clicks per particle, editable table). ECD, Feret max/min,
+  aspect ratio; outlines overlay; **histogram with log-normal fit and mean ± SD** (n, median, σg, mode, KS p); stored
+  per sample (section "sem"). Several images of one sample give one combined histogram.
+- **Batch options**: **matched scale bars** (one physical bar value on every panel) and **one calibration for the whole
+  batch** (first image's nm/px, or a typed value).
+
+### EDX
+- Colour picker and gain per element, **overlay on the SE/BSE image** (additive blend; SE image auto-detected by
+  "_SE" in the name, or any loaded SEM image), legend, scale bar; **line scan** (start/end, band width, normalised
+  profiles; distance in nm/µm when the pixel size is set).
+
+### ICP-OES / XRF
+- **Zr : Hf : S molar ratios with propagated uncertainties** (Gaussian; replicate SD vs pooled instrument SD, the
+  larger is used): Zr:Hf, Hf/(Zr+Hf), S/(Zr+Hf), S per M₆ node ± σ, Zr:Hf:S per M₆; CSV; bar chart of S per node.
+  Values go into the sample store; the defect calculator's *Pull data* shows S/M and Hf/(Zr+Hf) with σ.
+  The older "S per Hf6 node" column is now "S per M6 node" (Zr + Hf).
+
+## 2.5.0 — 2026-11-13
+
+### FTIR / Raman
+- **Normalise to a reference band** (height or area above a local chord, e.g. νas(COO⁻) 1540–1620 cm⁻¹ or ν(C=C) for Raman);
+  traces then share one intensity scale so relative intensities survive the stacking.
+- **Peak labels** (prominence threshold, max. labels, chosen traces) with a peak table; **zoomed inset** of any range;
+  **difference spectra** (sample − f × reference, f = 1, manual or least-squares in a window) as a separate figure.
+- ALS baseline was already available (Processing → Baseline → ALS).
+
+### ¹H NMR
+- Integration table now has a "linker : modulators" ratio string; integrals go to the sample store and pre-fill the defect calculator.
+
+### XPS
+- Peak fitting with **Shirley** (iterative) or **Tougaard** (universal cross-section) background, GL components and
+  **spin–orbit doublets with fixed splitting and area ratio**: Zr 3d (2.43 eV, 2:3), Hf 4f (1.71 eV, 3:4), S 2p (1.18 eV, 1:2),
+  plus Hf 4d / Ti 2p; residual shown. **Atomic-% table** with editable RSFs (Scofield defaults), Hf/(Zr+Hf), S/(Zr+Hf);
+  multi-region EXAMPLE (ZrO₂@Sulfo-MOF-801: Zr 3d, Hf 4f, S 2p, O 1s, C 1s).
+
+### TGA
+- **Automatic step labels** (mass loss and DTG peak per step, steps < threshold merged), step table, **plateaus normalised
+  to the oxide residue** with the ideal plateau and linkers per node (same equations as the defect calculator), and a
+  **TGA–MS overlay** (ion currents vs temperature, m/z labels such as H₂O, CO₂, SO₂; time-based files mapped with T₀ + βt).
+
+### DSC
+- **Cycle-to-cycle comparison** (Heat 1 vs Heat 2 …): table with ΔT peak/onset and ΔH ratio vs cycle 1, overlay figure;
+  heat–cool–heat EXAMPLE (REAL heating 1, SIMULATED cooling and heating 2).
+- **cp with a sapphire reference** (ASTM E1269 ratio method, sapphire table 150–1000 K) + direct cp for comparison; EXAMPLE runs.
+
+## 2.4.0 — 2026-11-13
+
+### Shared sample store → one defect report per sample
+- TGA, ¹H NMR digestion, ICP-OES / XRF, N₂ sorption and kinetics put their per-sample results into a shared **sample store**
+  (session + `Documents\Reticula\sample_store.json`; names matched ignoring case, spaces, TeX and punctuation).
+- Defect calculator: **Pull data for sample** pre-fills TGA weights, ICP metal wt-%, XRF S/M, NMR integrals and N₂ V_total;
+  the consensus result is stored back. **SI table** (all samples: L, x, caps, open sites, formula, methods, S_BET, V_total)
+  as XLSX or DOCX (landscape Word table; written without extra libraries). Store download / merge / clear.
+
+### N₂ sorption
+- Rouquerol criteria panel (all four criteria per sample, chosen range, C, n_m, R²); **S_BET in the legend** option.
+- t-plot (Harkins–Jura) with adjustable t range: micropore volume, external surface area, plot.
+- **Computed PSD** from the isotherm: DFT kernel fit (pyGAPS N₂/77 K carbon-slit kernel, MIT licence, NNLS + Tikhonov
+  regularisation – *not* an NLDFT/QSDFT kernel for oxides), Horváth–Kawazoe (slit, carbon), Saito–Foley (cylinder,
+  oxide-ion parameters) and BJH (Harkins–Jura thickness, Kelvin). The method and its limits are written on the figure caption.
+
+### PXRD
+- Scherrer table for several peaks with instrumental correction (constant or from a LaB₆/Si standard pattern; Gaussian,
+  Lorentzian or Voigt width correction; K editable). Crystallinity index vs a reference pattern (integrated reflection
+  windows). Peak-shift tracking: Δ2θ vs a reference trace, d-spacing, cubic a from hkl, with a plot.
+
+### Kinetics
+- k_obs with **95 % confidence intervals** (t-distribution × SE), CI or SE error bars on the bar chart.
+- Optional temperature / pD columns: one fit per (sample, T, pD); **Arrhenius** (Ea, ln A) and **Eyring** (ΔH‡, ΔS‡, ΔG‡298)
+  with CIs directly from the fits; temperature-series EXAMPLE.
+- Initial-rate tool (linear fit up to a chosen conversion, r0 ± CI); **TOF per open site** with open sites per node and
+  M(node) pulled from the defect calculator; **pD–rate profile** fit (sigmoidal or bell-shaped → pKa ± CI).
+
+## 2.3.0 — 2026-11-13
+
+### DSC – full heating / cooling cycle
+- Segments are detected from the sign of dT/dt (heating, cooling, isothermal) and numbered Heat 1, Cool 1, Heat 2, Iso 1 …;
+  ramp/hold boundaries are sharpened so switching transients do not end up in a ramp.
+- Works for (a) one file with all segments, (b) separate heating and cooling exports of one sample – **Combine files of one
+  sample into one cycle**, ordered by the file time stamp or the table order, time axis made continuous – and (c) STARe files
+  with several 'Curve Name:' blocks (restarted clocks are joined).
+- Views: **Full cycle vs temperature** (closed loop, direction arrows, colour + line style per sample and segment kind),
+  **Full cycle vs time** (temperature programme Ts or Tr on a twin axis, shaded segments), **Stacked: heating above cooling**.
+- Peaks on every segment (melting on heating, crystallisation on cooling) and a **cycle summary**: Tm / Tc onset and peak,
+  ΔHm, ΔHc, supercooling ΔT = Tm − Tc (peak and onset) and |ΔHc/ΔHm|.
+- Full-cycle EXAMPLE: the real SG_DSC_1.1 heating + a simulated isothermal and cooling exotherm (clearly labelled).
+- Peak limits: broad peak tops no longer stop the limit search early; end levels are taken robustly.
+
+## 2.2.0 — 2026-11-13
+
+### DSC (new page under Thermal, next to TGA)
+- Readers: Mettler STARe (Curve Values blocks; footer mass, method and the STARe *Results* are shown next to Reticula's values),
+  TA TRIOS and Universal Analysis, Netzsch Proteus (exo-down handled, `Segment` column), PerkinElmer Pyris (endo-up flipped),
+  generic CSV/XLSX. Decimal commas, several curves/segments (also split by heating/cooling rate).
+- Heat flow in mW, W/g or mW/mg (mass normalisation from the file or the table), vs temperature (Ts) or time; exo up/down with
+  arrow; segment selection with colours; offset stacking.
+- Peaks with linear or sigmoidal baseline: onset / peak / endset (tangent construction) and ΔH (J/g, integrated over time);
+  Tg (ISO 11357-2 midpoint, inflection, Δcp) with an auto-suggested window; TGA–DSC (STA) dual-axis overlay; annotations.
+- Validated on a real STARe export (SG_DSC_1.1, 1 K/min): onset 48.30 °C / peak 48.85 °C / ΔH −105.6 J/g vs STARe 48.29 / 48.85 / −105.38.
+
+### SEM / TEM — fixes after user feedback
+- **⚡ Auto-calibrate** button, a preview of what was detected on the full image, and an "Applied to figure: X nm/px" line
+  showing the new bar length in original pixels, the crop row and the magnification label.
+- Burned-in (overlay) bars are cropped away, so the old bar no longer appears in the final figure; no silent fall-back to a
+  default 1 µm when the label is not read (a warning asks for the value); widgets reset after re-detection; duplicate file
+  names supported. End-to-end browser test that clicks Auto on real images and measures the exported bar.
+
+## 2.1.0 — 2026-11-12
+
+### SEM / TEM — calibration from the original image
+- New `mfs/semcal.py` + a **📐 Calibration** panel per image. It shows the metadata pixel size, the detected scale bar (px),
+  the label read by OCR, the resulting nm/px and the magnification (metadata and/or OCR), with cross-check notes.
+- Sources, in order of reliability: metadata (FEI/Thermo PixelWidth, Zeiss *Image Pixel Size*, ImageJ, DM/EMD, and now
+  **JEOL .txt / Hitachi .txt / TESCAN .hdr sidecars** uploaded with the image) › **scale bar detected in the info strip**
+  (longest solid bar, measured to the pixel, label read by Tesseract OCR, bundled in the Windows app) › magnification ›
+  **scale bar (mark ends)**: click the two bar ends on a zoomable strip ("Select the scale bar length"), then type the value.
+- Every result can be overridden (bar length, value, unit) and ticked as checked; the new scale bar uses it.
+- The magnification is read from the strip ('x10,000', '10.0kx', '50 000 x', 'Mag = 10.00 K X', '×5.00k' …), cross-checked
+  against the metadata, and can be printed on the final figure (editable text, any corner).
+- The info strip is detected and cropped automatically. A built-in example without metadata is included.
+- Olympus SIS / analySIS TIFFs (e.g. JEOL JEM-1010 + MegaView III): palette images are mapped to grey, the SIS pixel size and
+  magnification are read, bars burned into the image (no strip) are read with an ink-colour OCR pass, the old bar is cropped,
+  and a warning appears when a burned-in bar disagrees with the metadata or matches another image's calibration (stale bar).
+
+### N₂ sorption — TriStar/3Flex full reports with side-by-side report bands
+- Sheets holding several report bands separated by `|` columns are split before parsing; decimal commas in
+  metadata are read; BET (Rouquerol) falls back to 3 points for steep Type I isotherms and says so; isotherm quality warnings.
+
+## 2.0.0 — 2026-11-12
+
+### N₂ sorption (3Flex / MicroActive) — bug fix
+- **Cause of the zig-zag isotherm.** The v1 reader appended *every* table in the Excel export that had a
+  p/p₀ and a quantity column into one series. For a MicroActive *full report*, that includes Isotherm Tabular,
+  the BET report points, the linear plot overlay (side-by-side ads/des columns) and the log plot overlay, which is often in **mmol/g**.
+  The plot then sorted all of these points by p/p₀. The result was two interleaved curves (one about 22× smaller), a zig-zag adsorption
+  branch, a squashed y range, and a BET computed on mixed data.
+- **Fix.** There is a new table-aware reader (`mfs/readers.py: read_sorption`). It:
+  - finds every header and numeric block and its title, and classifies each one (Isotherm Tabular, plot overlay, BET, Langmuir, t-plot, DFT);
+  - uses **one** isotherm table by priority;
+  - splits adsorption/desorption by labels, by column pairs or by measurement order (turning point at max p/p₀);
+  - converts mmol/g → cm³/g STP (×22.414);
+  - reads the reported BET (± err, C, Qm, range, number of points), Langmuir, single-point, V_total, t-plot, sample name, mass, adsorptive, bath temperature;
+  - reads `.xls` with xlrd.
+- **Plot (Type I MOF convention).**
+  - closed symbols for adsorption and open for desorption;
+  - lines in measurement order, with desorption starting from the last adsorption point;
+  - optional log p/p₀, or linear and log side by side;
+  - PSD as a separate panel;
+  - **one** legend with adsorption/desorption key entries (v1 drew two legend boxes).
+- **Per-sample style.** Adsorption colour, desorption colour, marker, desorption marker, marker size, line style and line width.
+- **BET.** The app's own Rouquerol/ISO 9277 calculation is unchanged. The value reported in the file is shown **for reference only**, with the file's fitting range. For comparison the table also shows the app's value on the file's range (classical 0.05–0.30). The difference between the two values is normally the p/p₀ window, not an error.
+- New file-structure inspector ("which tables were found and which one was used").
+
+### SEM / TEM / EDX scale bar
+- Mode **number**: presets 200 nm, 500 nm, 1 µm, 2 µm, or a custom value with unit nm, µm or mm. The bar length is recomputed from nm/px.
+- Mode **length**: set the bar length (fraction slider ↔ px number input). The label updates.
+- Mode **auto**: a 1-2-5 value at about 20 % of the width.
+- Manual override of magnification (with the reference display width) or nm/px.
+- Position (4 corners), colour (white/black), thickness, font size, background box, label on/off and custom label text.
+- An option to give every image the same bar style.
+- TEM: Gatan `.dm3/.dm4`, FEI/TIA `.ser`, Velox/Berkeley `.emd` and `.mrc` via **ncempy**, with the pixel size read from the file. ImageJ-calibrated TIFFs are read too. TIFF/PNG without calibration take a manual nm/px.
+
+### Figure controls for every technique (`mfs/figctl.py`, `mfs/figctl_ui.py`)
+- Title and axis titles (Unicode, or mathtext such as `cm^3 g^{-1}`).
+- Axis min/max and display-unit conversion. The data and CSV are unchanged; the ticks are relabelled. Conversions:
+  - cm³ g⁻¹ STP ↔ mmol g⁻¹ / mg g⁻¹
+  - °C ↔ K
+  - wt % ↔ mg (with m₀)
+  - cm⁻¹ ↔ µm/nm
+  - 2θ ↔ d (Å) / q (Å⁻¹)
+  - h ↔ min/s/d
+  - nm ↔ Å
+  - mM ↔ µM
+- Legend:
+  - on/off, rename, reorder, show/hide entries;
+  - every matplotlib location plus outside right, top, bottom and left;
+  - columns, font size, frame, marker scale.
+- Ticks:
+  - sides: all 4, any 3, 2 (bottom+left, bottom+right, top+bottom), 1, or custom;
+  - direction in/out/inout;
+  - major increment per axis (**slider and number input, kept in sync**);
+  - minor ticks on/off with an increment;
+  - tick labels per side;
+  - frame follows the ticks or stays a full box.
+- Per-series colour pickers on every page.
+- **House-style presets.** Save and load all settings as JSON, globally in the sidebar or per figure.
+
+### Downloads — bug fix
+- **Cause.** Every download click re-ran the whole script. On every rerun the v1 app eagerly regenerated PNG, TIFF, SVG, PDF and CSV for every figure on the page, which took several seconds on the N₂ and defect pages. Streamlit then invalidated the previous media files, so a click during or just after a rerun returned *"Download canceled / file wasn't available on site"*. Reproduced with headless Chromium on v1.
+- **Fix.**
+  - Exports are **deferred**: they are generated only when clicked, through a callable.
+  - Download buttons use `on_click="ignore"`, so they cause no rerun.
+  - Explicit MIME types.
+  - Windows-safe file names.
+  - Deterministic SVG/PDF.
+  - A render lock.
+  - A **ZIP (all formats)** button.
+  - A **💾 Save to folder** button that writes to `exports/` next to the app and shows the full paths.
+  - The defect PDF report is also generated on click.
+- Verified with Playwright and Chromium: every download on six pages arrives with the right type and a valid size, including rapid clicks.
+
+### Other
+- Duplicate sample names are made unique.
+- The colour cascade with duplicate families is fixed.
+- New tests: `tests/test_v2_features.py` and `tests/test_downloads_browser.py` (Playwright, skipped if Playwright is not installed), plus app-interaction tests for the figure controls and the scale bar.
+- v1 reader and plot code kept for reference in `tools/legacy/`.
+- `tools/n2_before_after.py <file.xls>` writes v1-vs-v2 comparison PNGs for any 3Flex export.
+
+## 1.0.0
+- First release: all Paper 1 techniques, defect calculator, figure composer.

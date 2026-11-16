@@ -1,0 +1,22 @@
+# Reticula runtime requirements - Python 3.11-3.13 (releases are built with 3.12); tested with the versions in brackets
+streamlit>=1.40        # (1.67.0)
+matplotlib>=3.8        # (3.11.2)
+numpy>=1.26            # (2.5.4)
+pandas>=2.1            # (3.1.1)
+scipy>=1.11            # (1.18.1)
+openpyxl>=3.1          # (3.1.5)  MicroActive .xlsx
+xlrd>=2.0              # (2.0.2)  MicroActive .xls
+pillow>=10             # (13.0.0)
+tifffile>=2023.7       # (2026.11.8) SEM TIFF metadata
+nmrglue>=0.10          # (0.12)  Bruker TopSpin
+brukeropusreader>=1.3  # (1.3.4) Bruker OPUS FTIR/Raman
+pymatgen>=2024.1       # (2026.10.24) simulated PXRD from CIF, pore volume from CIF
+ncempy>=1.11           # (1.16)  TEM: Gatan .dm3/.dm4, FEI .ser/.emd, .mrc
+rdkit>=2024.3          # 1H NMR page: structures, shift prediction, assignment (v2.13)
+streamlit-ketcher>=0.0.1  # 1H NMR page: offline structure editor (v2.13)
+pytesseract>=0.3.10    # scale-bar OCR on SEM/TEM images (needs the Tesseract program; the installers bundle it)
+streamlit-image-coordinates>=0.1.9  # click-to-calibrate on SEM/TEM images
+h5py>=3.10             # ncempy .emd / HDF5 TEM files
+# optional: STOE binary .raw files ->  pip install xylib-py  (needs a C++ compiler; ASCII .xy works without it)
+# optional (developers only): xlwt (1.3.0) to regenerate the synthetic .xls test files;
+#   playwright (1.65.1) + `playwright install chromium` for tests/test_downloads_browser.py (skipped if missing)

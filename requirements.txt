@@ -1,0 +1,2 @@
+# Runtime requirements: see app/requirements.txt
+-r app/requirements.txt
