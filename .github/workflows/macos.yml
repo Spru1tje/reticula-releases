@@ -1,5 +1,5 @@
 # Build an unsigned Reticula.app and a UDZO .dmg on macOS.
-# Dispatch or push to the mac-build branch. arm64 (macos-14) first.
+# Dispatch or push to the mac-build branch. arm64 on macos-latest (macos-14 retired; macos-15 often capacity-starved).
 name: macOS build
 
 on:
@@ -12,8 +12,8 @@ permissions:
 
 jobs:
   macos-arm64:
-    name: macOS arm64 (macos-15)
-    runs-on: macos-15
+    name: macOS arm64 (macos-latest)
+    runs-on: macos-latest
     timeout-minutes: 90
     env:
       RETICULA_VERSION: "2.11.0"
