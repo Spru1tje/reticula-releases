@@ -1,0 +1,30 @@
+[server]
+headless = true          # no first-run e-mail prompt; the launcher opens the browser
+maxUploadSize = 500
+address = "localhost"    # only reachable from this computer
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#0F766E"             # deep teal (icon nodes)
+backgroundColor = "#F4F7FB"
+secondaryBackgroundColor = "#E8EEF6"
+textColor = "#1E293B"
+linkColor = "#3730A3"                # indigo
+borderColor = "#D5DEEA"
+font = "sans-serif"
+baseRadius = "10px"
+buttonRadius = "10px"
+showWidgetBorder = true
+
+[theme.sidebar]
+backgroundColor = "#0B1F3A"
+secondaryBackgroundColor = "#16325A"
+textColor = "#E6EEF8"
+primaryColor = "#5EEAD4"
+borderColor = "#22406B"

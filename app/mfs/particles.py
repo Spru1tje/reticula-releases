@@ -1,0 +1,554 @@
+"""Particle sizing on SEM/TEM images (no scikit-image needed): Otsu threshold, morphological clean-up, connected
+components, optional splitting of touching particles (distance-transform markers + nearest-marker assignment inside
+each blob – a fast watershed-like split), per-particle size; log-normal fit of the size distribution."""
+from __future__ import annotations
+import math
+import numpy as np
+from scipy import ndimage as ndi, stats
+
+
+def otsu(img):
+    h, e = np.histogram(img[np.isfinite(img)], 256)
+    c = (e[:-1] + e[1:]) / 2; w = h.cumsum(); w2 = w[-1] - w
+    m = (h * c).cumsum(); mt = m[-1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        var = (mt * w / w[-1] - m) ** 2 / (w * w2)
+    var[~np.isfinite(var)] = 0
+    return float(c[int(np.argmax(var))])
+
+
+def _downsample(img, max_px):
+    f = max(1, int(math.ceil(max(img.shape) / max_px)))
+    if f == 1:
+        return img.astype(float), 1
+    h, w = (img.shape[0] // f) * f, (img.shape[1] // f) * f
+    return img[:h, :w].astype(float).reshape(h // f, f, w // f, f).mean(axis=(1, 3)), f
+
+
+def segment(img, dark_particles=True, threshold=None, smooth=1.0, open_px=1, split=True, min_dist_px=None,
+            clear_border=True, max_px=1024):
+    """Returns labels (on the working grid), the down-sampling factor and the threshold used."""
+    a, f = _downsample(np.asarray(img), max_px)
+    if a.ndim == 3:
+        a = a.mean(axis=2)
+    if smooth:
+        a = ndi.gaussian_filter(a, smooth)
+    t = otsu(a) if threshold is None else threshold
+    m = a < t if dark_particles else a > t
+    if open_px:
+        m = ndi.binary_opening(m, iterations=int(open_px))
+    m = ndi.binary_fill_holes(m)
+    lab, n = ndi.label(m)
+    if split and n:
+        d = ndi.distance_transform_edt(m)
+        md = min_dist_px or max(2, int(np.percentile(d[m], 90) * 0.8)) if m.any() else 3
+        peaks = (d == ndi.maximum_filter(d, size=2 * int(md) + 1)) & (d > 0.5 * md)
+        mk, nm = ndi.label(ndi.binary_dilation(peaks, iterations=1))
+        if nm:
+            _, idx = ndi.distance_transform_edt(mk == 0, return_indices=True)
+            near = mk[idx[0], idx[1]]
+            # keep each pixel inside its own blob: markers from another blob are not allowed
+            blob_of_marker = ndi.maximum(lab, mk, index=np.arange(1, nm + 1))
+            ok = blob_of_marker[np.clip(near - 1, 0, nm - 1)] == lab
+            out = np.where(m & ok & (near > 0), near, 0)
+            # blobs without a marker keep their own label
+            nomk = m & (out == 0)
+            if nomk.any():
+                l2, n2 = ndi.label(nomk); out = np.where(nomk, l2 + nm, out)
+            lab = _merge_slivers(out, lab_blob=lab)
+    if clear_border:
+        edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+        lab = np.where(np.isin(lab, edge[edge > 0]), 0, lab)
+    lab, n = ndi.label(lab > 0) if not split else (lab, int(lab.max()))
+    return lab, f, t
+
+
+def _merge_slivers(lab, lab_blob, neck=0.65):
+    """Undo over-splitting: two pieces of one blob are merged again when the line they share is not a neck, i.e. longer
+    than `neck` × the smaller piece's equivalent diameter (true touching particles meet at a short neck)."""
+    lab = lab.copy()
+    for bi, sl in enumerate(ndi.find_objects(lab_blob), start=1):
+        if sl is None:
+            continue
+        sl = tuple(slice(max(0, s.start - 1), s.stop + 1) for s in sl)
+        sub = lab[sl]; inb = lab_blob[sl] == bi
+        changed = True
+        while changed:
+            changed = False
+            ids = [i for i in np.unique(sub[inb]) if i > 0]
+            if len(ids) < 2:
+                break
+            area = {i: int((sub == i).sum()) for i in ids}
+            for i in sorted(ids, key=area.get):
+                ring = ndi.binary_dilation(sub == i) & (sub != i) & (sub > 0) & inb
+                if not ring.any():
+                    continue
+                nb, cnt = np.unique(sub[ring], return_counts=True)
+                j, L = int(nb[np.argmax(cnt)]), int(cnt.max())
+                dmin = 2 * math.sqrt(min(area[i], area[j]) / math.pi)
+                if L > neck * dmin:
+                    sub[sub == i] = j; changed = True; break
+        lab[sl] = sub
+    return lab
+
+
+def measure(lab, pixel_nm, factor=1, min_area_nm2=0.0, max_area_nm2=None):
+    """Per particle: area, equivalent circle diameter, max Feret, min Feret (caliper, 36 angles), aspect ratio."""
+    px = pixel_nm * factor
+    ids = [i for i in np.unique(lab) if i > 0]
+    sl = ndi.find_objects(lab)
+    rows = []
+    ang = np.linspace(0, np.pi, 36, endpoint=False); U = np.stack([np.cos(ang), np.sin(ang)])
+    for i in ids:
+        s_ = sl[i - 1] if i - 1 < len(sl) else None
+        if s_ is None:
+            continue
+        sub = lab[s_] == i
+        A = sub.sum() * px * px
+        if A < min_area_nm2 or (max_area_nm2 and A > max_area_nm2) or sub.sum() < 5:
+            continue
+        yy, xx = np.nonzero(sub)
+        P = np.stack([xx, yy]).T.astype(float) @ U
+        w = P.max(0) - P.min(0) + 1
+        rows.append({"id": int(i), "area (nm²)": A, "ECD (nm)": 2 * math.sqrt(A / math.pi), "Feret max (nm)": w.max() * px,
+                     "Feret min (nm)": w.min() * px, "aspect ratio": w.max() / w.min(),
+                     "x (px)": (xx.mean() + s_[1].start) * factor, "y (px)": (yy.mean() + s_[0].start) * factor})
+    return rows
+
+
+def lognormal_fit(d):
+    d = np.asarray(d, float); d = d[np.isfinite(d) & (d > 0)]
+    if len(d) < 3:
+        raise ValueError("need at least 3 particles")
+    s, loc, sc = stats.lognorm.fit(d, floc=0)
+    mu = math.log(sc)
+    return {"n": len(d), "mean": float(d.mean()), "sd": float(d.std(ddof=1)), "median": float(np.median(d)),
+            "mu": mu, "sigma": s, "geo_mean": sc, "geo_sd": math.exp(s), "mode": math.exp(mu - s * s),
+            "pdf": lambda x: stats.lognorm.pdf(x, s, 0, sc),
+            "ks_p": float(stats.kstest(d, "lognorm", args=(s, 0, sc)).pvalue)}
+
+
+def draw_hist(ax, d, fit=None, bins="auto", color="#0072B2", label=None, unit="nm", show_stats=True):
+    d = np.asarray(d, float)
+    n_, b_, _ = ax.hist(d, bins=bins, color=color, alpha=0.55, edgecolor="white", lw=0.4, label=label)
+    if fit:
+        xx = np.linspace(max(1e-9, b_[0] * 0.8), b_[-1] * 1.1, 300)
+        ax.plot(xx, fit["pdf"](xx) * len(d) * (b_[1] - b_[0]), color=color, lw=1.0)
+        if show_stats:
+            ax.text(0.97, 0.95, f"{fit['mean']:.0f} ± {fit['sd']:.0f} {unit}\n(n = {fit['n']})\nlog-normal: median {fit['geo_mean']:.0f} {unit}, "
+                    f"σ$_g$ {fit['geo_sd']:.2f}", transform=ax.transAxes, ha="right", va="top", fontsize=6)
+    ax.set_xlabel(f"Particle size ({unit})"); ax.set_ylabel("Count")
+
+
+def overlay_outlines(ax, img, lab, factor=1, color="#FF3B30"):
+    ax.imshow(img, cmap="gray"); edge = lab ^ ndi.binary_erosion(lab > 0) * lab
+    e = (edge > 0)
+    if factor > 1:
+        e = np.kron(e, np.ones((factor, factor), bool))[: img.shape[0], : img.shape[1]]
+    rgba = np.zeros(e.shape + (4,)); rgba[e] = list(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)) + [1]
+    ax.imshow(rgba, interpolation="nearest"); ax.set_axis_off()
+
+
+# ============================================================== v2.8: marker watershed, aggregates, support holes, edits
+def _solidity(mask):
+    yy, xx = np.nonzero(mask)
+    if len(yy) < 8:
+        return 1.0
+    try:
+        from scipy.spatial import ConvexHull
+        pts = np.stack([xx, yy], 1).astype(float)
+        pts = np.vstack([pts, pts + [1, 0], pts + [0, 1], pts + [1, 1]])        # pixel corners
+        return float(min(1.0, len(yy) / ConvexHull(pts).volume))
+    except Exception:
+        return 1.0
+
+
+def _peaks(d, mask, min_dist, h):
+    """Markers = h-maxima of the distance map (maxima rising more than h above every saddle to a higher peak; grey-scale
+    reconstruction by dilation), then markers closer than min_dist merged."""
+    d = np.where(mask, d, 0.0)
+    rec = np.clip(d - h, 0, None)
+    for _ in range(int(d.max() / max(h, 0.5) * 4) + 50):          # reconstruction by dilation of (d − h) under d
+        nxt = np.minimum(ndi.grey_dilation(rec, size=3), d)
+        if np.array_equal(nxt, rec):
+            break
+        rec = nxt
+    pk = (d - rec >= h - 1e-6) & mask & (d > 0)
+    mk, n = ndi.label(pk, structure=np.ones((3, 3)))
+    if n > 1 and min_dist > 1:
+        cy, cx = np.array(ndi.center_of_mass(pk, mk, range(1, n + 1))).T
+        from scipy.spatial import cKDTree
+        par = list(range(n + 1))
+
+        def f(a_):
+            while par[a_] != a_:
+                par[a_] = par[par[a_]]; a_ = par[a_]
+            return a_
+        for i, j in cKDTree(np.stack([cx, cy], 1)).query_pairs(min_dist):
+            par[f(i + 1)] = f(j + 1)
+        root = np.array([f(i) for i in range(n + 1)])
+        mk = root[mk]; mk[~pk] = 0
+        u = np.unique(mk[mk > 0]); remap = np.zeros(mk.max() + 1, int); remap[u] = np.arange(1, len(u) + 1)
+        mk = remap[mk]; n = len(u)
+    return mk, n
+
+
+def estimate_size_px(mask):
+    """Typical particle radius (px): median inscribed radius of the distance-map peaks (robust to clusters)."""
+    d = ndi.distance_transform_edt(mask)
+    if not mask.any():
+        return 5.0
+    r = 3.0
+    for _ in range(3):                    # iterate: the peak search window follows the size estimate
+        pk = (d == ndi.maximum_filter(d, size=2 * int(r) + 1)) & (d > max(2.0, 0.5 * r))
+        v = d[pk]
+        if not len(v):
+            break
+        r = float(np.median(v))
+    return r
+
+
+def _ws(cost, markers, mask):
+    """Marker-controlled watershed (priority flood, 4-connected) restricted to `mask`; lower cost floods first."""
+    import heapq
+    H, W = mask.shape
+    out = np.where(mask, markers, 0).astype(np.int64).ravel()
+    c = np.asarray(cost, float).ravel(); mk = mask.ravel()
+    heap = []
+    seeds = np.nonzero(out > 0)[0]
+    cnt = 0
+    for p in seeds:                           # push the unlabelled neighbours of every seed pixel
+        heap.append((c[p], cnt, p)); cnt += 1
+    heapq.heapify(heap)
+    done = out > 0
+    while heap:
+        _, _, p = heapq.heappop(heap)
+        lp = out[p]; y, x = divmod(p, W)
+        for q, ok in ((p - W, y > 0), (p + W, y < H - 1), (p - 1, x > 0), (p + 1, x < W - 1)):
+            if ok and mk[q] and not done[q]:
+                done[q] = True; out[q] = lp
+                heapq.heappush(heap, (c[q], cnt, q)); cnt += 1
+    return out.reshape(H, W).astype(int)
+
+
+def segment_ws(img, dark_particles=True, threshold=None, smooth=1.0, open_px=1, min_dist_factor=0.7, h_factor=0.1,
+               method="distance", gradient_weight=0.5, exclude_holes=True, clear_border=True, solidity_min=0.85,
+               area_factor=2.0, max_px=1024):
+    """Particles on a support (SEM/TEM): returns (labels, factor, threshold, info) with info = {id: {'kind':
+    'particle'|'aggregate', 'solidity': s}, '_holes': n, '_r_est_px': r, '_min_dist_px': md}.
+    1) threshold (Otsu; with dark particles the bright support holes are removed first and Otsu is taken on the rest),
+    2) distance-transform watershed with h-maxima markers, min-distance = factor × the auto-estimated radius,
+    method 'gradient' / 'combined' floods the Sobel gradient (facet edges) instead of / mixed with the distance map,
+    3) regions with solidity < solidity_min or area > area_factor × median are re-split with half the min-distance;
+    what stays non-convex is classed 'aggregate', 4) edge-touching objects removed."""
+    a, f = _downsample(np.asarray(img), max_px)
+    if a.ndim == 3:
+        a = a.mean(axis=2)
+    if smooth:
+        a = ndi.gaussian_filter(a, smooth)
+    holes = np.zeros(a.shape, bool); nh = 0
+    if exclude_holes and dark_particles:
+        th = otsu(a)
+        hm = a > th + 0.5 * (a.max() - th) * 0.5
+        hm = ndi.binary_opening(hm, iterations=2)
+        lh, nh0 = ndi.label(hm)
+        for i, sl in enumerate(ndi.find_objects(lh), start=1):     # round bright blobs = holes in the carbon film
+            sub = lh[sl] == i
+            if sub.sum() > 30 and _solidity(sub) > 0.8:
+                holes[sl] |= sub; nh += 1
+        holes = ndi.binary_dilation(holes, iterations=2)
+    pool = a[~holes]
+    t = (otsu(pool) if pool.size else otsu(a)) if threshold is None else threshold
+    m = (a < t) if dark_particles else (a > t)
+    m &= ~holes
+    if open_px:
+        m = ndi.binary_opening(m, iterations=int(open_px))
+    m = ndi.binary_fill_holes(m)
+    r = estimate_size_px(m); md = max(2.0, min_dist_factor * r)
+    g = None
+    if method in ("gradient", "combined"):
+        g = np.hypot(ndi.sobel(a, 0), ndi.sobel(a, 1))
+        g = g / (np.percentile(g[m], 99) + 1e-9) if m.any() else g
+
+    # 2) whole-image watershed
+    d = ndi.gaussian_filter(ndi.distance_transform_edt(m), max(0.5, 0.15 * r)) * m
+    mk, n = _peaks(d, m, md, h_factor * r)
+    dn = d / (d.max() + 1e-9)
+    cost = -dn if g is None else (g if method == "gradient" else gradient_weight * g - (1 - gradient_weight) * dn)
+    lab = _ws(cost, mk, m) if n else ndi.label(m)[0]
+    rest = m & (lab == 0)
+    if rest.any():
+        l2, _ = ndi.label(rest); lab = np.where(rest, l2 + lab.max(), lab)
+    lab = _merge_small(lab, 0.2 * math.pi * r * r)
+    # 3) non-convex or oversized regions: local re-split with a smaller min-distance; else 'aggregate'
+    areas = np.bincount(lab.ravel()).astype(float); areas[0] = 0
+    med = float(np.median(areas[areas > 0])) if np.any(areas > 0) else 1.0
+    info = {}
+    nxt = int(lab.max()) + 1
+    for i, sl in enumerate(ndi.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        sub = lab[sl] == i
+        s_ = _solidity(sub)
+        big = sub.sum() > area_factor * med
+        if s_ >= solidity_min and sub.sum() <= 0.72 * area_factor * med:
+            info[i] = {"kind": "particle", "solidity": s_}; continue
+        dd = ndi.distance_transform_edt(sub)
+        ok = False
+        for fct, hf in ((0.6, 0.06), (0.45, 0.03)):
+            mk2, n2 = _peaks(dd, sub, max(2.0, md * fct), hf * r)
+            if n2 < 2:
+                continue
+            c2 = -dd / (dd.max() + 1e-9) if g is None else cost[sl]
+            l2 = _ws(c2, mk2, sub)
+            l2 = _merge_small(l2, 0.2 * math.pi * r * r)
+            ids = [j for j in np.unique(l2) if j > 0]
+            sols = [_solidity(l2 == j) for j in ids]
+            areas2 = [(l2 == j).sum() for j in ids]
+            if len(ids) > 1 and min(areas2) > 0.3 * med and (np.mean(sols) > s_ + 0.02 or big):
+                blk = lab[sl]
+                for j, sj in zip(ids, sols):
+                    blk[l2 == j] = nxt
+                    info[nxt] = {"kind": "particle" if sj >= solidity_min - 0.05 else "aggregate", "solidity": sj, "split": "re-split"}
+                    nxt += 1
+                ok = True; break
+        if not ok:
+            info[i] = {"kind": "aggregate" if (s_ < solidity_min or big) else "particle", "solidity": s_}
+    if clear_border:
+        edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+        lab = np.where(np.isin(lab, edge[edge > 0]), 0, lab)
+        info = {k: v for k, v in info.items() if k not in set(edge.tolist())}
+    present = set(np.unique(lab).tolist()) - {0}
+    info = {k: v for k, v in info.items() if k in present}
+    for k in present - set(info):
+        info[k] = {"kind": "particle", "solidity": 1.0}
+    info.update({"_holes": nh, "_r_est_px": r, "_min_dist_px": md, "_hole_mask": holes})
+    return lab, f, t, info
+
+
+def _merge_small(lab, min_area):
+    """Pieces smaller than min_area (px) join the neighbour they share the longest boundary with (faceted particles can
+    touch along a whole face, so the neck criterion of v2.6 is not used here)."""
+    lab = lab.copy()
+    for _ in range(3):
+        areas = np.bincount(lab.ravel())
+        small = [i for i in np.nonzero(areas)[0] if i > 0 and areas[i] < min_area]
+        if not small:
+            break
+        for i in small:
+            m = lab == i
+            if not m.any():
+                continue
+            ring = ndi.binary_dilation(m) & ~m & (lab > 0)
+            if ring.any():
+                nb, cnt = np.unique(lab[ring], return_counts=True); lab[m] = nb[np.argmax(cnt)]
+    return lab
+
+
+def apply_edits(lab, edits):
+    """Manual corrections on the working grid. edits: list of ('delete', (x, y)) | ('merge', (x1, y1), (x2, y2)) |
+    ('split', (x1, y1), (x2, y2)) [a cut line through one particle] | ('add', (x, y), r) [a disc]."""
+    lab = lab.copy()
+    H, W = lab.shape
+    at = lambda p: int(lab[min(H - 1, max(0, int(p[1]))), min(W - 1, max(0, int(p[0])))])
+    for e in edits:
+        kind = e[0]
+        if kind == "delete":
+            i = at(e[1])
+            if i:
+                lab[lab == i] = 0
+        elif kind == "merge":
+            i, j = at(e[1]), at(e[2])
+            if i and j and i != j:
+                lab[lab == j] = i
+        elif kind == "split":
+            (x1, y1), (x2, y2) = e[1], e[2]
+            n = int(max(abs(x2 - x1), abs(y2 - y1)) * 2) + 2
+            xs = np.linspace(x1, x2, n); ys = np.linspace(y1, y2, n)
+            line = np.zeros_like(lab, bool)
+            line[np.clip(ys.round().astype(int), 0, H - 1), np.clip(xs.round().astype(int), 0, W - 1)] = True
+            line = ndi.binary_dilation(line)
+            ids = [i for i in np.unique(lab[line]) if i > 0]
+            for i in ids:
+                reg = (lab == i) & ~line
+                l2, n2 = ndi.label(reg)
+                if n2 > 1:
+                    nxt = int(lab.max()) + 1
+                    lab[lab == i] = 0
+                    for j in range(1, n2 + 1):
+                        lab[l2 == j] = i if j == 1 else nxt + j - 2
+                    # give the cut pixels back to the nearest piece
+                    cut = line & (lab == 0) & (ndi.binary_dilation(reg))
+                    if cut.any():
+                        _, idx = ndi.distance_transform_edt(lab == 0, return_indices=True)
+                        lab[cut] = lab[idx[0][cut], idx[1][cut]]
+        elif kind == "add":
+            (x, y), rr = e[1], e[2]
+            yy, xx = np.ogrid[:H, :W]
+            lab[((xx - x) ** 2 + (yy - y) ** 2 <= rr * rr) & (lab == 0)] = int(lab.max()) + 1
+    return lab
+
+
+TEAL, RED = (0.078, 0.722, 0.651), (0.898, 0.282, 0.302)
+
+
+def overlay_labels(ax, img, lab, factor=1, info=None, numbers=False, fs=4, alpha=0.13, seed=3, excluded=None, lw_px=None):
+    """v2.10 clean overlay: thin teal outline = included particle, dotted teal = split by the shape prior, red dashed
+    outline + light red fill = aggregate / excluded; numbers optional (off by default). img on the full grid."""
+    ax.imshow(img, cmap="gray")
+    n = int(lab.max())
+    if n == 0:
+        ax.set_axis_off(); return
+    L = np.kron(lab, np.ones((factor, factor), int))[: img.shape[0], : img.shape[1]] if factor > 1 else lab
+    info = info or {}
+    ex = set(int(i) for i in (excluded or []))
+    agg_ids = [k for k, v in info.items() if isinstance(v, dict) and v.get("kind") == "aggregate"] + list(ex)
+    pri_ids = [k for k, v in info.items() if isinstance(v, dict) and v.get("split") == "prior"]
+    agg = np.isin(L, agg_ids) & (L > 0); pri = np.isin(L, pri_ids) & ~agg
+    w = lw_px or max(1, int(round(max(img.shape[:2]) / 1400)))
+    edge = (L != ndi.grey_erosion(L, size=2 * w + 1)) & (L > 0)
+    yy, xx = np.indices(L.shape)
+    dash = ((xx + yy) // (6 * w)) % 2 == 0; dot = ((xx + yy) // (2 * w)) % 2 == 0
+    rgba = np.zeros(L.shape + (4,))
+    rgba[agg] = list(RED) + [alpha]
+    rgba[edge & ~agg & ~pri] = list(TEAL) + [0.95]
+    rgba[edge & pri & dot] = list(TEAL) + [0.95]
+    rgba[edge & agg & dash] = list(RED) + [0.95]
+    ax.imshow(rgba, interpolation="nearest")
+    if numbers:
+        for i, (cy, cx) in zip(range(1, n + 1), ndi.center_of_mass(L > 0, L, range(1, n + 1))):
+            if np.isfinite(cx):
+                kind = info.get(i, {}).get("kind", "particle") if isinstance(info.get(i), dict) else "particle"
+                ax.text(cx, cy, str(i), color="white" if kind != "aggregate" else "#FFD1CF",
+                        fontsize=fs, ha="center", va="center")
+    ax.set_axis_off()
+
+
+# ============================================================== v2.10: adaptive segmentation for uneven TEM/SEM contrast
+def _nms(pts, score, dmin):
+    """Greedy non-maximum suppression (strongest first, no chaining): indices of the kept points."""
+    if not len(pts):
+        return np.zeros(0, int)
+    from scipy.spatial import cKDTree
+    order = np.argsort(-np.asarray(score)); tree = cKDTree(pts)
+    dead = np.zeros(len(pts), bool); keep = []
+    for i in order:
+        if dead[i]:
+            continue
+        keep.append(i)
+        for j in tree.query_ball_point(pts[i], dmin):
+            dead[j] = True
+    return np.array(keep, int)
+
+
+def flatten_background(x, fg_mask, sigma):
+    """Smooth background from the pixels outside fg_mask (normalised Gaussian on a ¼ grid, so large clusters and
+    uneven illumination do not bias it)."""
+    k = max(1, int(sigma // 16))
+    xs, ws = x[::k, ::k], (~fg_mask[::k, ::k]).astype(float)
+    num = ndi.gaussian_filter(xs * ws, sigma / k); den = ndi.gaussian_filter(ws, sigma / k)
+    bg = num / np.maximum(den, 1e-3)
+    if den.max() < 1e-3:
+        bg = np.full(xs.shape, float(np.median(x)))
+    if k > 1:
+        bg = ndi.zoom(bg, (x.shape[0] / bg.shape[0], x.shape[1] / bg.shape[1]), order=1)[: x.shape[0], : x.shape[1]]
+    return bg
+
+
+def contrast_map(a, dark_particles=True, smooth=1.0, iters=2):
+    """Background-flattened particle contrast (0 = background, positive = particle), the noise σ of the background and
+    the foreground mask by hysteresis: seeds above hi = max(Otsu, 8σ) grown down to lo = max(low_k·σ, 0.3·hi).
+    Catches light-grey particles next to dark ones on an unevenly lit support."""
+    x = ndi.gaussian_filter(np.asarray(a, float), smooth) if smooth else np.asarray(a, float)
+    if not dark_particles:
+        x = x.max() + x.min() - x
+    fg = x < otsu(x)
+    sig = max(x.shape) / 8.0
+    for _ in range(iters):
+        bgm = ndi.binary_dilation(fg, iterations=4)
+        bg = flatten_background(x, bgm, sig)
+        c = (bg - x) / np.maximum(np.abs(bg), 1.0)
+        cb = c[~bgm] if (~bgm).sum() > 100 else c.ravel()
+        med = float(np.median(cb)); sn = float(1.4826 * np.median(np.abs(cb - med))) or 1e-3
+        fg = c > max(otsu(c), 8 * sn)                      # provisional mask for the next background estimate
+    return c, sn
+
+
+def hysteresis(c, lo, hi):
+    lab, n = ndi.label(c > lo)
+    keep = np.zeros(n + 1, bool); keep[np.unique(lab[c > hi])] = True; keep[0] = False
+    return keep[lab]
+
+
+def estimate_side_px(m):
+    """Typical particle width (px) from the strongest distance-map maxima (one per particle via NMS)."""
+    d = ndi.distance_transform_edt(m)
+    pk = (d == ndi.maximum_filter(d, size=7)) & (d > 2.5)
+    yy, xx = np.nonzero(pk)
+    if not len(yy):
+        return 10.0
+    keep = _nms(np.stack([yy, xx], 1).astype(float), d[pk], 6)
+    return float(2 * np.median(d[yy[keep], xx[keep]]))
+
+
+def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=None, marker_sigma=0.25, nms_factor=0.6,
+                     core_weight=1.0, dist_weight=0.5, merge_factor=0.3, solidity_min=0.8, area_factor=2.0,
+                     clear_border=True, max_px=1536, threshold=None, shape_prior=None, prior_strength=0.7, prior_k=10.0):
+    """v2.10 default: background flattening + hysteresis threshold, cube-scale markers (LoG of the contrast at σ =
+    marker_sigma·L plus the distance map of the locally-darker cores), greedy NMS at nms_factor·L, marker watershed on
+    the contrast; regions > area_factor·L² or with solidity < solidity_min are 'aggregate' (excluded by default).
+    Optional learned shape prior (shape_prior=True): see mfs.shapeprior. Returns (labels, factor, threshold, info)."""
+    a, f = _downsample(np.asarray(img), max_px)
+    if a.ndim == 3:
+        a = a.mean(axis=2)
+    c, sn = contrast_map(a, dark_particles, smooth)
+    hi = max(otsu(c), 8 * sn); lo = max(low_k * sn, 0.3 * hi)
+    if threshold is not None:                      # manual: a fraction of the contrast range (0–1) or 8-bit level
+        hi = lo = float(threshold)
+    m = ndi.binary_opening(hysteresis(c, lo, hi), iterations=1)
+    L = float(size_px / f) if size_px else estimate_side_px(m)
+    hl, _ = ndi.label(ndi.binary_fill_holes(m) & ~m)       # fill only small holes (not the gaps inside a ring of particles)
+    ha = np.bincount(hl.ravel()); small = ha < 0.5 * L * L; small[0] = False
+    m |= small[hl]
+    d = ndi.distance_transform_edt(m)
+    s = max(1.0, L * marker_sigma)
+    B = -ndi.gaussian_laplace(c, s) * s * s
+    cs = ndi.gaussian_filter(c, max(1.0, L / 10))
+    core = ndi.binary_opening(m & (cs > ndi.gaussian_filter(cs, L * 0.75)), iterations=2)
+    dc = np.minimum(ndi.distance_transform_edt(core), L / 2) / (L / 2)
+    S = B / (np.percentile(B[m], 95) + 1e-9 if m.any() else 1) + core_weight * dc
+    pk = (S == ndi.maximum_filter(S, size=int(L * 0.5) | 1)) & m & (d > 0.2 * L) & (S > 0.05)
+    yy, xx = np.nonzero(pk)
+    keep = _nms(np.stack([yy, xx], 1).astype(float), S[pk], nms_factor * L)
+    mk = np.zeros(m.shape, int); mk[yy[keep], xx[keep]] = np.arange(1, len(keep) + 1)
+    cost = -(cs / (np.percentile(cs[m], 95) + 1e-9 if m.any() else 1)) - dist_weight * np.minimum(d, L / 2) / (L / 2)
+    lab = _ws(cost, mk, m) if len(keep) else ndi.label(m)[0]
+    rest = m & (lab == 0)
+    if rest.any():
+        l2, _ = ndi.label(rest); lab = np.where(rest, l2 + lab.max(), lab)
+    A1 = L * L
+    lab = _merge_small(lab, merge_factor * A1)
+    info = {}
+    for i, sl in enumerate(ndi.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        sub = lab[sl] == i; A = int(sub.sum())
+        if A < 0.15 * A1:                          # isolated specks (noise, dust)
+            lab[sl][sub] = 0; continue
+        so = _solidity(sub)
+        info[i] = {"kind": "aggregate" if (A > area_factor * A1 or so < solidity_min) else "particle", "solidity": so}
+    info_extra = {"_r_est_px": L / math.sqrt(math.pi), "_side_px": L, "_min_dist_px": nms_factor * L, "_holes": 0,
+                  "_noise": sn, "_lo": lo, "_hi": hi, "_contrast": c}
+    if shape_prior:
+        from mfs import shapeprior as SP
+        lab, info, pr = SP.apply_prior(lab, info, c, L, strength=prior_strength, k=prior_k,
+                                       solidity_min=solidity_min, area_factor=area_factor)
+        info_extra["_prior"] = pr
+    if clear_border:
+        edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+        lab = np.where(np.isin(lab, edge[edge > 0]), 0, lab)
+        info = {k: v for k, v in info.items() if k not in set(edge.tolist())}
+    present = set(np.unique(lab).tolist()) - {0}
+    info = {k: v for k, v in info.items() if k in present}
+    info.update(info_extra)
+    return lab, f, hi, info

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.DS_Store
+dist/
+build/
+*.dmg
+*.app/
+tesseract/tesseract
+tesseract/lib/
+*.icns
+*.iconset/
+selftest.json
+.mypy_cache/

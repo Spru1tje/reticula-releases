@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Reticula particle picker</title>
+<style>
+ body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;font-size:12px;color:#0B1F3A;background:transparent}
+ #bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 6px}
+ button{border:1px solid #9FB4CF;background:#fff;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+ button:hover{background:#E6F4F1} button.on{background:#0F766E;color:#fff;border-color:#0F766E}
+ #stats{margin-left:auto;font-weight:600} #wrap{position:relative;user-select:none}
+ #svg{display:block;width:100%;height:auto;cursor:crosshair;border-radius:6px}
+ /* v2.10 clean, publication-like palette: thin teal = included, dotted teal = split by the shape prior,
+    red dashed + light fill = aggregate / excluded; numbers off by default (toggle, or hover for a tooltip) */
+ .p{fill:rgba(20,184,166,0.04);stroke:#14B8A6;stroke-width:1.1;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+ .p.pr{stroke-dasharray:1.6 1.8}
+ .p.x,.p.ax{fill:rgba(229,72,77,0.13);stroke:#E5484D;stroke-dasharray:4 3}
+ .p:hover{stroke-width:2.2}
+ .n{display:none;font-weight:600;paint-order:stroke;stroke:rgba(0,0,0,0.75);stroke-width:1.6px;fill:#fff;pointer-events:none;text-anchor:middle;dominant-baseline:central}
+ body.nums .n{display:inline} .n.x{fill:#FFD1CF}
+ .cross{stroke:#E5484D;stroke-width:1;opacity:0.75;vector-effect:non-scaling-stroke;pointer-events:none}
+ #sel{fill:rgba(15,118,110,0.15);stroke:#0F766E;stroke-dasharray:5 3;vector-effect:non-scaling-stroke;pointer-events:none}
+ #legend{margin-top:4px;color:#46607F;font-size:11px}
+ .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 3px 0 8px;vertical-align:-1px}
+</style></head>
+<body>
+<div id="bar">
+ <button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+ <button id="reset" title="Back to the automatic choice (aggregates excluded)">Reset to auto</button>
+ <button id="incall">Include all</button>
+ <button id="exagg">Exclude all aggregates</button>
+ <button id="nums" title="Show / hide particle numbers (hover a particle for its number and size)"># Numbers</button>
+ <button id="boxmode" title="Drag a rectangle: exclude (default) or include (hold Shift)">Box: exclude</button>
+ <span id="stats"></span><svg id="hg" viewBox="0 0 300 90" width="300" height="90" style="display:block;margin:4px 0;width:300px;max-width:45%;height:90px"></svg>
+</div>
+<div id="wrap"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div id="legend"><span class="sw" style="border:1.5px solid #14B8A6"></span>included
+ <span class="sw" style="border:1.5px dotted #14B8A6"></span>split by the shape prior
+ <span class="sw" style="border:1.5px dashed #E5484D;background:rgba(229,72,77,0.13)"></span>aggregate / excluded
+ &nbsp;· click = toggle · drag = box select (Shift = include) · Ctrl+Z = undo</div>
+<script>
+const NS="http://www.w3.org/2000/svg";
+function send(type,data){window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:type},data),"*");}
+function setValue(v){send("streamlit:setComponentValue",{value:v,dataType:"json"});}
+function setHeight(){send("streamlit:setFrameHeight",{height:document.body.scrollHeight+4});}
+let A=null, key=null, excl=new Set(), hist=[], timer=null, boxInclude=false, els={}, rev=null;
+function stats(){
+  const inc=A.particles.filter(p=>!excl.has(p.id)).map(p=>p.size);
+  const n=inc.length, m=n?inc.reduce((a,b)=>a+b,0)/n:0;
+  const sd=n>1?Math.sqrt(inc.reduce((a,b)=>a+(b-m)*(b-m),0)/(n-1)):0;
+  document.getElementById("stats").textContent=`N = ${n} included · ${A.particles.length-n} excluded · ${A.metric} ${m.toFixed(0)} ± ${sd.toFixed(0)} ${A.unit}`;
+  drawHist(inc);
+}
+function drawHist(inc){            // live histogram of the included particles (all particles' range, 20 bins)
+  const h=document.getElementById("hg"); if(!h) return;
+  const all=A.particles.map(p=>p.size); if(!all.length){h.innerHTML="";return;}
+  const lo=Math.min(...all), hi=Math.max(...all), nb=20, w=(hi-lo)/nb||1, W=300, H=90;
+  const c=new Array(nb).fill(0); inc.forEach(v=>{c[Math.min(nb-1,Math.floor((v-lo)/w))]++;});
+  const mx=Math.max(1,...c); let o="";
+  c.forEach((v,i)=>{const bh=v/mx*(H-16); o+=`<rect x="${i*W/nb+1}" y="${H-12-bh}" width="${W/nb-2}" height="${bh}" fill="#00B89C"/>`;});
+  o+=`<line x1="0" y1="${H-12}" x2="${W}" y2="${H-12}" stroke="#888" stroke-width="0.6"/>`;
+  o+=`<text x="0" y="${H-1}" font-size="9" fill="#9FB4CF">${lo.toFixed(0)}</text><text x="${W}" y="${H-1}" font-size="9" fill="#9FB4CF" text-anchor="end">${hi.toFixed(0)} ${A.unit}</text>`;
+  h.innerHTML=o;
+}
+function paint(id){
+  const e=els[id]; if(!e) return; const p=e.p, x=excl.has(id);
+  e.poly.setAttribute("class","p"+(x?(p.kind==="aggregate"?" ax":" x"):(p.prior?" pr":"")));
+  e.txt.setAttribute("class","n"+(x?" x":"")); e.cross.style.display=(x && p.kind!=="aggregate")?"":"none";
+}
+function commit(){ stats(); clearTimeout(timer); timer=setTimeout(()=>setValue({key:key,excluded:[...excl].sort((a,b)=>a-b),t:Date.now()}),A.debounce||350); }
+function change(ids,mode){ // mode: 'toggle'|'ex'|'in'
+  if(!ids.length) return; hist.push([...excl]); if(hist.length>200) hist.shift();
+  for(const id of ids){ if(mode==="toggle"){excl.has(id)?excl.delete(id):excl.add(id);} else if(mode==="ex") excl.add(id); else excl.delete(id); paint(id);}
+  commit();
+}
+function setAll(newSet){ hist.push([...excl]); excl=new Set(newSet); A.particles.forEach(p=>paint(p.id)); commit(); }
+function svgPt(ev){ const s=document.getElementById("svg"), r=s.getBoundingClientRect(); return [(ev.clientX-r.left)/r.width*A.w,(ev.clientY-r.top)/r.height*A.h]; }
+function nearest(x,y){ let best=null,bd=1e18; for(const p of A.particles){const d=(p.cx-x)**2+(p.cy-y)**2; if(d<bd){bd=d;best=p;}}
+  return best && Math.sqrt(bd) < (A.snap||60) ? best.id : null; }
+function build(){
+  const s=document.getElementById("svg"); s.innerHTML=""; els={};
+  s.setAttribute("viewBox",`0 0 ${A.w} ${A.h}`);
+  const im=document.createElementNS(NS,"image"); im.setAttribute("href",A.src); im.setAttribute("width",A.w); im.setAttribute("height",A.h); s.appendChild(im);
+  const fs=Math.max(8,A.w/120);
+  for(const p of A.particles){
+    const g=document.createElementNS(NS,"g");
+    const poly=document.createElementNS(NS,"polygon"); poly.setAttribute("points",p.poly.map(q=>q.join(",")).join(" ")); poly.dataset.id=p.id;
+    const tt=document.createElementNS(NS,"title"); tt.textContent=`#${p.id}${p.kind==="aggregate"?" (aggregate)":""}${p.prior?" (shape-prior split)":""} · ${A.metric} ${p.size.toFixed(0)} ${A.unit}`; poly.appendChild(tt);
+    const r=Math.max(4,p.r*0.45), cr=document.createElementNS(NS,"path");
+    cr.setAttribute("d",`M${p.cx-r},${p.cy-r}L${p.cx+r},${p.cy+r}M${p.cx-r},${p.cy+r}L${p.cx+r},${p.cy-r}`); cr.setAttribute("class","cross");
+    const t=document.createElementNS(NS,"text"); t.setAttribute("x",p.cx); t.setAttribute("y",p.cy); t.setAttribute("font-size",fs);
+    t.textContent=p.id+(p.kind==="aggregate"?"A":"");
+    g.appendChild(poly); g.appendChild(cr); g.appendChild(t); s.appendChild(g); els[p.id]={poly:poly,txt:t,cross:cr,p:p};
+  }
+  const sel=document.createElementNS(NS,"rect"); sel.id="sel"; sel.style.display="none"; s.appendChild(sel);
+  let down=null;
+  s.onmousedown=ev=>{down=svgPt(ev); down.push(ev.shiftKey);};
+  s.onmousemove=ev=>{ if(!down) return; const [x,y]=svgPt(ev); if(Math.abs(x-down[0])+Math.abs(y-down[1])<6) return;
+    sel.style.display=""; sel.setAttribute("x",Math.min(x,down[0])); sel.setAttribute("y",Math.min(y,down[1]));
+    sel.setAttribute("width",Math.abs(x-down[0])); sel.setAttribute("height",Math.abs(y-down[1])); };
+  s.onmouseup=ev=>{ if(!down) return; const [x,y]=svgPt(ev); const d=down; down=null; sel.style.display="none";
+    if(Math.abs(x-d[0])+Math.abs(y-d[1])>=6){ const x0=Math.min(x,d[0]),x1=Math.max(x,d[0]),y0=Math.min(y,d[1]),y1=Math.max(y,d[1]);
+      const ids=A.particles.filter(p=>p.cx>=x0&&p.cx<=x1&&p.cy>=y0&&p.cy<=y1).map(p=>p.id);
+      change(ids,(d[2]||ev.shiftKey||boxInclude)?"in":"ex"); return; }
+    const tid=ev.target&&ev.target.dataset?ev.target.dataset.id:null;
+    const id=tid?parseInt(tid):nearest(x,y); if(id!==null) change([id],"toggle"); };
+  s.onmouseleave=()=>{down=null; sel.style.display="none";};
+  A.particles.forEach(p=>paint(p.id)); stats();
+  const im2=new Image(); im2.onload=setHeight; im2.src=A.src; setTimeout(setHeight,50);
+}
+document.getElementById("undo").onclick=()=>{ if(!hist.length) return; excl=new Set(hist.pop()); A.particles.forEach(p=>paint(p.id)); commit(); };
+document.getElementById("reset").onclick=()=>setAll(A.particles.filter(p=>p.kind==="aggregate").map(p=>p.id));
+document.getElementById("incall").onclick=()=>setAll([]);
+document.getElementById("exagg").onclick=()=>setAll([...excl,...A.particles.filter(p=>p.kind==="aggregate").map(p=>p.id)]);
+document.getElementById("nums").onclick=e=>{const on=document.body.classList.toggle("nums"); e.target.classList.toggle("on",on);};
+document.getElementById("boxmode").onclick=e=>{boxInclude=!boxInclude; e.target.textContent=boxInclude?"Box: include":"Box: exclude"; e.target.classList.toggle("on",boxInclude);};
+window.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&e.key==="z"){document.getElementById("undo").click(); e.preventDefault();} });
+window.addEventListener("message",ev=>{
+  const d=ev.data; if(!d||d.type!=="streamlit:render") return;
+  const a=d.args; const fresh=(a.skey!==key);
+  if(a.numbers!==undefined && fresh){ document.body.classList.toggle("nums",!!a.numbers); document.getElementById("nums").classList.toggle("on",!!a.numbers); }
+  A=a; if(fresh){ key=a.skey; excl=new Set(a.excluded||[]); hist=[]; rev=a.rev; build(); }
+  else if(a.rev!==undefined && a.rev!==rev){ rev=a.rev; clearTimeout(timer); hist.push([...excl]); excl=new Set(a.excluded||[]);
+    A.particles.forEach(p=>paint(p.id)); stats(); }          // page Undo/Redo on the server
+  else { stats(); }
+});
+window.addEventListener("resize",setHeight);
+send("streamlit:componentReady",{apiVersion:1});
+</script></body></html>

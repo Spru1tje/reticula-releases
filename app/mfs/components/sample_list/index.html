@@ -1,0 +1,86 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>
+body{margin:0;font-family:"Source Sans Pro","Segoe UI",system-ui,sans-serif;font-size:14px;color:#1F2937;background:transparent}
+.bar{display:flex;gap:6px;align-items:center;margin:2px 0 6px;flex-wrap:wrap}
+.bar button{border:1px solid #CBD5E1;background:#fff;border-radius:6px;padding:2px 10px;font-size:13px;cursor:pointer;color:#1F2937}
+.bar button:hover{border-color:#0F766E;color:#0F766E}
+.bar .info{color:#64748B;font-size:12px;margin-left:auto}
+.row{display:flex;align-items:center;gap:8px;padding:3px 6px;border:1px solid #E2E8F0;border-radius:7px;margin-bottom:3px;background:#fff}
+.row.off{opacity:.55;background:#F8FAFC}
+.row.drag{opacity:.35}
+.row.over{border-color:#0F766E;box-shadow:0 -2px 0 #14B8A6 inset}
+.h{cursor:grab;color:#94A3B8;user-select:none;font-size:15px;padding:0 2px}
+.h:active{cursor:grabbing}
+input[type=checkbox]{width:16px;height:16px;accent-color:#0F766E;cursor:pointer}
+input[type=color]{width:26px;height:22px;border:1px solid #CBD5E1;border-radius:5px;padding:0;background:none;cursor:pointer}
+input.nm{flex:1;min-width:80px;border:1px solid transparent;border-radius:5px;padding:2px 5px;font-size:14px;background:transparent;color:#111827}
+input.nm:hover{border-color:#E2E8F0}
+input.nm:focus{border-color:#0F766E;outline:none;background:#fff}
+.f{color:#94A3B8;font-size:11px;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pos{color:#94A3B8;font-size:11px;width:18px;text-align:right}
+.mv{border:none;background:none;color:#94A3B8;cursor:pointer;font-size:12px;padding:0 1px}
+.mv:hover{color:#0F766E}
+</style></head><body>
+<div class="bar">
+ <button id="all" title="Show all samples">All</button><button id="none" title="Hide all samples">None</button>
+ <button id="inv" title="Invert the selection">Invert</button><button id="rev" title="Reverse the order">Reverse</button>
+ <span class="info" id="info"></span>
+</div>
+<div id="list"></div>
+<script>
+function send(type,data){window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:type},data),"*");}
+function setHeight(){send("streamlit:setFrameHeight",{height:document.body.scrollHeight+6});}
+let A=null, items=[], last=null, dragI=null, timer=null, sig="", lastSent=0;
+function commit(){ info(); clearTimeout(timer); lastSent=Date.now(); const t=lastSent;
+  timer=setTimeout(()=>send("streamlit:setComponentValue",
+  {value:{key:A.skey,items:items.map(o=>({id:o.id,name:o.name,colour:o.colour,show:o.show})),t:t},dataType:"json"}),A.debounce||250); }
+function info(){ const n=items.filter(o=>o.show).length; document.getElementById("info").textContent=
+  `${n} of ${items.length} shown · drag ⋮⋮ to reorder (top = first in legend / stack) · shift-click = range`; }
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+function render(){
+  const L=document.getElementById("list"); L.innerHTML="";
+  items.forEach((o,i)=>{
+    const r=document.createElement("div"); r.className="row"+(o.show?"":" off"); r.draggable=true; r.dataset.i=i;
+    r.innerHTML=`<span class="h" title="drag to reorder">⋮⋮</span><span class="pos">${i+1}</span>`+
+      `<input type="checkbox" ${o.show?"checked":""} title="show / hide (shift-click: range)">`+
+      `<input type="color" value="${esc(o.colour)}" title="colour">`+
+      `<input class="nm" value="${esc(o.name)}" title="sample name (legend); $_2$ = subscript">`+
+      `<span class="f" title="${esc(o.id)}">${esc(o.id)}</span>`+
+      `<button class="mv up" title="move up">▲</button><button class="mv dn" title="move down">▼</button>`;
+    const cb=r.querySelector("input[type=checkbox]");
+    cb.addEventListener("click",ev=>{
+      const v=cb.checked;
+      if(ev.shiftKey && last!==null){ const a=Math.min(last,i), b=Math.max(last,i); for(let k=a;k<=b;k++) items[k].show=v; }
+      else items[i].show=v;
+      last=i; render(); commit();
+    });
+    r.querySelector("input[type=color]").addEventListener("change",ev=>{items[i].colour=ev.target.value; commit();});
+    const nm=r.querySelector("input.nm");
+    nm.addEventListener("change",()=>{items[i].name=nm.value.trim()||items[i].name; commit();});
+    nm.addEventListener("keydown",ev=>{if(ev.key==="Enter") nm.blur();});
+    r.querySelector(".up").addEventListener("click",()=>move(i,i-1));
+    r.querySelector(".dn").addEventListener("click",()=>move(i,i+1));
+    r.addEventListener("dragstart",ev=>{dragI=i; r.classList.add("drag"); ev.dataTransfer.effectAllowed="move"; ev.dataTransfer.setData("text/plain",String(i));});
+    r.addEventListener("dragend",()=>{r.classList.remove("drag"); document.querySelectorAll(".row.over").forEach(e=>e.classList.remove("over"));});
+    r.addEventListener("dragover",ev=>{ev.preventDefault(); r.classList.add("over");});
+    r.addEventListener("dragleave",()=>r.classList.remove("over"));
+    r.addEventListener("drop",ev=>{ev.preventDefault(); const from=dragI!==null?dragI:parseInt(ev.dataTransfer.getData("text/plain")); move(from,i); dragI=null;});
+    L.appendChild(r);
+  });
+  info(); setHeight();
+}
+function move(a,b){ if(b<0||b>=items.length||a===b) return; const [o]=items.splice(a,1); items.splice(b,0,o); last=null; render(); commit(); }
+document.getElementById("all").onclick=()=>{items.forEach(o=>o.show=true); render(); commit();};
+document.getElementById("none").onclick=()=>{items.forEach(o=>o.show=false); render(); commit();};
+document.getElementById("inv").onclick=()=>{items.forEach(o=>o.show=!o.show); render(); commit();};
+document.getElementById("rev").onclick=()=>{items.reverse(); last=null; render(); commit();};
+window.addEventListener("message",ev=>{
+  const d=ev.data; if(!d||d.type!=="streamlit:render") return;
+  A=d.args; const s=JSON.stringify(A.items);
+  if(lastSent && (A.applied_t||0) < lastSent) return;   // the app has not seen our latest change yet: keep local state
+  if(s===sig) return;                     // same state as last render: keep (an edit may be in flight)
+  if(document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("nm") && sig) return;
+  sig=s; items=A.items.map(o=>Object.assign({},o)); render();
+});
+send("streamlit:componentReady",{apiVersion:1});
+</script></body></html>

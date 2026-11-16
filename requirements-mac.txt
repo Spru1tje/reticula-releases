@@ -1,0 +1,9 @@
+# Extra packages the Windows build ships but that are not in requirements.txt.
+# Versions match the v2.11.0 Windows environment where practical.
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.10
+pytesseract==0.3.13
+streamlit-image-coordinates==0.4.1
+h5py==3.16.0
+hdf5plugin==7.1.0
+pyarrow==26.0.1
