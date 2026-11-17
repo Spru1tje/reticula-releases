@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from test_sem_e2e_browser import _browser
 from test_v211_e2e_browser import gurl  # noqa: F401  (module fixture: a fresh app server)
 
-SHOTS = os.environ.get("MFS_SHOTS", "/workspace/upgrades/v2.13/shots")
+SHOTS = os.environ.get("MFS_SHOTS") or os.path.join(__import__("tempfile").gettempdir(), "reticula_shots")
 
 
 def _zones(fr):

@@ -140,6 +140,11 @@ def show(path, title, tail=120):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     if len(sys.argv) >= 4 and sys.argv[1] == "--session":
         print(json.dumps(session(int(sys.argv[2]), float(sys.argv[3]))))
         return 0

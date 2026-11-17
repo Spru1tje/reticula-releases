@@ -9,6 +9,8 @@ REAL = os.path.join(ROOT, "tests", "data", "Mettler_STARe_SG_DSC_1.1_1K_REAL.txt
 
 
 def test_dsc_real_mettler_upload(url, tmp_path):
+    if not os.path.exists(REAL):
+        pytest.skip("private test data not in the public repository: Mettler_STARe_SG_DSC_1.1_1K_REAL.txt")
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         b = _browser(p)

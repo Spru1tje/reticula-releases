@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = next((p for p in ["/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", r"C:\Windows\Fonts\arial.ttf"] if os.path.exists(p)), None)
+                         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", r"C:\Windows\Fonts\arial.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf", "/Library/Fonts/Arial.ttf"] if os.path.exists(p)), None)
 
 
 def _texture(w, h, seed=0):
@@ -24,7 +24,7 @@ def make(style, w=1024, h=884, seed=0):
     img = Image.new("L", (w, h + strip), 0 if style not in ("white_strip",) else 255)
     img.paste(Image.fromarray(_texture(w, h, seed)), (0, 0))
     d = ImageDraw.Draw(img)
-    f = ImageFont.truetype(FONT, 22)
+    f = ImageFont.truetype(FONT, 22) if FONT else ImageFont.load_default(22)
     y = h + 20
     if style == "zeiss":            # label above bar, left; Mag = 10.00 K X
         L = 300; d.text((40, y - 6), "1 µm", fill=255, font=f); d.rectangle([40, y + 26, 40 + L - 1, y + 33], fill=255)

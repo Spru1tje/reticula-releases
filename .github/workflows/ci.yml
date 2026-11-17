@@ -98,7 +98,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          PY_PYTHON: ${{ matrix.python }}
+          RETICULA_PY: ${{ matrix.python }}
         run: python pkg/smoke_server.py --timeout 1500 --client-python "$env:RT_VPY" -- cmd /c "$env:RT_DIR\app\run_windows.bat"
       - name: First start with the run script (creates .venv, installs, starts)
         if: runner.os != 'Windows'
