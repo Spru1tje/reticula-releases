@@ -726,10 +726,53 @@ def _zeta_excel_table(raw: bytes) -> pd.DataFrame:
                      "Zeta Potential). Export the records from ZS Xplorer (or the Zetasizer software) as Excel/CSV with those parameters.")
 
 
+def _zeta_dts(raw: bytes):
+    """v2.14: Zetasizer Nano / Classic software `.dts` file (an OLE container with one stream REC<n> per record). Verified on real files:
+    the sample name and the 70-bin size axis (0.4-10 000 nm) with the INTENSITY size distribution (sums to 100 %). Z-average, PDI and the zeta
+    potential are NOT decoded (their position in the record is not documented): they stay empty - export them to Excel / CSV from the
+    Zetasizer software for those. Returns the same dict as read_zetasizer or None when this is not a .dts (a .xls is an OLE file too)."""
+    try:
+        import olefile
+    except ImportError:
+        return None
+    try:
+        ole = olefile.OleFileIO(io.BytesIO(raw))
+    except Exception:
+        return None
+    names = [s[0] for s in ole.listdir(streams=True, storages=False) if len(s) == 1]
+    recs = sorted((n for n in names if re.fullmatch(r"REC\d+", n)), key=lambda n: int(n[3:]))
+    if not recs or "Header" not in names:
+        return None
+    sig = np.array([0.4, 0.46323168, 0.53645897], "<f4").tobytes()
+    rows, summ = [], []
+    for n in recs:
+        d = ole.openstream(n).read()
+        i = d.find(sig)
+        if i < 0 or i + 560 > len(d):
+            continue
+        sizes = np.frombuffer(d[i:i + 280], "<f4").astype(float)
+        inten = np.frombuffer(d[i + 280:i + 560], "<f4").astype(float)
+        if abs(inten.sum() - 100.0) > 1.0:
+            continue
+        strs = [x.decode("utf-16le") for x in re.findall(rb"(?:[\x20-\x7e]\x00){3,}", d)]
+        nm = next((s_.strip() for s_ in strs if re.fullmatch(r".+ \d+\s*", s_) and not s_.startswith("C:")), f"record {int(n[3:])}")
+        summ.append({"sample": nm, "z_avg": np.nan, "pdi": np.nan, "zeta": np.nan, "zeta_sd": np.nan})
+        rows += [(nm, float(a), float(b), np.nan, np.nan) for a, b in zip(sizes, inten)]
+    if not summ:
+        return None
+    return {"summary": pd.DataFrame(summ), "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number"]),
+            "note": "This .dts file gives the sample names and the intensity size distribution. Z-average, PDI and ζ-potential are not read from .dts "
+                    "files – export them from the Zetasizer software (File → Export → Excel / CSV) and upload that file to get them."}
+
+
 def read_zetasizer(src, name: str = ""):
     """Malvern Zetasizer software 'Export' (CSV or Excel with the selected parameters; Zetasizer Nano / Ultra).
     Returns dict(summary=DataFrame, dist=DataFrame|None) with columns sample, z_avg, pdi, zeta, zeta_sd."""
     raw = _to_bytes(src)
+    if raw[:4] == b"\xd0\xcf\x11\xe0":
+        dts = _zeta_dts(raw)                                            # v2.14: Zetasizer .dts (size distribution + names)
+        if dts is not None:
+            return dts
     if raw[:2] == b"PK" or raw[:4] == b"\xd0\xcf\x11\xe0":            # v2.14: Excel export (.xlsx / .xls) as well as CSV
         df = _zeta_excel_table(raw)
     else:

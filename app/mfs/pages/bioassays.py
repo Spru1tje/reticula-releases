@@ -58,12 +58,14 @@ def page_zeta():
     st.header("Zeta potential / DLS – Malvern Zetasizer")
     st.caption("Zetasizer Ultra / Nano: export the records with Sample Name, Z-Average, PDI, Zeta Potential, Zeta Deviation and the size distribution "
                "(Sizes / Intensities) as **CSV or Excel (.xlsx / .xls)** and drop the file here. "
-               "ℹ️ `.dts` files belong to the older *Classic* Zetasizer software (ZS Xplorer on the Ultra cannot open them either): "
-               "open them there and export to Excel/CSV, or send a sample `.dts` so a direct reader can be added.")
-    files = files_input("Zetasizer export (CSV / Excel)", ["csv", "txt", "xlsx", "xls"], "Zeta-DLS/*.csv", "zeta", multiple=False)
+               "ℹ️ `.dts` files (older Zetasizer software) are read for the sample names and the size distribution; Z-average, PDI and ζ "
+               "need the Excel / CSV export of the same records.")
+    files = files_input("Zetasizer export (CSV / Excel / .dts)", ["csv", "txt", "xlsx", "xls", "dts"], "Zeta-DLS/*.csv", "zeta", multiple=False)
     if not files:
         return
     z = dict(R.read_zetasizer(files[0], files[0].name))
+    if z.get("note"):
+        st.info(z["note"])
     _sel = sample_names_list(list(pd.unique(z["summary"]["sample"].astype(str))), "zeta_samples")
     z["summary"] = _apply_sample_list(z["summary"], "sample", None, _sel)
     if z.get("dist") is not None:

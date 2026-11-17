@@ -19,7 +19,7 @@
 - Analysis: ¹³C satellites are recognised, nH ± uncertainty, a flag for integrals that are not integers (overlap / exchange), and a reliability column in the assignment table (ok / check / ambiguous / doubtful).
 
 ### Zeta / DLS
-- Excel (.xlsx / .xls) exports as well as CSV; volume and number distributions; Z-average, PDI and ζ as movable texts in the DLS figure; quality notes; generated Methods / SI text.
+- Excel (.xlsx / .xls) exports as well as CSV, and `.dts` files (sample names + intensity size distribution; Z-average / PDI / ζ need the Excel / CSV export); volume and number distributions; Z-average, PDI and ζ as movable texts in the DLS figure; quality notes; generated Methods / SI text.
 
 ### All figures
 - **Font family** per figure and for the legend, **legend-title size**; legend font size, frame and title now work without ticking *Customise the legend* (the font size also sizes direct labels).

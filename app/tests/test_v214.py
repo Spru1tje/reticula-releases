@@ -457,3 +457,18 @@ def test_rods_are_found_whole_and_squares_are_not_merged():
     lab, f, t, info = PA.segment_adaptive(img)
     assert not info["_pieces_merged"]                                                   # squares / cubes keep their separate segments
     assert len(PS.evaluate(img, truth, lab, f, info)) == len(truth)
+
+
+def test_zetasizer_dts_reads_names_and_intensity_distribution():
+    """A real .dts (MFS_TEST_DTS=path) is read for the sample names and the intensity size distribution; xls files are not mistaken for .dts."""
+    path = os.environ.get("MFS_TEST_DTS") or os.path.join(HERE, "tests", "data", "ZrO2-2-Aliquot1.dts")
+    if not os.path.exists(path):
+        pytest.skip("no .dts test file (private measurement data is not part of the repository)")
+    z = R.read_zetasizer(open(path, "rb").read(), "x.dts")
+    assert len(z["summary"]) >= 1 and z["summary"]["sample"].str.len().min() > 0
+    sums = z["dist"].groupby("sample").intensity.sum()
+    assert np.allclose(sums, 100.0, atol=0.5)
+    assert z["dist"].size_nm.min() == pytest.approx(0.4, rel=1e-3) and z["dist"].size_nm.max() == pytest.approx(10000.0, rel=1e-3)
+    assert z["summary"][["z_avg", "pdi", "zeta"]].isna().all().all() and "Excel" in z["note"]
+    # an .xls (also an OLE file) must not be taken for a .dts
+    assert R._zeta_dts(b"\xd0\xcf\x11\xe0" + b"\x00" * 600) is None

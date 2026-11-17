@@ -8,3 +8,5 @@ dist/
 tests/data/TEM_*
 tests/data/olympus_sis/
 tests/data/*_REAL.*
+
+tests/data/*.dts

@@ -16,7 +16,8 @@ rdkit>=2024.3          # 1H NMR page: structures, shift prediction, assignment (
 streamlit-ketcher>=0.0.1  # 1H NMR page: offline structure editor (v2.13)
 pytesseract>=0.3.10    # scale-bar OCR on SEM/TEM images (needs the Tesseract program; the installers bundle it)
 streamlit-image-coordinates>=0.1.9  # click-to-calibrate on SEM/TEM images
-h5py>=3.10             # ncempy .emd / HDF5 TEM files
+h5py>=3.10
+olefile>=0.46          # Zetasizer .dts files (OLE container)             # ncempy .emd / HDF5 TEM files
 # optional: STOE binary .raw files ->  pip install xylib-py  (needs a C++ compiler; ASCII .xy works without it)
 # optional (developers only): xlwt (1.3.0) to regenerate the synthetic .xls test files;
 #   playwright (1.65.1) + `playwright install chromium` for tests/test_downloads_browser.py (skipped if missing)
