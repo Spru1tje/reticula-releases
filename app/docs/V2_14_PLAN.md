@@ -21,13 +21,13 @@
 |---|---|---|
 | 1 | Zeta/DLS tab updated | **done (first version)** |
 | 2 | Upload Excel exports of the Zetasizer Ultra | **done** (CSV, .xlsx, .xls; header row found automatically) |
-| 2b | `.dts` files | **needs a sample file.** `.dts` is the *Classic* Zetasizer (Nano) software format; ZS Xplorer (Ultra) does not read it either (Malvern release notes). Reader to follow when a file is available; until then export to Excel/CSV |
+| 2b | `.dts` files | **researched, reader not shipped yet** – see section 4. Until then export to Excel/CSV |
 | 3 | PDI and Z-average (and ζ) in the DLS figure with tick boxes, movable | **done** (coloured text per sample, ± SD option, drag with "Move / edit labels on the figure") |
 | 4 | Legend movable | **done** (the v2.12 label mover moves legends; legend tick boxes added to the zeta and DLS figures) |
 | 5 | Legend-title font size | **done** (Customise → Legend → "Legend-title size") |
 | 6 | More font types | **done** (per figure and for the legend; installed extra families are offered, e.g. Verdana, Georgia, Palatino, Garamond, Consolas) |
 | 7 | Particle sizer progress bar with time left | **done** (bar per batch: image k of n, seconds elapsed and left; the estimate learns from earlier runs in the session) |
-| 8 | Ar and CO₂ sorption tabs | **designed below – needs example files** |
+| 8 | Ar and CO₂ sorption | **instrument readers for 3P (Ar) and Quantachrome Autosorb 6100 / iQ moved to the later to-do list** (decision 17 Nov). The analysis part (Ar 87 K, CO₂ 273 K in the existing sorption page, using the file formats that are already supported) stays proposed in section 2 |
 
 ## 2. Ar / CO₂ sorption – proposal
 Instruments: 3P (Ar), Quantachrome Autosorb 6100 and Autosorb iQ (physisorption).
@@ -52,3 +52,17 @@ Kernels: the MIT-licensed DFT kernel already bundled is N₂/77 K – Ar/87 K an
 6. **Data audit**: flag outlier records, suspicious PDI (> 0.7), negative isotherm points, non-monotonic adsorption branches before they end up in a figure.
 7. **Project recipe**: one `.reticula` file that restores data, settings and figure layout (exists since v2.11) + "re-run with new data" for the same sample set.
 8. v2.15 candidates: ¹³C/DEPT, ³¹P/¹⁹F, 2D NMR, generic ICP/XRF page, data-editor tables in projects/undo.
+
+## 4. `.dts` research (17 Nov)
+Public test files found: three Zetasizer `.dts` raw-data files (CC-BY-4.0) on FAIRDOMHub (data files 4137, 4138, 4186; University of Stuttgart DLS of Gre2p) – no
+Zeta/size *exports* of the same measurements are public, so the numbers cannot be checked against the instrument's own table.
+Verified structure (by inspection):
+- a `.dts` is a Microsoft **OLE compound file** (magic `D0CF11E0`) with the streams `Header`, `Deleted` and one `REC<n>` per record (≈ 20 kB each);
+- inside a record: UTF-16 strings (software version, sample name, SOP path, notes), float64 date stamps (Excel day numbers), and float32 arrays:
+  the 70-bin size axis 0.4 → 10 000 nm, directly followed by the **intensity distribution (70 values, sums to exactly 100 %)**, plus correlation curves and their lag-time axes;
+- **not yet found:** where Z-average, PDI and the zeta values are stored (no fixed offset relative to the size axis; the records have variable-length text in front).
+Next step: one `.dts` of your own **together with the Excel/CSV export of the same records** (the Zetasizer software can write both). With the exported numbers as ground truth the fields can be located
+in minutes; without it any value I extracted would be a guess. A cumulant fit of the stored correlation curve would give a Z-average/PDI estimate but not the instrument's own number, so it is not offered as "Z-average".
+
+## 5. Later (to-do)
+- 3P (Ar) and Quantachrome Autosorb 6100 / iQ file readers (need one real export per instrument).
