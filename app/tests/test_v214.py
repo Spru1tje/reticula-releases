@@ -438,3 +438,22 @@ def test_pl_page_runs_on_both_examples_and_gives_the_known_numbers(tmp_path, mon
     assert not at.exception, [e.value for e in at.exception][:2]
     vals = {m.label: m.value for m in at.metric}
     assert abs(float(vals["Eₐ"].split()[0]) - 250) < 10 and abs(float(vals["T₅₀"].split()[0]) - 382) < 12
+
+
+def test_rods_are_found_whole_and_squares_are_not_merged():
+    import particle_synth as PS
+    from mfs import particles as PA
+    found = true = 0
+    errs = []
+    for seed in range(2):
+        img, truth = PS.make("rod", n=14, size=56, seed=seed)
+        lab, f, t, info = PA.segment_adaptive(img)
+        assert info["_elongated"]["elongated"] and info["_pieces_merged"]               # the population is recognised as elongated
+        ev = PS.evaluate(img, truth, lab, f, info)
+        found += len(ev); true += len(truth); errs += [(d / dt - 1) * 100 for _, dt, d in ev]
+    assert found / true >= 0.85, (found, true)                                          # was 44 % before the merge step
+    assert abs(np.mean(errs)) < 13.0, np.mean(errs)
+    img, truth = PS.make("square", n=14, size=56, seed=0)
+    lab, f, t, info = PA.segment_adaptive(img)
+    assert not info["_pieces_merged"]                                                   # squares / cubes keep their separate segments
+    assert len(PS.evaluate(img, truth, lab, f, info)) == len(truth)

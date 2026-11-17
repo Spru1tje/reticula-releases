@@ -508,6 +508,92 @@ def estimate_side_px(m):
     return float(2 * np.median(v))
 
 
+def _pair_geometry(mask):
+    """(solidity, aspect ratio from the principal axes) of a boolean mask."""
+    yy, xx = np.nonzero(mask)
+    if len(yy) < 6:
+        return 0.0, 1.0
+    P = np.stack([xx, yy], 1).astype(float)
+    w, _ = np.linalg.eigh(np.cov((P - P.mean(0)).T))
+    return _solidity(mask), float(math.sqrt(max(w[1], 1e-9) / max(w[0], 1e-9)))
+
+
+def elongated_population(m, L, min_n=3, aspect_min=1.8):
+    """v2.14: does the sample consist of ELONGATED particles (rods)? Looks at the isolated, convex single particles of the
+    foreground mask (connected components of 0.4-10 L^2 with solidity >= 0.9): median aspect ratio of their principal axes.
+    Squares / cubes / spheres give ~1, rods > 1.8. Returns {'elongated', 'aspect', 'n'}."""
+    lm, n = ndi.label(m)
+    asp = []
+    A1 = L * L
+    for i, sl in enumerate(ndi.find_objects(lm), start=1):
+        if sl is None:
+            continue
+        sub_ = lm[sl] == i
+        A = int(sub_.sum())
+        if not (0.4 * A1 <= A <= 10 * A1):
+            continue
+        sol, a = _pair_geometry(sub_)
+        if sol >= 0.9:
+            asp.append(a)
+    med = float(np.median(asp)) if len(asp) >= min_n else None
+    return {"elongated": bool(med is not None and med >= aspect_min), "aspect": med, "n": len(asp)}
+
+
+def merge_elongated(lab, c, L, solidity_min=0.93, aspect_min=1.3, saddle_min=0.7, max_area_f=14.0):
+    """v2.14: an elongated particle (rod, platelet seen edge-on) is cut into pieces by the markers that are placed at the scale of the
+    particle WIDTH. Two touching segments are merged when (1) their union is convex (solidity >= solidity_min) and clearly elongated
+    (aspect >= aspect_min) - two touching round particles are never convex - and (2) the contrast along their interface shows no valley
+    (>= saddle_min of the weaker core): a gap or overlap line between two particles has one. Repeated until nothing changes."""
+    lab = lab.copy()
+    A_max = max_area_f * L * L
+    for _ in range(12):
+        objs = ndi.find_objects(lab)
+        ids = [i for i, sl in enumerate(objs, start=1) if sl is not None]
+        if len(ids) < 2:
+            break
+        areas = np.bincount(lab.ravel(), minlength=lab.max() + 1)
+        cores = {}
+        best = None
+        for i in ids:
+            sl = objs[i - 1]
+            pad = 2
+            sl2 = (slice(max(0, sl[0].start - pad), sl[0].stop + pad), slice(max(0, sl[1].start - pad), sl[1].stop + pad))
+            sub_i = lab[sl2] == i
+            ring = ndi.binary_dilation(sub_i, iterations=1) & ~sub_i
+            for j in np.unique(lab[sl2][ring]):
+                if j <= i:
+                    continue
+                inter = ring & (lab[sl2] == j)
+                n_int = int(inter.sum())
+                if n_int < 3:
+                    continue
+                sub_j = lab[sl2] == j
+                union = sub_i | sub_j
+                if areas[i] + areas[j] > A_max:
+                    continue
+                if n_int < 0.3 * math.sqrt(min(areas[i], areas[j])):        # only a point contact: not one particle
+                    continue
+                sol, asp = _pair_geometry(union)
+                if sol < solidity_min or asp < aspect_min:
+                    continue
+                cc = c[sl2]
+                for k, sm in ((i, sub_i), (j, sub_j)):
+                    if k not in cores:
+                        dd = ndi.distance_transform_edt(sm)
+                        inner = dd >= max(1.0, 0.4 * dd.max())
+                        cores[k] = float(np.percentile(cc[inner], 60)) if inner.any() else 0.0
+                saddle = float(np.percentile(cc[inter | (ndi.binary_dilation(inter) & union)], 50))
+                if min(cores[i], cores[j]) <= 0 or saddle < saddle_min * min(cores[i], cores[j]):
+                    continue
+                if best is None or sol > best[0]:
+                    best = (sol, i, j)
+        if best is None:
+            break
+        _, i, j = best
+        lab[lab == j] = i
+    return lab
+
+
 def refine_edges(lab, c, level=None, delta_px=None, grow_f=0.35, min_grow_px=4):
     """v2.14: put the outline of NON-round particles on the same calibrated edge as the sphere model does for round ones.
     The thresholded mask of the segmentation sits too far out (blur and halo): on the SiO2-NH2 TEM series the mask-based
@@ -558,7 +644,7 @@ def refine_edges(lab, c, level=None, delta_px=None, grow_f=0.35, min_grow_px=4):
 def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=None, marker_sigma=0.25, nms_factor=0.6,
                      core_weight=1.0, dist_weight=0.5, merge_factor=0.3, solidity_min=0.8, area_factor=2.0,
                      clear_border=True, max_px=1536, threshold=None, shape_prior=None, prior_strength=0.7, prior_k=10.0,
-                     sphere="auto", conf_min=None, sphere_level=None, sphere_delta=None, edge_refine=True):
+                     sphere="auto", conf_min=None, sphere_level=None, sphere_delta=None, edge_refine=True, merge_pieces="auto"):
     """v2.10 default: background flattening + hysteresis threshold, cube-scale markers (LoG of the contrast at σ =
     marker_sigma·L plus the distance map of the locally-darker cores), greedy NMS at nms_factor·L, marker watershed on
     the contrast; regions > area_factor·L² or with solidity < solidity_min are 'aggregate' (excluded by default).
@@ -596,6 +682,10 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         l2, _ = ndi.label(rest); lab = np.where(rest, l2 + lab.max(), lab)
     A1 = L * L
     lab = _merge_small(lab, merge_factor * A1)
+    ep = elongated_population(m, L)
+    do_merge = bool(merge_pieces is True or (merge_pieces == "auto" and ep["elongated"]))
+    if do_merge:
+        lab = merge_elongated(lab, c, L)                  # v2.14: rods that were cut into pieces become one particle again
     info = {}
     for i, sl in enumerate(ndi.find_objects(lab), start=1):
         if sl is None:
@@ -604,9 +694,11 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         if A < 0.15 * A1:                          # isolated specks (noise, dust)
             lab[sl][sub] = 0; continue
         so = _solidity(sub)
-        info[i] = {"kind": "aggregate" if (A > area_factor * A1 or so < solidity_min) else "particle", "solidity": so}
+        # a big particle is an aggregate only when it is not convex: an elongated single particle (rod) is much larger than a square
+        big_ok = do_merge and so >= 0.93
+        info[i] = {"kind": "aggregate" if ((A > area_factor * A1 and not big_ok) or so < solidity_min) else "particle", "solidity": so}
     info_extra = {"_r_est_px": L / math.sqrt(math.pi), "_side_px": L, "_min_dist_px": nms_factor * L, "_holes": 0,
-                  "_noise": sn, "_lo": lo, "_hi": hi, "_contrast": c}
+                  "_noise": sn, "_lo": lo, "_hi": hi, "_contrast": c, "_elongated": ep, "_pieces_merged": do_merge}
     sph = None
     if sphere:
         from mfs import spheres as SPH
@@ -650,13 +742,13 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         lab, info, pr = SP.apply_prior(lab, info, c, L, strength=prior_strength, k=prior_k,
                                        solidity_min=solidity_min, area_factor=area_factor)
         info_extra["_prior"] = pr
-    if edge_refine and not (sph and sph.get("active")):      # v2.14: calibrated edge for non-round particles (circles already have it)
-        lab = refine_edges(lab, c)
-        info_extra["_edge_refined"] = True
     if clear_border:
         edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
         lab = np.where(np.isin(lab, edge[edge > 0]), 0, lab)
         info = {k: v for k, v in info.items() if k not in set(edge.tolist())}
+    if edge_refine and not (sph and sph.get("active")):      # v2.14: calibrated edge for non-round particles (circles already have it)
+        lab = refine_edges(lab, c)
+        info_extra["_edge_refined"] = True
     present = set(np.unique(lab).tolist()) - {0}
     info = {k: v for k, v in info.items() if k in present}
     info.update(info_extra)
