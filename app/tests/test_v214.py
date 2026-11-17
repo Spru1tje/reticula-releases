@@ -154,3 +154,48 @@ def test_methods_text_uses_only_the_data():
     assert "Z-average diameters were 120–150 nm" in t and "PDI 0.12–0.20" in t and "-30.2–-22.0 mV" in t
     assert "3 records per sample" in t and "[model]" in t and "[temperature]" in t
     assert MT.dls_methods([]) == ""
+
+
+# ---------------------------------------------------------------- NMR: proton letters, figure layout
+def test_proton_tags_are_letters_from_the_most_downfield_group():
+    from mfs import nmrassign as A, nmrpredict as HP
+    G = A.groups(HP.mol_from_any("CC(=O)Oc1ccccc1C(=O)O"))
+    tags = {g["tag"] for g in G}
+    assert tags == set("abcdef")
+    by_shift = sorted(G, key=lambda g: -g["shift"])
+    assert [g["tag"] for g in by_shift] == list("abcdef")
+    assert A._letters(0) == "a" and A._letters(25) == "z" and A._letters(26) == "aa" and A._letters(27) == "ab"
+    assert A.proton_label(G[0]).startswith("H") and not any(ch.isdigit() for ch in A.proton_label(G[0]))
+
+
+def _nmr_fig(**kw):
+    import warnings
+    warnings.filterwarnings("ignore")
+    from mfs import nmrproc as NP, nmrpeaks as PK, nmrpredict as HP, nmrassign as A, nmrfig as NF
+    fn = os.path.join(HERE, "example_data", "NMR_1H", "aspirin_300_XWIN35.zip")
+    sp = NP.process(NP.load(open(fn, "rb").read(), "a.zip")[0], lb=None, p0=None, p1=None, reference="auto", use_topspin=True)
+    ms = PK.analyse(sp, k=6.0, solvent="CDCl3"); PK.normalise(ms)
+    mol = HP.mol_from_any("CC(=O)Oc1ccccc1C(=O)O"); G = A.groups(mol); A.assign(G, ms)
+    fig, ax = plt.subplots(figsize=(3.25, 1.5)); NF.draw(ax, sp, ms, mol, G, {}, **kw)
+    fig.canvas.draw()
+    return fig, ax
+
+
+def test_nmr_figure_texts_stay_inside_the_axes_and_off_the_axis():
+    fig, ax = _nmr_fig()
+    ab = ax.get_window_extent()
+    for t in ax.texts:
+        if not t.get_text() or t.get_transform() == ax.transAxes:
+            continue
+        bb = t.get_window_extent()
+        assert bb.y1 <= ab.y1 + 1.0 and bb.y0 >= ab.y0 - 1.0, (t.get_text(), bb, ab)     # nothing clipped or through the x axis
+    plt.close(fig)
+
+
+def test_integral_numbers_can_be_hidden():
+    f1, a1 = _nmr_fig(); f2, a2 = _nmr_fig(show_int_numbers=False)
+    n1 = [t.get_text() for t in a1.texts if t.get_text().replace(".", "").isdigit()]
+    n2 = [t.get_text() for t in a2.texts if t.get_text().replace(".", "").isdigit()]
+    assert len(n1) >= 5 and n2 == []
+    assert any(ln.get_color() == "#0072B2" for ln in a2.lines)            # the bars stay
+    plt.close(f1); plt.close(f2)

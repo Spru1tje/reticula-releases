@@ -63,9 +63,10 @@ def payload(sp, mults, mol, groups, assignment, fixed=None, width=760, mol_size=
     for g in groups:
         xy = np.mean([coords[a] for a in g["atoms"]], axis=0)
         sh = "–" if g["shift"] is None else f"{g['shift']:.2f}"
-        chips.append(dict(gid=g["gid"], x=float(xy[0]), y=float(xy[1]), text=",".join(map(str, g["labels"])),
+        on = ", ".join(f"{mol.GetAtomWithIdx(a).GetSymbol()}{a + 1}" for a in g["atoms"])
+        chips.append(dict(gid=g["gid"], x=float(xy[0]), y=float(xy[1]), text="H" + g.get("tag", ",".join(map(str, g["labels"]))),
                           fixed=g["gid"] in fixed,
-                          title=f"H on atom {','.join(map(str, g['labels']))} · {g['nH']}H · predicted {sh} ppm ({g['conf']})"))
+                          title=f"H{g.get('tag', '')}: {g['nH']} H on {on} · predicted {sh} ppm ({g['conf']})"))
     return dict(mol_src=mol_src, spec_src=spec_src, mw=mol_size[0], sw=W, zones=zones, groups=chips,
                 assign={str(k): v for k, v in assignment.items()})
 

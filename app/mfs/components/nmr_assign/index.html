@@ -3,7 +3,7 @@
  #row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
  .pane{position:relative;user-select:none;border:1px solid #D5DEEA;border-radius:8px;background:#fff}
  .pane img{display:block}
- .chip{position:absolute;transform:translate(-50%,-50%);min-width:18px;padding:1px 5px;border-radius:10px;font-size:11px;font-weight:600;
+ .chip{position:absolute;transform:translate(-50%,-50%);min-width:22px;padding:1px 6px;border-radius:10px;font-size:11px;font-weight:600;
    text-align:center;cursor:grab;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);color:#fff;white-space:nowrap}
  .chip.un{background:#9AA9BC} .chip.fix{outline:2px solid #F97316}
  .zone{position:absolute;border:1px dashed rgba(15,118,110,.45);border-radius:3px;background:rgba(20,184,166,.05)}
@@ -20,7 +20,7 @@
  <button id="reset" title="Forget the manual corrections; back to the automatic assignment">↺ Automatic assignment</button></div>
 <div id="row"><div class="pane" id="mol"><img id="molimg"></div><div class="pane" id="spec"><img id="specimg"></div></div>
 <div id="bin">⊘ drop here = not observed / unassigned</div>
-<div id="hint">Drag a numbered H chip from the structure onto a multiplet (dashed box) to assign it there, or onto ⊘ to leave it
+<div id="hint">Drag an H chip (Ha, Hb …) from the structure onto a multiplet (dashed box) to assign it there, or onto ⊘ to leave it
  unassigned. Orange ring = set by you. Click a multiplet to see its atoms.</div>
 <script>
 const COL=["#0072B2","#D55E00","#009E73","#CC79A7","#E69F00","#56B4E9","#8C6D1F","#000000","#6A3D9A","#B15928"];

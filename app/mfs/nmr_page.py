@@ -164,56 +164,74 @@ def _characterisation(g):
         stem = os.path.splitext(f.name)[0]
         ss[mk] = mols.get(stem) or exst.get(f.name, "")
     g["PS"].track(mk)                    # after the default is in place: opening the page is not an "unsaved change"
-    st.subheader("1 · Structure")
-    t1, t2 = st.tabs(["✏️ Draw (editor)", "⌨️ SMILES / molfile"])
-    with t1:
+    st.markdown("#### 🧬 Structure")
+    rk = "_ket_rev|" + skey                       # bump to give the editor a fresh state (clear / use this structure)
+    ss.setdefault(rk, 0)
+    tk = "nmr1h_txt|" + skey
+
+    def _clear_structure():
+        ss[mk] = ""; ss[rk] += 1; ss[tk] = ""; ss.pop("_nmr_err|" + skey, None)
+
+    def _use_structure():
+        t_ = ss.get(tk, "")
+        if _mol(t_) is None:
+            ss["_nmr_err|" + skey] = "Could not read that structure (SMILES or molfile)."
+        else:
+            ss[mk] = t_; ss[rk] += 1; ss.pop("_nmr_err|" + skey, None)
+
+    c_edit, c_side = st.columns([3, 2], gap="large")
+    with c_edit:
         try:
             from streamlit_ketcher import st_ketcher
-            drawn = st_ketcher(ss[mk], height=420, molecule_format="MOLFILE", key="ketch_" + skey)
+            drawn = st_ketcher(ss[mk], height=680, molecule_format="MOLFILE", key=f"ketch_{skey}_{ss[rk]}")
             if drawn and drawn.strip() and drawn != ss[mk]:
                 m_ = _mol(drawn)
                 # the editor echoes the structure back as a molfile: only a different molecule is a change
                 if m_ is not None and m_.GetNumAtoms() and _canon(m_) != _canon(_mol(ss[mk]) if ss[mk] else None):
                     ss[mk] = drawn
         except Exception as e:
-            st.info(f"Structure editor unavailable ({e}); paste SMILES or a molfile in the other tab.")
-    with t2:
-        txt = st.text_area("SMILES or molfile", ss[mk], height=110, key="nmr1h_txt|" + skey)
-        if st.button("Use this structure", key="nmr1h_use|" + skey):
-            if _mol(txt) is None:
-                st.error("Could not read that structure.")
-            else:
-                ss[mk] = txt; st.rerun()
+            st.info(f"Structure editor unavailable ({e}); paste SMILES or a molfile on the right.")
     mol = _mol(ss[mk]) if ss[mk] else None
-    if mol is not None:
-        from rdkit.Chem import rdMolDescriptors as RD, Descriptors
-        st.caption(f"{RD.CalcMolFormula(mol)} · M = {Descriptors.MolWt(mol):.2f} g mol⁻¹ · "
-                   f"{sum(a.GetTotalNumHs() for a in mol.GetAtoms())} H")
-    # ---------------- integrals ------------------------------------------------------------------------------------------
-    st.subheader("2 · Multiplets and integrals")
-    c1, c2 = st.columns([2, 3])
-    nh_tot = sum(a.GetTotalNumHs() for a in mol.GetAtoms()) if mol is not None else None
-    norm_opts = ["best integer fit"] + (["total H of the structure (non-exchangeable)"] if mol is not None else []) + \
-        ["reference multiplet"]
-    norm = c1.radio("Normalise integrals by", norm_opts, key="nmr1h_norm")
-    refi = None
-    cand = [i for i, m in enumerate(mults) if not m.note]
-    if norm == "reference multiplet" and cand:
-        refi = c2.selectbox("Reference multiplet", cand, format_func=lambda i: f"δ {mults[i].centre:.2f} ({mults[i].mult})",
-                            key="nmr1h_refm")
-        refn = c2.number_input("… contains nH", 0.5, 60.0, 1.0, 0.5, key="nmr1h_refn")
-        PK.normalise(mults, ref_index=refi, ref_n=refn)
-    elif norm.startswith("total") and mol is not None:
-        from mfs import nmrpredict as HP
-        n_ne = sum(a.GetTotalNumHs() for a in mol.GetAtoms() if a.GetSymbol() not in HP.EXCHANGEABLE)
-        PK.normalise(mults)                                   # first pass: find the compound's multiplets
-        main = [m for m in mults if not m.note and (m.nH or 0) >= 0.5]
-        if main:
-            unit = sum(m.integral for m in main) / max(n_ne, 1)
-            for m in mults:
-                m.nH = round(m.integral / unit, 2)
-    else:
-        PK.normalise(mults)
+    with c_side:
+        with st.container(border=True):
+            st.markdown("**From text**")
+            st.text_area("SMILES or molfile", ss[mk], height=120, key=tk, label_visibility="collapsed",
+                         placeholder="Paste a SMILES (e.g. CC(=O)Oc1ccccc1C(=O)O) or a molfile")
+            b1, b2 = st.columns(2)
+            b1.button("✅ Use this structure", key="nmr1h_use|" + skey, on_click=_use_structure, width="stretch")
+            b2.button("🗑️ Clear structure", key="nmr1h_clear|" + skey, on_click=_clear_structure, width="stretch",
+                      help="Removes the structure: the spectrum is then analysed without assignment.")
+            if ss.get("_nmr_err|" + skey):
+                st.error(ss["_nmr_err|" + skey])
+        with st.container(border=True):
+            if mol is not None:
+                from rdkit.Chem import rdMolDescriptors as RD, Descriptors
+                st.markdown(f"**{RD.CalcMolFormula(mol)}** · M = {Descriptors.MolWt(mol):.2f} g mol⁻¹ · "
+                            f"{sum(a.GetTotalNumHs() for a in mol.GetAtoms())} H")
+            else:
+                st.markdown("**No structure** – the spectrum is analysed without assignment. Draw one on the left or paste a SMILES.")
+            nh_tot = sum(a.GetTotalNumHs() for a in mol.GetAtoms()) if mol is not None else None
+            norm_opts = ["best integer fit"] + (["total H of the structure (non-exchangeable)"] if mol is not None else []) + \
+                ["reference multiplet"]
+            norm = st.radio("Normalise integrals by", norm_opts, key="nmr1h_norm")
+            refi = None
+            cand = [i for i, m in enumerate(mults) if not m.note]
+            if norm == "reference multiplet" and cand:
+                refi = st.selectbox("Reference multiplet", cand, format_func=lambda i: f"δ {mults[i].centre:.2f} ({mults[i].mult})",
+                                    key="nmr1h_refm")
+                refn = st.number_input("… contains nH", 0.5, 60.0, 1.0, 0.5, key="nmr1h_refn")
+                PK.normalise(mults, ref_index=refi, ref_n=refn)
+            elif norm.startswith("total") and mol is not None:
+                from mfs import nmrpredict as HP
+                n_ne = sum(a.GetTotalNumHs() for a in mol.GetAtoms() if a.GetSymbol() not in HP.EXCHANGEABLE)
+                PK.normalise(mults)                                   # first pass: find the compound's multiplets
+                main = [m for m in mults if not m.note and (m.nH or 0) >= 0.5]
+                if main:
+                    unit = sum(m.integral for m in main) / max(n_ne, 1)
+                    for m in mults:
+                        m.nH = round(m.integral / unit, 2)
+            else:
+                PK.normalise(mults)
     # ---------------- assignment -----------------------------------------------------------------------------------------
     assignment, groups, imp = {}, [], {}
     fk = "nmr1h_fix|" + skey
@@ -224,7 +242,9 @@ def _characterisation(g):
         groups = A.groups(mol)
         fixed = {k: v for k, v in fixed.items() if k < len(groups) and (v is None or v < len(mults))}
         assignment = A.assign(groups, mults, fixed=fixed)
-        st.subheader("3 · Assignment (drag to correct)")
+        st.markdown("#### 🎯 Assignment")
+        st.caption("Drag an H chip from the structure onto a multiplet to correct the automatic assignment; "
+                   "drop it on ⊘ to mark it as not observed.")
         ev = UI.widget(sp, mults, mol, groups, assignment, fixed, skey)
         if ev and ev.get("t") != ss.get("_nmra_last|" + skey):
             ss["_nmra_last|" + skey] = ev.get("t")
@@ -234,7 +254,7 @@ def _characterisation(g):
         for gr in groups:
             mi = assignment.get(gr["gid"])
             m = mults[mi] if mi is not None else None
-            rows.append({"H on atom": ", ".join(map(str, gr["labels"])), "nH": gr["nH"],
+            rows.append({"proton": "H" + gr["tag"], "on atom": ", ".join(f"{mol.GetAtomWithIdx(a).GetSymbol()}{a + 1}" for a in gr["atoms"]), "nH": gr["nH"],
                          "predicted δ": None if gr["shift"] is None else round(gr["shift"], 2), "confidence": gr["conf"],
                          "assigned δ": None if m is None else round(m.centre, 2), "multiplet": "" if m is None else m.mult,
                          "Δδ": None if (m is None or gr["shift"] is None) else round(m.centre - gr["shift"], 2),
@@ -251,87 +271,91 @@ def _characterisation(g):
     res = A.impurity_check(mults, un, solvent or "CDCl3", unit_nH=unit,
                            mw_compound=(__import__("rdkit.Chem.Descriptors", fromlist=["MolWt"]).MolWt(mol) if mol is not None else None))
     imp = {i: b["name"] for b in res["best"] for i in b["peaks"]}
-    st.subheader("4 · Unassigned peaks and impurity check")
-    if not un:
-        st.success("Every multiplet is assigned to the structure (solvent/TMS lines excluded).")
-    else:
-        rows = []
-        for i in un:
-            m = mults[i]; c = res["per_peak"].get(i) or []
-            best = next((b for b in res["best"] if i in b["peaks"]), None)
-            rows.append({"δ": round(m.centre, 3), "mult": m.mult, "nH (rel.)": m.nH,
-                         "best guess": best["name"] if best else "unknown",
-                         "evidence": (f"{best['matched']} signals" + (f", {best['mol_ratio']:.3f} mol/mol" if best and best["mol_ratio"] else "")
-                                      + (f", {best['wt_pct']:.2f} wt %" if best and best.get("wt_pct") else "")) if best else "",
-                         "other candidates": "; ".join(f"{x['name']} ({x['proton']}, Δ {x['delta']:+.2f})" for x in c[:3])})
-        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
-        st.caption("Table: Fulmer et al., Organometallics 2010, 29, 2176 (Table 1) + DMSO from Gottlieb et al., J. Org. Chem. "
-                   "1997, 62, 7512. Multi-signal impurities count only if their other signals are present with matching "
-                   "integral ratios. Shifts move with concentration/temperature — treat as a best guess.")
+    tabs = st.tabs(["🧪 Unassigned & impurities", "📝 Characterisation", "🖼️ Figure", "⚖️ qNMR", "📦 Export"])
+    with tabs[0]:
+        st.markdown("Unassigned peaks and impurity check")
+        if not un:
+            st.success("Every multiplet is assigned to the structure (solvent/TMS lines excluded).")
+        else:
+            rows = []
+            for i in un:
+                m = mults[i]; c = res["per_peak"].get(i) or []
+                best = next((b for b in res["best"] if i in b["peaks"]), None)
+                rows.append({"δ": round(m.centre, 3), "mult": m.mult, "nH (rel.)": m.nH,
+                             "best guess": best["name"] if best else "unknown",
+                             "evidence": (f"{best['matched']} signals" + (f", {best['mol_ratio']:.3f} mol/mol" if best and best["mol_ratio"] else "")
+                                          + (f", {best['wt_pct']:.2f} wt %" if best and best.get("wt_pct") else "")) if best else "",
+                             "other candidates": "; ".join(f"{x['name']} ({x['proton']}, Δ {x['delta']:+.2f})" for x in c[:3])})
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+            st.caption("Table: Fulmer et al., Organometallics 2010, 29, 2176 (Table 1) + DMSO from Gottlieb et al., J. Org. Chem. "
+                       "1997, 62, 7512. Multi-signal impurities count only if their other signals are present with matching "
+                       "integral ratios. Shifts move with concentration/temperature — treat as a best guess.")
     # ---------------- ACS string ----------------------------------------------------------------------------------------
-    st.subheader("5 · Characterisation string")
-    c1, c2 = st.columns([1, 4])
-    with_lab = c1.checkbox("Add assignments", value=False, key="nmr1h_acslab")
-    acs = PK.acs_string(mults, mhz=mhz, solvent=solvent or "", labels=with_lab, skip=set(imp) | set(un if mol is not None else []),
-                        min_nH=0.5)
-    c2.code(acs, language=None, wrap_lines=True)
+    with tabs[1]:
+        c1, c2 = st.columns([1, 4])
+        with_lab = c1.checkbox("Add assignments", value=False, key="nmr1h_acslab")
+        acs = PK.acs_string(mults, mhz=mhz, solvent=solvent or "", labels=with_lab, skip=set(imp) | set(un if mol is not None else []),
+                            min_nH=0.5)
+        c2.code(acs, language=None, wrap_lines=True)
     # ---------------- figure ---------------------------------------------------------------------------------------------
-    st.subheader("6 · Labelled figure")
-    c1, c2, c3, c4 = st.columns(4)
-    s_str = c1.checkbox("Structure inset", True, key="nmr1h_fstr", disabled=mol is None)
-    s_int = c2.checkbox("Integrals", True, key="nmr1h_fint")
-    s_lab = c3.checkbox("Assignment labels", True, key="nmr1h_flab")
-    from mfs import nmrfig as F
-    h0, l0 = F.auto_xlim(sp, mults)
-    rng = c4.slider("δ window", float(np.floor(sp.ppm.min())), float(np.ceil(sp.ppm.max())), (round(l0, 1), round(h0, 1)), 0.1,
-                    key="nmr1h_xr|" + skey)
+    with tabs[2]:
+        c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 2])
+        s_str = c1.checkbox("Structure inset", True, key="nmr1h_fstr", disabled=mol is None)
+        s_int = c2.checkbox("Integral bars", True, key="nmr1h_fint")
+        s_num = c3.checkbox("Integral numbers", True, key="nmr1h_fnum", disabled=not s_int)
+        s_lab = c4.checkbox("Assignment labels", True, key="nmr1h_flab")
+        from mfs import nmrfig as F
+        h0, l0 = F.auto_xlim(sp, mults)
+        rng = c5.slider("δ window", float(np.floor(sp.ppm.min())), float(np.ceil(sp.ppm.max())), (round(l0, 1), round(h0, 1)), 0.1,
+                        key="nmr1h_xr|" + skey)
 
-    def draw(ax, sp=sp, mults=mults, mol=mol, groups=groups, imp=imp, rng=rng):
-        F.draw(ax, sp, mults, mol if s_str else None, groups, imp, xlim=(rng[1], rng[0]), show_integrals=s_int,
-               show_labels=s_lab)
-    fig, ax = g["newfig"](0.45); draw(ax)
-    df = NP.to_frame(sp)
-    show(fig, "NMR_1H_" + g["safe_name"](ename), df, draw, "¹H NMR (labelled)")
+        def draw(ax, sp=sp, mults=mults, mol=mol, groups=groups, imp=imp, rng=rng):
+            F.draw(ax, sp, mults, mol if s_str else None, groups, imp, xlim=(rng[1], rng[0]), show_integrals=s_int,
+                   show_labels=s_lab, show_int_numbers=s_num)
+        fig, ax = g["newfig"](0.45); draw(ax)
+        df = NP.to_frame(sp)
+        show(fig, "NMR_1H_" + g["safe_name"](ename), df, draw, "¹H NMR (labelled)")
     # ---------------- qNMR -----------------------------------------------------------------------------------------------
-    pur = _qnmr(mults, mol, un, imp, skey, g)
+    with tabs[3]:
+        pur = _qnmr(mults, mol, un, imp, skey, g)
     # ---------------- SI export ------------------------------------------------------------------------------------------
-    st.subheader("8 · SI export")
-    mt = pd.DataFrame([{"delta_ppm": round(m.centre, 3), "from_ppm": round(m.hi, 3), "to_ppm": round(m.lo, 3), "mult": m.mult,
-                        "J_Hz": "; ".join(f"{j:.1f}" for j in m.J), "nH": m.nH, "integral_raw": m.integral,
-                        "assignment": m.label, "note": m.note or ("impurity: " + imp[i] if i in imp else
-                                                                    ("unassigned" if i in un else ""))}
-                       for i, m in enumerate(mults)])
-    st.dataframe(mt, hide_index=True, width="stretch", height=220)
-    sample = os.path.splitext(f.name)[0]
-    store_put(sample, "nmr_1h", {"acs": acs, "solvent": solvent, "MHz": round(mhz), "purity_pct": pur,
-                                 "smiles": _smiles(mol), "impurities": ", ".join(sorted(set(imp.values())))},
-              "¹H NMR characterisation")
+    with tabs[4]:
+        mt = pd.DataFrame([{"delta_ppm": round(m.centre, 3), "from_ppm": round(m.hi, 3), "to_ppm": round(m.lo, 3), "mult": m.mult,
+                            "J_Hz": "; ".join(f"{j:.1f}" for j in m.J), "nH": m.nH, "integral_raw": m.integral,
+                            "assignment": m.label, "note": m.note or ("impurity: " + imp[i] if i in imp else
+                                                                        ("unassigned" if i in un else ""))}
+                           for i, m in enumerate(mults)])
+        st.dataframe(mt, hide_index=True, width="stretch", height=220)
+        sample = os.path.splitext(f.name)[0]
+        store_put(sample, "nmr_1h", {"acs": acs, "solvent": solvent, "MHz": round(mhz), "purity_pct": pur,
+                                     "smiles": _smiles(mol), "impurities": ", ".join(sorted(set(imp.values())))},
+                  "¹H NMR characterisation")
 
-    def _zip():
-        import matplotlib.pyplot as plt
-        b = io.BytesIO()
-        with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as z:
-            z.writestr("characterisation.txt", acs + "\n")
-            z.writestr("multiplets.csv", mt.to_csv(index=False))
-            z.writestr("spectrum_processed.csv", df.to_csv(index=False))
-            z.writestr("processing.txt", f"{ename}\n{sp.ref_note}\np0 {sp.p0:.2f} deg, p1 {sp.p1:.2f} deg\n"
-                       + "\n".join(f"{k}: {v}" for k, v in sp.info.items()) + "\n")
-            if mol is not None:
-                from rdkit import Chem
-                z.writestr("structure.mol", Chem.MolToMolBlock(mol))
-                z.writestr("assignment.csv", pd.DataFrame(rows).to_csv(index=False) if groups else "")
-            fig2, ax2 = g["newfig"](0.45); draw(ax2)
-            for fmt in ("png", "pdf", "svg"):
-                z.writestr(f"spectrum_labelled.{fmt}", g["export_bytes"](fig2, fmt))
-            plt.close(fig2)
-            z.writestr("SI_page.pdf", si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur))
-        return b.getvalue()
-    c1, c2, c3 = st.columns(3)
-    dl(c1, "⬇️ SI package (.zip)", _zip, f"NMR_SI_{g['safe_name'](ename)}.zip", "nmr1h_zip|" + skey)
-    dl(c2, "⬇️ SI page (PDF)", lambda: si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur),
-       f"NMR_SI_{g['safe_name'](ename)}.pdf", "nmr1h_pdf|" + skey)
-    dl(c3, "⬇️ Multiplets (CSV)", mt.to_csv(index=False).encode("utf-8-sig"), f"NMR_multiplets_{g['safe_name'](ename)}.csv",
-       "nmr1h_csv|" + skey)
+        def _zip():
+            import matplotlib.pyplot as plt
+            b = io.BytesIO()
+            with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as z:
+                z.writestr("characterisation.txt", acs + "\n")
+                z.writestr("multiplets.csv", mt.to_csv(index=False))
+                z.writestr("spectrum_processed.csv", df.to_csv(index=False))
+                z.writestr("processing.txt", f"{ename}\n{sp.ref_note}\np0 {sp.p0:.2f} deg, p1 {sp.p1:.2f} deg\n"
+                           + "\n".join(f"{k}: {v}" for k, v in sp.info.items()) + "\n")
+                if mol is not None:
+                    from rdkit import Chem
+                    z.writestr("structure.mol", Chem.MolToMolBlock(mol))
+                    z.writestr("assignment.csv", pd.DataFrame(rows).to_csv(index=False) if groups else "")
+                fig2, ax2 = g["newfig"](0.45); draw(ax2)
+                for fmt in ("png", "pdf", "svg"):
+                    z.writestr(f"spectrum_labelled.{fmt}", g["export_bytes"](fig2, fmt))
+                plt.close(fig2)
+                z.writestr("SI_page.pdf", si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur))
+            return b.getvalue()
+        c1, c2, c3 = st.columns(3)
+        dl(c1, "⬇️ SI package (.zip)", _zip, f"NMR_SI_{g['safe_name'](ename)}.zip", "nmr1h_zip|" + skey)
+        dl(c2, "⬇️ SI page (PDF)", lambda: si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur),
+           f"NMR_SI_{g['safe_name'](ename)}.pdf", "nmr1h_pdf|" + skey)
+        dl(c3, "⬇️ Multiplets (CSV)", mt.to_csv(index=False).encode("utf-8-sig"), f"NMR_multiplets_{g['safe_name'](ename)}.csv",
+           "nmr1h_csv|" + skey)
 
 
 def _smiles(mol):
@@ -361,7 +385,7 @@ def integral_consistency(mults, idx):
 
 
 def _qnmr(mults, mol, un, imp, skey, g):
-    st.subheader("7 · qNMR purity")
+    st.markdown("qNMR purity")
     comp = [i for i, m in enumerate(mults) if m.label] if mol is not None else \
         [i for i, m in enumerate(mults) if not m.note and (m.nH or 0) >= 0.5]
     cv = integral_consistency(mults, comp)

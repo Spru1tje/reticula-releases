@@ -508,10 +508,57 @@ def estimate_side_px(m):
     return float(2 * np.median(v))
 
 
+def refine_edges(lab, c, level=None, delta_px=None, grow_f=0.35, min_grow_px=4):
+    """v2.14: put the outline of NON-round particles on the same calibrated edge as the sphere model does for round ones.
+    The thresholded mask of the segmentation sits too far out (blur and halo): on the SiO2-NH2 TEM series the mask-based
+    equivalent diameter was 8-18 % larger than the circle-fit one. Per particle: core contrast = 60th percentile of the contrast
+    inside its inner part, edge = where the contrast falls to `level` x core (iso-contour, inside the particle's own
+    Voronoi cell so neighbours do not merge), moved inward by `delta_px` (camera blur) - the constants of mfs.spheres.
+    Returns a new label image (same ids); particles that would vanish keep their old outline."""
+    from mfs import spheres as SPH
+    level = SPH.LEVEL if level is None else float(level)
+    delta_px = SPH.DELTA_PX if delta_px is None else float(delta_px)
+    H, W = lab.shape
+    if not (lab > 0).any():
+        return lab
+    _, (iy, ix) = ndi.distance_transform_edt(lab == 0, return_indices=True)
+    near = lab[iy, ix]                                         # nearest particle of every pixel (Voronoi cells)
+    out = np.zeros_like(lab)
+    for i, sl in enumerate(ndi.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        r = math.sqrt(max(1.0, float((lab[sl] == i).sum())) / math.pi)
+        pad = int(max(min_grow_px, grow_f * r)) + 2
+        y0, y1 = max(0, sl[0].start - pad), min(H, sl[0].stop + pad); x0, x1 = max(0, sl[1].start - pad), min(W, sl[1].stop + pad)
+        reg = lab[y0:y1, x0:x1] == i
+        cc = c[y0:y1, x0:x1]
+        dist = ndi.distance_transform_edt(reg)
+        inner = dist >= max(1.0, 0.4 * dist.max())
+        core = float(np.percentile(cc[inner], 60)) if inner.any() else 0.0
+        if core <= 0:
+            out[y0:y1, x0:x1][reg] = i; continue
+        cell = near[y0:y1, x0:x1] == i
+        allowed = cell & ndi.binary_dilation(reg, iterations=int(max(min_grow_px, grow_f * r)))
+        iso = (cc >= level * core) & allowed
+        l2, n2 = ndi.label(iso)
+        if n2 == 0 or not (l2[reg] > 0).any():
+            out[y0:y1, x0:x1][reg] = i; continue
+        keep = np.bincount(l2[reg & (l2 > 0)]).argmax()      # the component that holds most of the old particle
+        new = ndi.binary_fill_holes(l2 == keep)
+        if delta_px > 0:
+            d2 = ndi.distance_transform_edt(np.pad(new, 1))[1:-1, 1:-1]
+            new = d2 > delta_px
+        if new.sum() < 0.25 * reg.sum():                        # something went wrong: keep the original outline
+            out[y0:y1, x0:x1][reg] = i; continue
+        sub = out[y0:y1, x0:x1]
+        sub[new & (sub == 0)] = i
+    return out
+
+
 def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=None, marker_sigma=0.25, nms_factor=0.6,
                      core_weight=1.0, dist_weight=0.5, merge_factor=0.3, solidity_min=0.8, area_factor=2.0,
                      clear_border=True, max_px=1536, threshold=None, shape_prior=None, prior_strength=0.7, prior_k=10.0,
-                     sphere="auto", conf_min=None, sphere_level=None, sphere_delta=None):
+                     sphere="auto", conf_min=None, sphere_level=None, sphere_delta=None, edge_refine=True):
     """v2.10 default: background flattening + hysteresis threshold, cube-scale markers (LoG of the contrast at σ =
     marker_sigma·L plus the distance map of the locally-darker cores), greedy NMS at nms_factor·L, marker watershed on
     the contrast; regions > area_factor·L² or with solidity < solidity_min are 'aggregate' (excluded by default).
@@ -603,6 +650,9 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         lab, info, pr = SP.apply_prior(lab, info, c, L, strength=prior_strength, k=prior_k,
                                        solidity_min=solidity_min, area_factor=area_factor)
         info_extra["_prior"] = pr
+    if edge_refine and not (sph and sph.get("active")):      # v2.14: calibrated edge for non-round particles (circles already have it)
+        lab = refine_edges(lab, c)
+        info_extra["_edge_refined"] = True
     if clear_border:
         edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
         lab = np.where(np.isin(lab, edge[edge > 0]), 0, lab)

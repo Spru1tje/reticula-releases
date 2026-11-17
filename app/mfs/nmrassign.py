@@ -65,7 +65,24 @@ def groups(mol, preds=None):
                         sigma=1.5 if exch else max(SIGMA[conf], 1.3 * max([p["spread"] or 0 for p in ps] or [0])),
                         exch=exch, vicinal=0 if exch else vic,
                         spread=max([p["spread"] or 0 for p in ps] or [0])))
+    # v2.14: proton labels are LETTERS (Ha, Hb ... from the most downfield group), so they cannot be mistaken for the atom numbers
+    for k, gr in enumerate(sorted(out, key=lambda g: -(g["shift"] if g["shift"] is not None else -99.0))):
+        gr["tag"] = _letters(k)
     return out
+
+
+def _letters(k):
+    """0 -> a, 1 -> b ... 25 -> z, 26 -> aa ..."""
+    s = ""
+    k += 1
+    while k:
+        k, r = divmod(k - 1, 26)
+        s = chr(97 + r) + s
+    return s
+
+
+def proton_label(g):
+    return "H" + g["tag"]
 
 
 def _usable(mults):
@@ -170,8 +187,8 @@ def assign(mol_or_groups, mults, fixed=None, banned=None, lam=3.0, lam_over=6.0)
         if res.x[p] > 0.5:
             out[gid] = mi
     for mi in M:
-        labs = sorted(l for g in G if out[g["gid"]] == mi for l in g["labels"])
-        mults[mi].label = ", ".join(f"H-{l}" for l in labs)
+        tags = sorted((g["tag"] for g in G if out[g["gid"]] == mi), key=lambda t: (len(t), t))
+        mults[mi].label = ", ".join("H" + t for t in tags)
         mults[mi].nH_assigned = float(sum(g["nH"] for g in G if out[g["gid"]] == mi)) or None
     return out
 
