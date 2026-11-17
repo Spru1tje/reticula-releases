@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.14.0 — in development
+
+### Zeta / DLS
+- Reads **Excel exports** (.xlsx / .xls) of the Zetasizer (Ultra / Nano) as well as CSV; the header row is found automatically.
+- **Volume and number distributions** next to the intensity distribution (when the export has them).
+- **Z-average, PDI and ζ-potential** as tick boxes in the DLS figure: coloured text per sample (± SD of the records), movable like every label.
+- Legend tick boxes on both figures (legends are movable); quality notes (single record, PDI > 0.4 / 0.7, |ζ| < 30 mV); generated **Methods / SI text**.
+
+### Figures (all pages)
+- **Font family per figure** and for the legend (installed extra families are offered), **legend-title size**.
+
+### Particle sizer
+- Progress bar with the time left (image k of n; the estimate learns from earlier runs).
+
 ## 2.13.0 — 2026-11-17
 
 Built by Stijn Germonpré.

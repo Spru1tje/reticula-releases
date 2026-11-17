@@ -747,15 +747,23 @@ def read_zetasizer(src, name: str = ""):
     summ = pd.DataFrame({"sample": df[sn].astype(str) if sn else [f"S{i+1}" for i in range(len(df))]})
     for key, col in [("z_avg", za), ("pdi", pdi), ("zeta", zp), ("zeta_sd", zsd)]:
         summ[key] = pd.to_numeric(df[col], errors="coerce") if col else np.nan
-    sizes = [c for c in df.columns if re.match(r"sizes?\s*\[\d+\]", c, re.I)]
-    ints = [c for c in df.columns if re.match(r"intensit(y|ies)\s*\[\d+\]", c, re.I)]
+    def _bins(pattern):                           # {bin number: column} for Sizes[k] / Intensities[k] / Volumes[k] / Numbers[k]
+        out = {}
+        for c in df.columns:
+            m = re.match(pattern + r"\s*\[(\d+)\]", c, re.I)
+            if m:
+                out[int(m.group(m.lastindex))] = c
+        return out
+    sizes, ints = _bins(r"sizes?"), _bins(r"intensit(?:y|ies)")
+    vols, nums = _bins(r"volumes?"), _bins(r"numbers?")     # v2.14: volume and number distributions too
     dist = None
     if sizes and ints:
         recs = []
+        num = lambda row, cols, k: float(row[cols[k]]) if k in cols and pd.notna(row[cols[k]]) else np.nan
         for i, row in df.iterrows():
-            for s, v in zip(sizes, ints):
-                recs.append((summ["sample"].iloc[i], float(row[s]), float(row[v])))
-        dist = pd.DataFrame(recs, columns=["sample", "size_nm", "intensity"])
+            for k in sorted(set(sizes) & set(ints)):
+                recs.append((summ["sample"].iloc[i], float(row[sizes[k]]), float(row[ints[k]]), num(row, vols, k), num(row, nums, k)))
+        dist = pd.DataFrame(recs, columns=["sample", "size_nm", "intensity", "volume", "number"])
     return {"summary": summ, "dist": dist}
 
 

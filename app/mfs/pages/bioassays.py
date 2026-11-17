@@ -73,6 +73,11 @@ def page_zeta():
     zs["label"] = zs["sample"].str.replace("ZrO2", "ZrO$_2$")
     zs_sd = z["summary"].groupby("sample", sort=False).agg(z_avg_sd=("z_avg", "std"), pdi_sd=("pdi", "std")).reset_index()
     zs = zs.merge(zs_sd, on="sample", how="left")
+    from mfs import methods as MT
+    _n = z["summary"].groupby("sample", sort=False).size().rename("n").reset_index()
+    _q = zs.merge(_n, on="sample", how="left")
+    for lvl_, txt_ in MT.dls_quality_notes(_q.to_dict("records")):
+        (st.warning if lvl_ == "warn" else st.caption)(("⚠️ " if lvl_ == "warn" else "ℹ️ ") + txt_)
     st.markdown("**Show in the figures** (each text can be dragged anywhere with *🏷️ Move / edit labels on the figure* under the figure)")
     c1, c2, c3, c4 = st.columns(4)
     show_z = c1.checkbox("Z-average", False, key="zeta_show_z", help="Z-average hydrodynamic diameter (d.nm) per sample")
@@ -102,12 +107,16 @@ def page_zeta():
     fig, ax = newfig(); draw_zeta(ax)
     show(fig, "zeta", zs, draw_zeta, "Zeta potential")
     if z["dist"] is not None:
-        dd = z["dist"].groupby(["sample", "size_nm"], sort=False).intensity.mean().reset_index()
-        tr = [(s_.replace("ZrO2", "ZrO$_2$"), g_.size_nm.values, g_.intensity.values) for s_, g_ in dd.groupby("sample", sort=False)]
+        kinds = [(k_, lab_) for k_, lab_ in (("intensity", "Intensity"), ("volume", "Volume"), ("number", "Number"))
+                 if k_ in z["dist"].columns and z["dist"][k_].notna().any()]
+        kind = st.radio("Size distribution by", [k_ for k_, _ in kinds], horizontal=True, key="zeta_dist_kind",
+                        format_func=dict(kinds).get) if len(kinds) > 1 else "intensity"
+        dd = z["dist"].groupby(["sample", "size_nm"], sort=False)[kind].mean().reset_index().rename(columns={kind: "value"})
+        tr = [(s_.replace("ZrO2", "ZrO$_2$"), g_.size_nm.values, g_.value.values) for s_, g_ in dd.groupby("sample", sort=False)]
         info = {r_.label: r_ for r_ in zs.itertuples()}
 
         def draw_dls(ax, tr=tr):
-            P.draw_overlay(ax, tr, "Hydrodynamic diameter (nm)", "Intensity (%)", logx=True, legend=show_leg_d); ax.set_ylim(bottom=0)
+            P.draw_overlay(ax, tr, "Hydrodynamic diameter (nm)", f"{dict(kinds).get(kind, 'Intensity')} (%)", logx=True, legend=show_leg_d); ax.set_ylim(bottom=0)
             if show_z or show_p or show_zp:           # v2.14: per-sample Z-average / PDI / ζ texts (movable like every label)
                 cols_ = S.colours_for([t[0] for t in tr]); k = 0
                 for c_, (nm_, _x, _y) in zip(cols_, tr):
@@ -128,6 +137,11 @@ def page_zeta():
                 ax.set_ylim(0, hi_ * (1.0 + 0.11 * k + 0.04))
         fig, ax = newfig(); draw_dls(ax)
         show(fig, "DLS", dd, draw_dls, "DLS")
+    with st.expander("📝 Methods / SI text (edit the [brackets])", expanded=False):
+        _txt = MT.dls_methods(_q.to_dict("records"), with_sd=with_sd)
+        st.caption("Generated from this data only; fill in instrument, temperature, medium and concentration yourself.")
+        _txt = st.text_area("Text", _txt, height=170, key="zeta_methods_txt")
+        dl(st, "⬇️ Save as .txt", _txt.encode("utf-8"), "DLS_zeta_methods.txt", "zeta_methods_dl")
 
 
 def page_xps():

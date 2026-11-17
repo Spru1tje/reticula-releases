@@ -113,3 +113,44 @@ def test_progress_helper_learns_speed_and_returns_result():
     before = dict(p.rates)
     p.call(np.zeros((1000, 1000), np.uint8), "auto", lambda img: None)
     assert p.rates == before
+
+
+# ---------------------------------------------------------------- volume / number distributions, quality notes, methods text
+def _csv_with_vol_num():
+    df = pd.read_csv(CSV)
+    for k in range(1, 4):
+        size_col = [c for c in df.columns if c.lower().startswith(f"sizes[{k}]")][0]
+        int_col = [c for c in df.columns if c.lower().startswith(f"intensities[{k}]")][0]
+        df[f"Volumes[{k}] (Percent)"] = df[int_col] * 0.5
+        df[f"Numbers[{k}] (Percent)"] = df[int_col] * 0.25
+    return df.to_csv(index=False)
+
+
+def test_reader_volume_and_number_distributions():
+    d = R.read_zetasizer(_csv_with_vol_num().encode("utf-8"), "x.csv")["dist"]
+    assert {"intensity", "volume", "number"} <= set(d.columns)
+    assert d.volume.notna().any() and d.number.notna().any()
+    sub = d.dropna(subset=["volume"])
+    assert ((sub.volume - 0.5 * sub.intensity).abs() < 1e-9).all()
+    plain = R.read_zetasizer(CSV, "x.csv")["dist"]           # the plain export has no volume/number columns
+    assert plain.volume.isna().all() and plain.number.isna().all()
+
+
+def test_quality_notes():
+    from mfs import methods as MT
+    rows = [dict(sample="A", n=1, z_avg=100, pdi=0.8, zeta=-10, zeta_sd=1), dict(sample="B", n=3, z_avg=200, pdi=0.1, zeta=-45, zeta_sd=2),
+            dict(sample="C", n=3, z_avg=300, pdi=0.5, zeta=40, zeta_sd=2)]
+    notes = MT.dls_quality_notes(rows)
+    text = " | ".join(t for _, t in notes)
+    assert ("warn", ) == tuple({l for l, t in notes if t.startswith("A: PDI")})
+    assert "A: one record only" in text and "A (-10 mV)" in text and "C: PDI 0.50" in text and "C (40" not in text
+    assert "B:" not in text
+
+
+def test_methods_text_uses_only_the_data():
+    from mfs import methods as MT
+    rows = [dict(sample="A", n=3, z_avg=120.4, pdi=0.12, zeta=-30.2, zeta_sd=1), dict(sample="B", n=3, z_avg=150.2, pdi=0.2, zeta=-22.0, zeta_sd=1)]
+    t = MT.dls_methods(rows)
+    assert "Z-average diameters were 120–150 nm" in t and "PDI 0.12–0.20" in t and "-30.2–-22.0 mV" in t
+    assert "3 records per sample" in t and "[model]" in t and "[temperature]" in t
+    assert MT.dls_methods([]) == ""

@@ -8,11 +8,379 @@
      "solvent": "CDCl3",
      "MHz": 300,
      "purity_pct": 101.98,
-     "smiles": "Cc1ccccc1C(=O)O",
+     "smiles": "CC(=O)Oc1ccccc1C(=O)O",
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-17T16:43:36"
+    "updated": "2026-11-17T19:37:26"
+   }
+  }
+ },
+ "mof801(hf)batch3(3flexreport)": {
+  "name": "MOF-801(Hf) batch 3 (3Flex report)",
+  "sections": {
+   "n2": {
+    "values": {
+     "S_BET": 382.0330793790043,
+     "C": 1832.6478462191826,
+     "p_lo": 0.001115883992507748,
+     "p_hi": 0.03,
+     "points": 8,
+     "all_criteria": true,
+     "V_total": 0.1582876750644189,
+     "V_micro": 0.13207413877993732,
+     "S_ext": 25.236259861125152
+    },
+    "source": "N2 sorption page",
+    "updated": "2026-11-17T19:37:43"
+   }
+  }
+ },
+ "mof801(hf)": {
+  "name": "MOF-801(Hf)",
+  "sections": {
+   "n2": {
+    "values": {
+     "S_BET": 697.8954506003057,
+     "C": 2558.9341328380033,
+     "p_lo": 5e-06,
+     "p_hi": 0.012,
+     "points": 19,
+     "all_criteria": false,
+     "V_total": 0.3801951186542145,
+     "V_micro": 0.23655237272780913,
+     "S_ext": 41.087791611216176
+    },
+    "source": "N2 sorption page",
+    "updated": "2026-11-17T19:37:43"
+   },
+   "tga": {
+    "values": {
+     "W_initial": 99.84960579333702,
+     "W200": 92.79758173259121,
+     "W_plateau": 88.50845080418327,
+     "T_plateau": 373.0,
+     "W_end": 62.99586971771779,
+     "DTG_peaks": [
+      83.0,
+      293.5,
+      504.5
+     ]
+    },
+    "source": "TGA page",
+    "updated": "2026-11-17T19:37:28"
+   },
+   "dsc": {
+    "values": {
+     "cp_25C": 0.6186550257010277,
+     "cp_100C": 0.7385646145917613
+    },
+    "source": "DSC cp",
+    "updated": "2026-11-17T19:37:30"
+   },
+   "kinetics": {
+    "values": {
+     "k": 0.010573621548684804,
+     "k_ci95": 0.00046517745514271474,
+     "unit": "h-1",
+     "T_C": null,
+     "pD": null,
+     "R2": 0.9914388551736298,
+     "label": "MOF-801(Hf)"
+    },
+    "source": "Kinetics page",
+    "updated": "2026-11-17T19:37:30"
+   },
+   "icp": {
+    "values": {
+     "Hf_wt": 52.8503,
+     "S_wt": 0.0,
+     "Zr_wt": 0.18925,
+     "Hf/(Hf+Zr) mol_wt": 0.9930423754294109,
+     "S per M6 node_wt": 0.0,
+     "Hf_frac": 0.9930423754294109,
+     "Hf_frac_sd": 0.00012146680383148039,
+     "S_per_M6": 0.0,
+     "S_per_M6_sd": 0.0,
+     "xrf_S_per_M": 0.0,
+     "xrf_S_per_M_sd": 0.0
+    },
+    "source": "ICP page",
+    "updated": "2026-11-17T19:37:32"
+   },
+   "xps": {
+    "values": {
+     "Hf 4f at.%": 100.0,
+     "Hf/(Zr+Hf)": 1.0
+    },
+    "source": "XPS page",
+    "updated": "2026-11-17T19:37:36"
+   }
+  }
+ },
+ "pm": {
+  "name": "PM",
+  "sections": {
+   "n2": {
+    "values": {
+     "S_BET": 481.48336226760125,
+     "C": 1996.0620013311234,
+     "p_lo": 0.000638738070076285,
+     "p_hi": 0.03415384615384615,
+     "points": 9,
+     "all_criteria": true,
+     "V_total": 0.3424811409974753,
+     "V_micro": 0.16510000886393356,
+     "S_ext": 36.51588069459394
+    },
+    "source": "N2 sorption page",
+    "updated": "2026-11-17T19:37:43"
+   },
+   "kinetics": {
+    "values": {
+     "k": 0.017346670551702664,
+     "k_ci95": 0.0006658469722185418,
+     "unit": "h-1",
+     "T_C": null,
+     "pD": null,
+     "R2": 0.9950079159509874,
+     "label": "PM"
+    },
+    "source": "Kinetics page",
+    "updated": "2026-11-17T19:37:30"
+   },
+   "icp": {
+    "values": {
+     "Hf_wt": 44.268049999999995,
+     "S_wt": 1.31165,
+     "Zr_wt": 8.48085,
+     "Hf/(Hf+Zr) mol_wt": 0.7273537856645468,
+     "S per M6 node_wt": 0.7199045148733093,
+     "Hf_frac": 0.7273537856645468,
+     "Hf_frac_sd": 0.0038054518709510353,
+     "S_per_M6": 0.7199045148733093,
+     "S_per_M6_sd": 0.01409627728745875,
+     "xrf_S_per_M": 0.11998408581221821,
+     "xrf_S_per_M_sd": 0.0023493795479097917
+    },
+    "source": "ICP page",
+    "updated": "2026-11-17T19:37:32"
+   }
+  }
+ },
+ "sulfomof801(hf)": {
+  "name": "Sulfo-MOF-801(Hf)",
+  "sections": {
+   "n2": {
+    "values": {
+     "S_BET": 586.227389055464,
+     "C": 2254.2473123905565,
+     "p_lo": 5e-06,
+     "p_hi": 0.012,
+     "points": 19,
+     "all_criteria": false,
+     "V_total": 0.3421147504325909,
+     "V_micro": 0.19793612560989568,
+     "S_ext": 38.483724927891984
+    },
+    "source": "N2 sorption page",
+    "updated": "2026-11-17T19:37:43"
+   },
+   "tga": {
+    "values": {
+     "W_initial": 100.01710812704812,
+     "W200": 92.3132491849089,
+     "W_plateau": 83.29466964821353,
+     "T_plateau": 413.0,
+     "W_end": 61.02707415733024,
+     "DTG_peaks": [
+      80.5,
+      300.0,
+      505.0
+     ]
+    },
+    "source": "TGA page",
+    "updated": "2026-11-17T19:37:28"
+   },
+   "kinetics": {
+    "values": {
+     "k": 0.015306767564468192,
+     "k_ci95": 0.00041922028673993295,
+     "unit": "h-1",
+     "T_C": null,
+     "pD": null,
+     "R2": 0.9972213912808582,
+     "label": "Sulfo-MOF-801(Hf)"
+    },
+    "source": "Kinetics page",
+    "updated": "2026-11-17T19:37:30"
+   },
+   "icp": {
+    "values": {
+     "Hf_wt": 51.85095,
+     "S_wt": 0.9274500000000001,
+     "Zr_wt": 0.1807,
+     "Hf/(Hf+Zr) mol_wt": 0.9932274080768048,
+     "S per M6 node_wt": 0.5934499601596199,
+     "Hf_frac": 0.9932274080768048,
+     "Hf_frac_sd": 7.739062504264495e-05,
+     "S_per_M6": 0.5934499601596199,
+     "S_per_M6_sd": 0.008252756544485877,
+     "xrf_S_per_M": 0.09890832669326999,
+     "xrf_S_per_M_sd": 0.0013754594240809794
+    },
+    "source": "ICP page",
+    "updated": "2026-11-17T19:37:32"
+   },
+   "xps": {
+    "values": {
+     "Hf 4f at.%": 100.0,
+     "Hf/(Zr+Hf)": 1.0
+    },
+    "source": "XPS page",
+    "updated": "2026-11-17T19:37:36"
+   }
+  }
+ },
+ "zro2@sulfomof801(hf)": {
+  "name": "ZrO$_2$@Sulfo-MOF-801(Hf)",
+  "sections": {
+   "n2": {
+    "values": {
+     "S_BET": 498.07133924560725,
+     "C": 3482.8714584607574,
+     "p_lo": 0.003726226701097369,
+     "p_hi": 0.03415384615384615,
+     "points": 5,
+     "all_criteria": true,
+     "V_total": 0.3706794534849366,
+     "V_micro": 0.16785230909358395,
+     "S_ext": 45.5987139873979
+    },
+    "source": "N2 sorption page",
+    "updated": "2026-11-17T19:37:43"
+   },
+   "tga": {
+    "values": {
+     "W_initial": 100.0137250813801,
+     "W200": 92.52043299497922,
+     "W_plateau": 84.78955081770498,
+     "T_plateau": 402.5,
+     "W_end": 65.3093831139931,
+     "DTG_peaks": [
+      82.0,
+      302.0,
+      504.5
+     ]
+    },
+    "source": "TGA page",
+    "updated": "2026-11-17T19:37:28"
+   },
+   "kinetics": {
+    "values": {
+     "k": 0.029110568838146094,
+     "k_ci95": 0.000688022214376273,
+     "unit": "h-1",
+     "T_C": null,
+     "pD": null,
+     "R2": 0.9986865931143293,
+     "label": "ZrO2@Sulfo-MOF-801(Hf)"
+    },
+    "source": "Kinetics page",
+    "updated": "2026-11-17T19:37:30"
+   },
+   "icp": {
+    "values": {
+     "Hf_wt": 45.3116,
+     "S_wt": 0.7875,
+     "Zr_wt": 9.042049999999998,
+     "Hf/(Hf+Zr) mol_wt": 0.7191930899500226,
+     "S per M6 node_wt": 0.41753058362565587,
+     "Hf_frac": 0.7191930899500226,
+     "Hf_frac_sd": 0.00227037227328986,
+     "S_per_M6": 0.41753058362565587,
+     "S_per_M6_sd": 0.004243195538160802,
+     "xrf_S_per_M": 0.06958843060427598,
+     "xrf_S_per_M_sd": 0.0007071992563601338
+    },
+    "source": "ICP page",
+    "updated": "2026-11-17T19:37:32"
+   },
+   "xps": {
+    "values": {
+     "Hf 4f at.%": 100.0,
+     "Hf/(Zr+Hf)": 1.0
+    },
+    "source": "XPS page",
+    "updated": "2026-11-17T19:37:36"
+   }
+  }
+ },
+ "zro2": {
+  "name": "ZrO$_2$",
+  "sections": {
+   "n2": {
+    "values": {
+     "S_BET": 174.04934163314118,
+     "C": 151.66401313610405,
+     "p_lo": 0.012,
+     "p_hi": 0.07846153846153846,
+     "points": 4,
+     "all_criteria": true,
+     "V_total": 0.34098123892018456,
+     "V_micro": 0.036280254789445486,
+     "S_ext": 74.37863399132486
+    },
+    "source": "N2 sorption page",
+    "updated": "2026-11-17T19:37:43"
+   },
+   "kinetics": {
+    "values": {
+     "k": 0.00695304400893458,
+     "k_ci95": 0.00038601885492385227,
+     "unit": "h-1",
+     "T_C": null,
+     "pD": null,
+     "R2": 0.9841680309780866,
+     "label": "ZrO2"
+    },
+    "source": "Kinetics page",
+    "updated": "2026-11-17T19:37:30"
+   },
+   "icp": {
+    "values": {
+     "Hf_wt": 0.002,
+     "S_wt": 0.0,
+     "Zr_wt": 71.78505000000001,
+     "Hf/(Hf+Zr) mol_wt": 1.423918151238533e-05,
+     "S per M6 node_wt": 0.0,
+     "Hf_frac": 1.423918151238533e-05,
+     "Hf_frac_sd": 7.168577472852078e-08,
+     "S_per_M6": 0.0,
+     "S_per_M6_sd": 0.0,
+     "xrf_S_per_M": 0.0,
+     "xrf_S_per_M_sd": 0.0
+    },
+    "source": "ICP page",
+    "updated": "2026-11-17T19:37:32"
+   }
+  }
+ },
+ "blank(nocatalyst)": {
+  "name": "Blank (no catalyst)",
+  "sections": {
+   "kinetics": {
+    "values": {
+     "k": 0.00024928027935446106,
+     "k_ci95": 0.0002768656414781144,
+     "unit": "h-1",
+     "T_C": null,
+     "pD": null,
+     "R2": 0.10927018914072562,
+     "label": "Blank (no catalyst)"
+    },
+    "source": "Kinetics page",
+    "updated": "2026-11-17T19:37:30"
    }
   }
  }

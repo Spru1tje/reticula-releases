@@ -66,3 +66,8 @@ in minutes; without it any value I extracted would be a guess. A cumulant fit of
 
 ## 5. Later (to-do)
 - Gas-sorption page for Ar 87 K and CO₂ 273 K (analyses in section 2) and the 3P (Ar) / Quantachrome Autosorb 6100 / iQ file readers (need one real export per instrument).
+
+## 6. Status 17 Nov (evening)
+Built and tested (384 tests pass): Excel import, volume/number distributions, Z-average / PDI / ζ in the DLS figure, legend tick boxes, quality notes,
+generated Methods/SI text, font family per figure + legend, legend-title size, particle-sizer progress bar.
+Open: `.dts` reader (needs one `.dts` + the Excel export of the same records). Release notes for v2.14.0 and the version bump happen at release time.
