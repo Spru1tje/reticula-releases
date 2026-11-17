@@ -212,7 +212,7 @@ def _pv(dx, H, eta):
 class Refinement:
     """Rietveld / Le Bail refinement of one pattern with one or more phases."""
 
-    def __init__(self, x, y, phases, radiation="Cu Kα1", bg_order=6, mode="rietveld", mono_2theta=0.0, instrument=None, counts=None, progress=None):
+    def __init__(self, x, y, phases, radiation="Cu Kα1", bg_order=6, mode="rietveld", mono_2theta=0.0, instrument=None, counts=None, progress=None, offset="displacement"):
         self.x = np.asarray(x, float)
         y = np.asarray(y, float)
         if counts is None:
@@ -229,6 +229,9 @@ class Refinement:
         self.mode = mode
         self.nb = int(bg_order) + 1
         self.mono = float(mono_2theta)
+        # Zero shift and sample displacement are strongly correlated; refining both biases the cell (measured on a real laboratory pattern:
+        # -0.06 %). Default = displacement only (reflection geometry); 'zero' for transmission / calibrated instruments; 'both' needs a standard.
+        self.offset_mode = offset if offset in ("displacement", "zero", "both") else "displacement"
         self.progress = progress or (lambda frac, text: None)
         self.instrument = instrument
         xr = (self.x - self.x.min()) / max(self.x.max() - self.x.min(), 1e-9) * 2 - 1
@@ -497,16 +500,17 @@ class Refinement:
         self._prealign()
         prog(0.10, "Estimating the peak width")
         self._width_scan()
+        off = {"displacement": ["disp"], "zero": ["zero"], "both": ["zero", "disp"]}[self.offset_mode]
         stages = [("Scale and background", [], 0.14),
-                  ("Zero shift and cell", ["zero"] + cell_names, 0.25),
-                  ("Peak widths (W, X)", ["zero", "W", "X"] + cell_names, 0.40),
-                  ("All peak-shape parameters", ["zero", "U", "V", "W", "X", "Y"] + cell_names, 0.55),
+                  ("Instrument offset and cell", off + cell_names, 0.25),
+                  ("Peak widths (W, X)", off + ["W", "X"] + cell_names, 0.40),
+                  ("All peak-shape parameters", off + ["U", "V", "W", "X", "Y"] + cell_names, 0.55),
                   ]
         if self.mode == "rietveld":
-            stages.append(("Atomic displacement (B)", ["zero", "U", "V", "W", "X", "Y"] + cell_names + [f"B{i}" for i in range(n_ph)], 0.70))
+            stages.append(("Atomic displacement (B)", off + ["U", "V", "W", "X", "Y"] + cell_names + [f"B{i}" for i in range(n_ph)], 0.70))
         low_angle = float(self.x.min()) < 20.0
         stages.append(("Fine tuning" + (" incl. peak asymmetry" if low_angle else ""),
-                       ["zero", "disp", "U", "V", "W", "X", "Y"] + (["asym"] if low_angle else []) + cell_names
+                       off + ["U", "V", "W", "X", "Y"] + (["asym"] if low_angle else []) + cell_names
                        + ([f"B{i}" for i in range(n_ph)] if self.mode == "rietveld" else []), 0.85))
         for nm, names, frac in stages:
             prog(frac, nm)
@@ -655,7 +659,7 @@ class Refinement:
         return n
 
 
-def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None):
+def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement"):
     """One call: cifs = list of CIF paths / bytes (or Phase objects). Returns the result dict of Refinement.run()."""
     x = np.asarray(x, float)
     y = np.asarray(y, float)
@@ -663,7 +667,7 @@ def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None
         m = (x >= tt_range[0]) & (x <= tt_range[1])
         x, y = x[m], y[m]
     phases = [c if isinstance(c, Phase) else Phase.from_cif(c, (names or [None] * len(cifs))[k]) for k, c in enumerate(cifs)]
-    R = Refinement(x, y, phases, radiation, bg_order, mode, mono_2theta, progress=progress)
+    R = Refinement(x, y, phases, radiation, bg_order, mode, mono_2theta, progress=progress, offset=offset)
     return R.run()
 
 

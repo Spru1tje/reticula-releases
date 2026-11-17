@@ -12,7 +12,7 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-17T23:23:45"
+    "updated": "2026-11-17T23:51:37"
    }
   }
  },
@@ -114,17 +114,17 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T23:24:00"
+    "updated": "2026-11-17T23:51:31"
    },
    "pxrd": {
     "values": {
-     "MOF-801 cell a (Å)": 17.838645390818876,
-     "MOF-801 volume (Å^3)": 5676.565025693507,
-     "Rwp (%)": 10.62727116883244,
+     "MOF-801 cell a (Å)": 17.835562889731147,
+     "MOF-801 volume (Å^3)": 5673.622818925648,
+     "Rwp (%)": 10.630853207379541,
      "MOF-801 weight fraction (%)": 100.0
     },
     "source": "PXRD Rietveld",
-    "updated": "2026-11-17T23:00:13"
+    "updated": "2026-11-17T23:51:28"
    }
   }
  },
@@ -184,7 +184,7 @@
      "microstrain_WH_percent": -0.022767786836609398
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:00:12"
+    "updated": "2026-11-17T23:51:27"
    }
   }
  },
@@ -258,7 +258,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T23:24:00"
+    "updated": "2026-11-17T23:51:31"
    },
    "pxrd": {
     "values": {
@@ -268,7 +268,7 @@
      "microstrain_WH_percent": -0.02310848760362531
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:00:12"
+    "updated": "2026-11-17T23:51:27"
    }
   }
  },
@@ -342,7 +342,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T23:24:00"
+    "updated": "2026-11-17T23:51:31"
    },
    "pxrd": {
     "values": {
@@ -352,7 +352,7 @@
      "microstrain_WH_percent": -0.019387993651604492
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:00:12"
+    "updated": "2026-11-17T23:51:27"
    }
   }
  },
@@ -412,7 +412,7 @@
      "microstrain_WH_percent": null
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:00:12"
+    "updated": "2026-11-17T23:51:27"
    }
   }
  },

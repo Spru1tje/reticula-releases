@@ -288,11 +288,13 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     mode_l = d2.radio("Method", ["Rietveld (structure known)", "Le Bail (cell + peak shape only)"], key="rv_mode",
                       help="Rietveld uses the intensities of the CIF; Le Bail lets every intensity free – use it when the structure is not right.")
     hf = d3.checkbox("Replace Zr by Hf", subst.startswith("Hf"), key="rv_hf", help="For Hf analogues of the bundled Zr structures.")
-    bgo, mono = 6, 0.0
+    bgo, mono, offm = 6, 0.0, "sample displacement"
     if LV.at_least("Advanced"):
         e1, e2 = box.columns(2)
         bgo = e1.slider("Background polynomial order", 2, 14, 6, key="rv_bg")
         mono = e2.number_input("Monochromator 2θ (° – 0 = none, 26.6 = graphite)", 0.0, 60.0, 0.0, 0.1, key="rv_mono")
+        offm = box.radio("Instrument offset", ["sample displacement (reflection geometry – default)", "zero shift (transmission / capillary / calibrated)", "both (only with a measured standard)"],
+                         key="rv_off", horizontal=True, help="Zero shift and displacement are strongly correlated; refining both biases the cell (≈ 0.05 % on a real pattern).")
     phases_src = [(k.split(" (")[0], os.path.join(REF, bundled[k])) for k in pick]
     for u in ups or []:
         phases_src.append((os.path.splitext(u.name)[0], u.getvalue()))
@@ -306,7 +308,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
             sub = {"Zr": "Hf"} if hf else None
             ph = [RV.Phase.from_cif(src, name, substitute=sub) for name, src in phases_src]
             res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,
-                                  mono_2theta=mono, progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_))
+                                  mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_))
             store[nm] = res
             bar.empty()
         except Exception as e:
@@ -354,7 +356,8 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
             if np.isfinite(res["size_nm_apparent"]) and res["size_nm_apparent"] < 1000:
                 st.caption(f"Apparent size from the Lorentzian width: {res['size_nm_apparent']:.0f} nm, apparent strain {100 * res['strain_apparent']:.2f} % "
                            "(instrument broadening included – a lower limit for the size).")
-    dl(st, "⬇️ Rietveld report (Excel: summary, phases, profile, pattern, notes)", lambda: RV.report_xlsx(res, nm), f"Rietveld_{re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)}.xlsx", "rv_xlsx")
+    _fn = re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)
+    dl(st, "⬇️ Rietveld report (Excel: summary, phases, profile, pattern, notes)", lambda: RV.report_xlsx(res, nm), f"Rietveld_{_fn}.xlsx", "rv_xlsx")
     for p in res["phases"]:
         vals = {f"{p['name']} cell a (Å)": p["cell"][0], f"{p['name']} volume (Å^3)": p["volume"], "Rwp (%)": 100 * rw}
         if res["mode"] == "rietveld":

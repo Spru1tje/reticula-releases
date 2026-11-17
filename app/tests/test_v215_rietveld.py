@@ -41,7 +41,7 @@ def test_single_phase_recovers_cell_B_and_width_fast():
     x, y, _ = synth([UIO], true, [1.0])
     import time
     t = time.time()
-    r = RV.quick_refine(x, y, [UIO])
+    r = RV.quick_refine(x, y, [UIO], offset="zero")
     assert time.time() - t < 15                                   # (≈ 1 s on a normal PC; CI machines are slower)
     p = r["phases"][0]
     assert abs(p["cell"][0] - 20.80) < 4 * max(p["cell_esd"]["a"], 2e-4) and abs(p["cell"][0] - 20.80) < 0.003
@@ -56,7 +56,7 @@ def test_two_phases_weight_fractions_and_cells():
     x, y, R = synth([UIO, M801], true, [1.0, 0.35])
     zm = [1.0 * R.phases[0].mass_cell * RV.cell_volume(R.cell(0)), 0.35 * R.phases[1].mass_cell * RV.cell_volume(R.cell(1))]
     wt = zm[0] / sum(zm)
-    r = RV.quick_refine(x, y, [UIO, M801])
+    r = RV.quick_refine(x, y, [UIO, M801], offset="zero")
     assert abs(r["phases"][0]["weight_fraction"] - wt) < 0.02
     assert abs(r["phases"][0]["cell"][0] - 20.78) < 0.004 and abs(r["phases"][1]["cell"][0] - 17.88) < 0.004
     assert r["stats"]["chi2"] < 1.6
@@ -67,7 +67,7 @@ def test_nanocrystals_broad_peaks_and_cell_start_far_off():
     """Broad peaks (≈ 1.5 nm crystals look like X ≈ 0.9°), cell 1.3 % away from the CIF: the start-value search must find it."""
     true = {"c0.a": 21.02, "zero": -0.08, "W": 0.0, "X": 0.5, "Y": 0.0, "B0": 2.0}
     x, y, _ = synth([UIO], true, [1.0], peak=6000)
-    r = RV.quick_refine(x, y, [UIO])
+    r = RV.quick_refine(x, y, [UIO], offset="zero")
     assert abs(r["phases"][0]["cell"][0] - 21.02) < 0.05
     assert r["stats"]["Rwp"] < 0.12
 
@@ -75,9 +75,9 @@ def test_nanocrystals_broad_peaks_and_cell_start_far_off():
 def test_kalpha2_radiation_and_lebail():
     true = {"c0.a": 20.76, "zero": 0.0, "W": 0.003, "X": 0.08, "B0": 1.0}
     x, y, _ = synth([UIO], true, [1.0], rad="Cu Kα1 + Kα2", rng_=(4, 50))
-    r = RV.quick_refine(x, y, [UIO], radiation="Cu Kα1 + Kα2")
+    r = RV.quick_refine(x, y, [UIO], radiation="Cu Kα1 + Kα2", offset="zero")
     assert abs(r["phases"][0]["cell"][0] - 20.76) < 0.003 and r["stats"]["chi2"] < 1.6
-    lb = RV.quick_refine(x, y, [UIO], radiation="Cu Kα1 + Kα2", mode="lebail")
+    lb = RV.quick_refine(x, y, [UIO], radiation="Cu Kα1 + Kα2", mode="lebail", offset="zero")
     assert abs(lb["phases"][0]["cell"][0] - 20.76) < 0.005
     assert lb["stats"]["Rwp"] < 0.08 and lb["lebail_I"] is not None
     assert lb["phases"][0].get("Rb") is None                       # no structure model: no Bragg R
@@ -89,3 +89,22 @@ def test_arbitrary_units_and_cell_systems():
     assert not r["counts"] and abs(r["phases"][0]["cell"][0] - 20.80) < 0.01 and any("not in counts" in n for n in r["notes"])
     assert RV.detect_system((5, 5, 5, 90, 90, 90)) == "cubic" and RV.detect_system((5, 5, 8, 90, 90, 120)) == "hexagonal"
     assert RV.detect_system((5, 6, 7, 90, 100, 90)) == "monoclinic" and RV.detect_system((5, 5, 5, 60, 60, 60)) == "rhombohedral"
+
+
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(DATA, "FAP_REAL.xra")), reason="real data not present (kept out of the repository)")
+def test_real_laboratory_pattern_fluorapatite_matches_gsas():
+    """Real Cu Kα1+Kα2 laboratory pattern of fluorapatite (GSAS-II tutorial 'LabData', 15-130°) with a CIF from COD, fully automatic.
+    The GSAS refinement of the same data gives a = 9.371724(36), c = 6.885867(37) Å."""
+    L = open(os.path.join(DATA, "FAP_REAL.xra")).read().splitlines()
+    vals = []
+    for ln in L[2:]:
+        vals += [float(ln[8 * k:8 * k + 8]) for k in range(10) if ln[8 * k:8 * k + 8].strip()]
+    y = np.array(vals[:5753])
+    x = 15.0 + 0.02 * np.arange(len(y))
+    r = RV.quick_refine(x, y, [os.path.join(DATA, "FAP_REAL.cif")], radiation=[(1.5405, 1.0), (1.5443, 0.5)])
+    p = r["phases"][0]
+    assert r["stats"]["Rwp"] < 0.11 and np.sqrt(r["stats"]["chi2"]) < 2.0 and p["Rb"] < 0.08
+    assert abs(p["cell"][0] - 9.371724) < 0.002 and abs(p["cell"][2] - 6.885867) < 0.002            # within 0.02 % of the GSAS result
