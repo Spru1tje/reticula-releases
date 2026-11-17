@@ -63,8 +63,14 @@ EXCLUDES = ["pytest", "IPython", "jupyter", "notebook", "PyQt5", "PyQt6", "PySid
             "pyarrow.flight", "pyarrow.parquet", "pyarrow.dataset", "pyarrow.substrait", "pyarrow.tests", "scipy.tests", "numpy.tests",
             "pandas.tests", "matplotlib.tests", "networkx.drawing", "sphinx", "pymatgen.ext", "pymatgen.io.vasp.outputs"]
 
-DROP = re.compile(r"(pyarrow[\\/](include|tests|.*(flight|s3|substrait|dataset|acero|parquet|orc|gcsfs|azurefs|hdfs|cuda)[^\\/]*\.(dll|pyd|so|dylib))"
-                  r"|pyarrow[\\/].*\.(lib|pyx|pxd|pxi|h|hpp|cc)$|[\\/]tests?[\\/]|mpl-data[\\/]sample_data|\.(lib|pyi|c|h)$|[\\/]lxml[\\/])", re.I)
+_DROP_COMMON = r"|pyarrow[\\/].*\.(lib|pyx|pxd|pxi|h|hpp|cc)$|[\\/]tests?[\\/]|mpl-data[\\/]sample_data|\.(lib|pyi|c|h)$|[\\/]lxml[\\/])"
+# Windows drops the optional Arrow DLLs. macOS must NOT: pyarrow's lib.so is linked against all libarrow_* dylibs (substrait, flight,
+# dataset ...) and `import pyarrow` fails without them (v2.15.0 macOS self-test).
+if sys.platform == "win32":
+    DROP = re.compile(r"(pyarrow[\\/](include|tests|.*(flight|s3|substrait|dataset|acero|parquet|orc|gcsfs|azurefs|hdfs|cuda)[^\\/]*\.(dll|pyd|so|dylib))"
+                      + _DROP_COMMON, re.I)
+else:
+    DROP = re.compile(r"(pyarrow[\\/](include|tests)" + _DROP_COMMON, re.I)
 
 
 def keep(toc):

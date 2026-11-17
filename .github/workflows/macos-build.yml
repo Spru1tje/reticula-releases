@@ -1,0 +1,84 @@
+name: macos-build
+
+# Builds the macOS (Apple Silicon) dmg from the CURRENT main branch and, when `attach_tag` is given, attaches it to that existing release
+# (and updates SHA256SUMS.txt). Use it when the macOS job of the release workflow failed or got no runner:
+#   Actions -> macos-build -> Run workflow (attach_tag = v2.15.0)
+# Nothing is published when attach_tag is empty: the dmg is only kept as a workflow artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      attach_tag:
+        description: "Existing release tag to attach the dmg to (empty = only keep it as an artifact)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest           # Apple Silicon
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        run: |
+          set -euo pipefail
+          VER=$(python3 -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('app/mfs/__init__.py').read()).group(1))")
+          echo "RETICULA_VERSION=$VER" >> "$GITHUB_ENV"
+          echo "Building version $VER"
+      - name: Official Python 3.12 (framework build with Tcl/Tk)
+        run: |
+          set -euo pipefail
+          for v in 3.12.12 3.12.11 3.12.10 3.12.9 3.12.8 3.12.7; do
+            url="https://www.python.org/ftp/python/${v}/python-${v}-macos11.pkg"
+            if curl -fsI "$url" >/dev/null; then curl -L --retry 5 -o /tmp/python.pkg "$url"; break; fi
+          done
+          test -f /tmp/python.pkg
+          sudo installer -pkg /tmp/python.pkg -target /
+          echo "/Library/Frameworks/Python.framework/Versions/3.12/bin" >> "$GITHUB_PATH"
+      - name: Tesseract and dylibbundler
+        run: brew install tesseract dylibbundler
+      - name: Python packages
+        run: |
+          python3.12 -m pip install --upgrade pip wheel setuptools
+          python3.12 -m pip install -r requirements-build.txt
+      - name: Icon and Tesseract bundle
+        run: |
+          bash pkg/make_icns.sh
+          bash pkg/bundle_tesseract.sh
+      - name: PyInstaller
+        run: |
+          python3.12 -m PyInstaller --noconfirm --clean pkg/mfs_mac.spec
+          codesign --force --deep --sign - dist/Reticula.app || true
+      - name: Self-test of the built app (headless)
+        run: |
+          set -euo pipefail
+          dist/Reticula.app/Contents/MacOS/Reticula --selftest "$PWD/selftest.json" || true
+          python3.12 pkg/check_selftest.py selftest.json
+      - name: DMG
+        run: |
+          bash pkg/make_dmg.sh
+          ls -lh Reticula_*_macOS_*.dmg*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          if-no-files-found: error
+          path: |
+            Reticula_*_macOS_*.dmg
+            Reticula_*_macOS_*.dmg.sha256
+            selftest.json
+            selftest_pretty.txt
+      - name: Attach the dmg to the release and update SHA256SUMS
+        if: ${{ inputs.attach_tag != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.attach_tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir . --clobber
+          grep -v "_macOS_" SHA256SUMS.txt > SHA256SUMS.new || true
+          cat Reticula_*_macOS_*.dmg.sha256 >> SHA256SUMS.new
+          mv SHA256SUMS.new SHA256SUMS.txt
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" Reticula_*_macOS_*.dmg SHA256SUMS.txt --clobber
