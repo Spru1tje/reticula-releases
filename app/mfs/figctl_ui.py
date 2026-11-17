@@ -148,7 +148,11 @@ def panel(fig, key, units=None, series=None, expanded=False):
     with st.expander("🎛️ Customise this figure – title, axes, units, ticks, legend, colours, presets", expanded=expanded):
         if st.session_state.get(_k(key, "msg")):
             st.info(st.session_state.pop(_k(key, "msg")))
-        t1, t2, t3, t4, t5 = st.tabs(["🖋️ Title & axes", "📏 Axes & ticks", "🏷️ Legend", "🎨 Style & colours", "💾 Preset"])
+        from mfs import levels as LV
+        adv = LV.at_least("Advanced")                  # v2.15: Standard shows the essentials; ticks and presets are Advanced
+        _tabs = st.tabs(["🖋️ Title & axes", "🏷️ Legend", "🎨 Style & colours"] + (["📏 Axes & ticks", "💾 Preset"] if adv else []))
+        t1, t3, t4 = _tabs[:3]
+        t2, t5 = (_tabs[3], _tabs[4]) if adv else (None, None)
         # ---------------- title & axes
         with t1:
             c1, c2, c3 = st.columns([3, 1, 1])
@@ -203,55 +207,56 @@ def panel(fig, key, units=None, series=None, expanded=False):
                 st.caption("Ranges are entered in the units shown on the axis. Empty = automatic.")
                 cfg["panels"][str(i)] = {**cfg["panels"].get(str(i), {}), **p}
         # ---------------- ticks
-        with t2:
-            T = cfg["ticks"]
-            c1, c2, c3 = st.columns(3)
-            presets = list(F.TICK_PRESETS)
-            T["preset"] = c1.selectbox("Ticks on", presets, index=presets.index(base["ticks"].get("preset", "All 4 sides")), key=_k(key, "preset"))
-            T["direction"] = c2.radio("Direction", ["in", "out", "inout"], index=["in", "out", "inout"].index(base["ticks"].get("direction", "in")),
-                                      horizontal=True, key=_k(key, "direction"))
-            T["frame"] = c3.radio("Frame", ["box", "match ticks"], index=["box", "match ticks"].index(base["ticks"].get("frame", "box")),
-                                  horizontal=True, key=_k(key, "frame"), help="'match ticks' hides the axis lines on sides without ticks")
-            sides = F.TICK_PRESETS.get(T["preset"]) or base["ticks"]["sides"]
-            st.markdown("**Ticks / tick labels per side**")
-            cols = st.columns(4)
-            for c, s in zip(cols, F.SIDES):
-                T["sides"][s] = c.checkbox(f"ticks {s}", sides[s], key=_k(key, "side", s), disabled=T["preset"] != "Custom")
-                if T["preset"] != "Custom":
-                    T["sides"][s] = sides[s]
-                T["labels"][s] = c.checkbox(f"labels {s}", base["ticks"]["labels"].get(s, s in ("bottom", "left")), key=_k(key, "lab", s))
-            c1, c2, c3, c4 = st.columns(4)
-            T["minor"] = c1.checkbox("Minor ticks", base["ticks"].get("minor", True), key=_k(key, "minor"))
-            T["major_len"] = c2.number_input("Major length (pt)", 0.0, 12.0, float(base["ticks"].get("major_len", 3.5)), 0.5, key=_k(key, "major_len"))
-            T["minor_len"] = c3.number_input("Minor length (pt)", 0.0, 8.0, float(base["ticks"].get("minor_len", 2.0)), 0.5, key=_k(key, "minor_len"))
-            T["width"] = c4.number_input("Tick width (pt)", 0.1, 3.0, float(base["ticks"].get("width", 0.6)), 0.1, key=_k(key, "width"))
-            for d in data_panels:
-                i = d["index"]
-                if len(data_panels) > 1:
-                    st.markdown(f"**Increments – panel {i + 1}**")
-                else:
-                    st.markdown("**Increments** (in the displayed unit; 0 = automatic)")
-                p = cfg["panels"].setdefault(str(i), {})
+        if adv:
+            with t2:
+                T = cfg["ticks"]
+                c1, c2, c3 = st.columns(3)
+                presets = list(F.TICK_PRESETS)
+                T["preset"] = c1.selectbox("Ticks on", presets, index=presets.index(base["ticks"].get("preset", "All 4 sides")), key=_k(key, "preset"))
+                T["direction"] = c2.radio("Direction", ["in", "out", "inout"], index=["in", "out", "inout"].index(base["ticks"].get("direction", "in")),
+                                          horizontal=True, key=_k(key, "direction"))
+                T["frame"] = c3.radio("Frame", ["box", "match ticks"], index=["box", "match ticks"].index(base["ticks"].get("frame", "box")),
+                                      horizontal=True, key=_k(key, "frame"), help="'match ticks' hides the axis lines on sides without ticks")
+                sides = F.TICK_PRESETS.get(T["preset"]) or base["ticks"]["sides"]
+                st.markdown("**Ticks / tick labels per side**")
+                cols = st.columns(4)
+                for c, s in zip(cols, F.SIDES):
+                    T["sides"][s] = c.checkbox(f"ticks {s}", sides[s], key=_k(key, "side", s), disabled=T["preset"] != "Custom")
+                    if T["preset"] != "Custom":
+                        T["sides"][s] = sides[s]
+                    T["labels"][s] = c.checkbox(f"labels {s}", base["ticks"]["labels"].get(s, s in ("bottom", "left")), key=_k(key, "lab", s))
                 c1, c2, c3, c4 = st.columns(4)
-                spans = {}
-                for ax_ in ("x", "y"):
-                    lo, hi = d[f"{ax_}lim"]
-                    fam = fams.get(i, {}).get(ax_); un = p.get(f"{ax_}_unit")
-                    u = F._unit(fam, un) if fam and un else None
-                    if u and u[3]:
-                        with np.errstate(all="ignore"):
-                            a, b = u[3](lo, cfg["units_params"]), u[3](hi, cfg["units_params"])
-                        spans[ax_] = abs(float(b) - float(a)) if np.isfinite(a) and np.isfinite(b) else abs(hi - lo)
+                T["minor"] = c1.checkbox("Minor ticks", base["ticks"].get("minor", True), key=_k(key, "minor"))
+                T["major_len"] = c2.number_input("Major length (pt)", 0.0, 12.0, float(base["ticks"].get("major_len", 3.5)), 0.5, key=_k(key, "major_len"))
+                T["minor_len"] = c3.number_input("Minor length (pt)", 0.0, 8.0, float(base["ticks"].get("minor_len", 2.0)), 0.5, key=_k(key, "minor_len"))
+                T["width"] = c4.number_input("Tick width (pt)", 0.1, 3.0, float(base["ticks"].get("width", 0.6)), 0.1, key=_k(key, "width"))
+                for d in data_panels:
+                    i = d["index"]
+                    if len(data_panels) > 1:
+                        st.markdown(f"**Increments – panel {i + 1}**")
                     else:
-                        spans[ax_] = abs(hi - lo)
-                p["xmajor"] = _inc(c1, key, i, "xmajor", "x major", spans["x"])
-                p["xminor"] = _inc(c2, key, i, "xminor", "x minor", spans["x"] / 4)
-                p["ymajor"] = _inc(c3, key, i, "ymajor", "y major", spans["y"])
-                p["yminor"] = _inc(c4, key, i, "yminor", "y minor", spans["y"] / 4)
-                if d["xscale"] == "log" or d["yscale"] == "log":
-                    st.caption("Log axes use decades; increments apply to linear axes only.")
-                if d["yticks_hidden"]:
-                    st.caption("Stacked/offset plot: the y axis is in arbitrary units and has no ticks unless you set a y increment.")
+                        st.markdown("**Increments** (in the displayed unit; 0 = automatic)")
+                    p = cfg["panels"].setdefault(str(i), {})
+                    c1, c2, c3, c4 = st.columns(4)
+                    spans = {}
+                    for ax_ in ("x", "y"):
+                        lo, hi = d[f"{ax_}lim"]
+                        fam = fams.get(i, {}).get(ax_); un = p.get(f"{ax_}_unit")
+                        u = F._unit(fam, un) if fam and un else None
+                        if u and u[3]:
+                            with np.errstate(all="ignore"):
+                                a, b = u[3](lo, cfg["units_params"]), u[3](hi, cfg["units_params"])
+                            spans[ax_] = abs(float(b) - float(a)) if np.isfinite(a) and np.isfinite(b) else abs(hi - lo)
+                        else:
+                            spans[ax_] = abs(hi - lo)
+                    p["xmajor"] = _inc(c1, key, i, "xmajor", "x major", spans["x"])
+                    p["xminor"] = _inc(c2, key, i, "xminor", "x minor", spans["x"] / 4)
+                    p["ymajor"] = _inc(c3, key, i, "ymajor", "y major", spans["y"])
+                    p["yminor"] = _inc(c4, key, i, "yminor", "y minor", spans["y"] / 4)
+                    if d["xscale"] == "log" or d["yscale"] == "log":
+                        st.caption("Log axes use decades; increments apply to linear axes only.")
+                    if d["yticks_hidden"]:
+                        st.caption("Stacked/offset plot: the y axis is in arbitrary units and has no ticks unless you set a y increment.")
         # ---------------- legend
         with t3:
             L = cfg["legend"]
@@ -318,18 +323,19 @@ def panel(fig, key, units=None, series=None, expanded=False):
                         cur.pop(nm, None)
                     S.set_series_colours(cur); st.rerun()
         # ---------------- preset
-        with t5:
-            c1, c2, c3 = st.columns(3)
-            c1.download_button("Save these settings (JSON)", F.to_json(cfg).encode(), f"{key}_figure_settings.json",
-                               mime="application/json", on_click="ignore", key=_k(key, "dl"))
-            c2.download_button("Save as house style (JSON)", F.to_json(F.house_style(cfg)).encode(), "house_style.json",
-                               mime="application/json", on_click="ignore", key=_k(key, "dlh"))
-            if c3.button("Use as house style for all figures", key=_k(key, "mkhouse")):
-                st.session_state["house_style"] = F.house_style(cfg)
-                st.session_state["house_msg"] = "House style set from this figure."
-                st.rerun()
-            st.file_uploader("Load settings for this figure (JSON)", type=["json"], key=_k(key, "upload"),
-                             on_change=_load_fig_cb, args=(key,))
+        if adv:
+            with t5:
+                c1, c2, c3 = st.columns(3)
+                c1.download_button("Save these settings (JSON)", F.to_json(cfg).encode(), f"{key}_figure_settings.json",
+                                   mime="application/json", on_click="ignore", key=_k(key, "dl"))
+                c2.download_button("Save as house style (JSON)", F.to_json(F.house_style(cfg)).encode(), "house_style.json",
+                                   mime="application/json", on_click="ignore", key=_k(key, "dlh"))
+                if c3.button("Use as house style for all figures", key=_k(key, "mkhouse")):
+                    st.session_state["house_style"] = F.house_style(cfg)
+                    st.session_state["house_msg"] = "House style set from this figure."
+                    st.rerun()
+                st.file_uploader("Load settings for this figure (JSON)", type=["json"], key=_k(key, "upload"),
+                                 on_change=_load_fig_cb, args=(key,))
     return cfg, fams
 
 

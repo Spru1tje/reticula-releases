@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -233,6 +234,42 @@ def page_xps():
              draw_f, f"XPS fit {pick}")
     except Exception as e:
         st.warning(f"Fit failed: {e}")
+
+    with LV.gate("Advanced", globals()):
+        with st.expander("🗂️ Batch: apply this fit model to ALL spectra of the same region", expanded=False):
+            same = [s_ for s_ in spec if s_["region"] == d_["region"] or d_["region"] is None]
+            st.caption(f"{len(same)} spectrum/spectra of region **{d_['region'] or 'other'}**; the components above (names, BE guesses, doublet, fixed BE) "
+                       "are fitted to each of them with the background and Lorentzian fraction chosen above.")
+            if st.button("▶ Fit all", key="xps_batch_go", type="primary"):
+                comp_def = [{"name": r_["name"], "center": float(r_["BE guess (eV)"]), "region": rsel if (r_["doublet"] and dd) else None,
+                             "fix_center": bool(r_["fix BE"])} for _, r_ in comps.dropna(subset=["BE guess (eV)"]).iterrows()]
+                out, bad = [], []
+                for s_ in same:
+                    try:
+                        o_ = XP.fit(s_["x"], s_["y"], comp_def, background=bgk.lower(), eta=eta)
+                        for r_ in o_["rows"]:
+                            out.append({"sample": s_["group"], "spectrum": s_["name"], **{k: v for k, v in r_.items() if k != "region"},
+                                        "RMS (% of peak)": 100 * o_["rms_rel"]})
+                    except Exception as e:
+                        bad.append(f"{s_['name']}: {e}")
+                st.session_state["xps_batch_res"] = (pd.DataFrame(out), bad)
+            got = st.session_state.get("xps_batch_res")
+            if got:
+                tb, bad = got
+                for b_ in bad:
+                    st.warning(b_)
+                if len(tb):
+                    st.dataframe(tb.style.format(precision=2), hide_index=True, width="stretch")
+                    dl(st, "⬇️ Batch fit table (CSV)", lambda: tb.to_csv(index=False).encode("utf-8-sig"), "XPS_batch_fit.csv", "xps_batch_csv")
+                    pivot = tb.pivot_table(index="spectrum", columns="component", values="% of envelope", aggfunc="sum", sort=False)
+
+                    def draw_b(ax, pivot=pivot):
+                        pivot.plot(kind="bar", stacked=True, ax=ax, width=0.7, edgecolor="none")
+                        ax.set_ylabel("Share of the envelope (%)"); ax.set_xlabel("")
+                        ax.legend(frameon=False, fontsize=6)
+                        plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
+                    fig, ax = newfig(0.8); draw_b(ax)
+                    show(fig, "XPS_batch_components", pivot.reset_index(), draw_b, "XPS components per sample")
 
     st.subheader("Atomic % (RSF-corrected)")
     st.caption("Areas above the chosen background, per region, per sample (whole doublets). Default RSFs: Scofield cross-sections "

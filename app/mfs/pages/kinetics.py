@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -123,14 +124,15 @@ def page_kinetics():
             st.dataframe(pd.DataFrame(tr).style.format(precision=4), width="stretch", hide_index=True)
             st.caption("TOF = k_obs·C0·V / (m_cat / M_node × open sites per node) – initial turnover per open site. "
                        "Pull OS and M from the defect calculator (sample store) or type them.")
-        with st.expander("ln(C/C₀) linearisation"):
-            fig, ax = newfig()
-            cols_ = S.colours_for([s[0] for s in sets])
-            for c_, (nm, t, cc, e, fit) in zip(cols_, sets):
-                ax.plot(t, np.log(np.asarray(cc) / (fit["C0"] if fit else cc[0])), "o", color=c_, ms=3, label=nm)
-                if fit: ax.plot(t, -fit["k"] * np.asarray(t), "-", color=c_, lw=0.8)
-            ax.set_xlabel(f"Time ({tunit})"); ax.set_ylabel(r"ln($C/C_0$)"); ax.legend(fontsize=FONT - 2)
-            show(fig, "ln_kinetics")
+        with LV.gate("Advanced", globals()):
+            with st.expander("ln(C/C₀) linearisation"):
+                fig, ax = newfig()
+                cols_ = S.colours_for([s[0] for s in sets])
+                for c_, (nm, t, cc, e, fit) in zip(cols_, sets):
+                    ax.plot(t, np.log(np.asarray(cc) / (fit["C0"] if fit else cc[0])), "o", color=c_, ms=3, label=nm)
+                    if fit: ax.plot(t, -fit["k"] * np.asarray(t), "-", color=c_, lw=0.8)
+                ax.set_xlabel(f"Time ({tunit})"); ax.set_ylabel(r"ln($C/C_0$)"); ax.legend(fontsize=FONT - 2)
+                show(fig, "ln_kinetics")
     st.subheader("Adsorption isotherm (Langmuir / Freundlich)")
     files = files_input("Adsorption table (sample, Ce, qe)", ["csv", "txt", "xlsx"], "Kinetics/GlyGly_adsorption_*.csv", "ads", multiple=False)
     if files:

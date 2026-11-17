@@ -7,6 +7,7 @@ import re
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 
 from mfs import uvvis as U
 
@@ -226,13 +227,14 @@ def render(g):
                                        "assay": assay, "lambda_nm": lam, "cal_R2": round(cal["R2"], 5)}, "UV/Vis")
                         st.success("Stored.")
                 if assay.startswith(("OPA", "Ninhydrin")):
-                    with st.expander("Degree of hydrolysis (Nielsen 2001)", expanded=False):
-                        htot = st.number_input("h_tot (meq amino groups per g protein, e.g. 7.6 for whey, 8.0 BSA)", 0.1, 20.0, 8.0, 0.1, key="uv_htot")
-                        pconc = st.number_input("protein in the assay (g/L)", 0.001, 100.0, 1.0, 0.1, key="uv_pconc")
-                        if len(unk):
-                            h = unk[f"c ({unit})"].astype(float) / (1.0 if unit == "mM" else 1000.0) / pconc     # meq/g
-                            st.dataframe(pd.DataFrame({"spectrum": unk["spectrum"], "h (meq/g)": h.round(3),
-                                                       "DH (%)": U.degree_of_hydrolysis(h, htot).round(1)}), hide_index=True)
+                    with LV.gate("Advanced", globals()):
+                        with st.expander("Degree of hydrolysis (Nielsen 2001)", expanded=False):
+                            htot = st.number_input("h_tot (meq amino groups per g protein, e.g. 7.6 for whey, 8.0 BSA)", 0.1, 20.0, 8.0, 0.1, key="uv_htot")
+                            pconc = st.number_input("protein in the assay (g/L)", 0.001, 100.0, 1.0, 0.1, key="uv_pconc")
+                            if len(unk):
+                                h = unk[f"c ({unit})"].astype(float) / (1.0 if unit == "mM" else 1000.0) / pconc     # meq/g
+                                st.dataframe(pd.DataFrame({"spectrum": unk["spectrum"], "h (meq/g)": h.round(3),
+                                                           "DH (%)": U.degree_of_hydrolysis(h, htot).round(1)}), hide_index=True)
         else:
             st.info(f"Mark at least {4 if model == 'quadratic' else 3} spectra as standards with a concentration.")
 

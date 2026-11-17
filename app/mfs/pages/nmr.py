@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -123,17 +124,18 @@ def page_nmr_digest():
     main_opts = [n for n in names if n != std_name]
     main_name = pc3.selectbox("Main component (= 1)", main_opts, key="nmr_main_pick|" + pre) if main_opts else None
     if specs:
-        with st.expander("🔎 Peaks found in the first spectrum (to set the windows)", expanded=False):
-            try:
-                from mfs import nmrpeaks as _PK, nmrproc as _NP
-                d0 = next(iter(specs.values()))
-                sp0 = _NP.Spectrum(d0.x.values, d0.y.values, "1H", "1H", float(d0.attrs.get("SF") or 400.0), {})
-                ms0 = _PK.analyse(sp0, k=8.0); _PK.normalise(ms0)
-                st.dataframe(pd.DataFrame([{"δ": round(m.centre, 3), "from": round(m.lo, 2), "to": round(m.hi, 2), "mult": m.mult,
-                                            "rel. integral": round(m.integral / max(x.integral for x in ms0), 4)} for m in ms0
-                                           if m.integral > 0.003 * max(x.integral for x in ms0)]), hide_index=True, width="stretch")
-            except Exception as e:
-                st.caption(f"(peak list unavailable: {e})")
+        with LV.gate("Advanced", globals()):
+            with st.expander("🔎 Peaks found in the first spectrum (to set the windows)", expanded=False):
+                try:
+                    from mfs import nmrpeaks as _PK, nmrproc as _NP
+                    d0 = next(iter(specs.values()))
+                    sp0 = _NP.Spectrum(d0.x.values, d0.y.values, "1H", "1H", float(d0.attrs.get("SF") or 400.0), {})
+                    ms0 = _PK.analyse(sp0, k=8.0); _PK.normalise(ms0)
+                    st.dataframe(pd.DataFrame([{"δ": round(m.centre, 3), "from": round(m.lo, 2), "to": round(m.hi, 2), "mult": m.mult,
+                                                "rel. integral": round(m.integral / max(x.integral for x in ms0), 4)} for m in ms0
+                                               if m.integral > 0.003 * max(x.integral for x in ms0)]), hide_index=True, width="stretch")
+                except Exception as e:
+                    st.caption(f"(peak list unavailable: {e})")
     std_nH = float(regions.loc[regions["species"] == std_name, "nH"].iloc[0]) if std_name in names else None
     out = []
     for nm, d in specs.items():

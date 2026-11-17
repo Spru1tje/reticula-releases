@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -54,49 +55,52 @@ def page_sorption():
             st.error(f"{f.name}: {e}")
     if not data:
         return
-    with st.expander("🔎 What was read from each file (tables found, which one is used, units, sample name)"):
-        for nm, d in data.items():
-            m = d["meta"]
-            st.markdown(f"**{nm}** – sample in file: `{m.get('sample', '–')}` · mass {m.get('mass_g', '–')} g · "
-                        f"{int((d['iso'].branch == 'ads').sum())} adsorption + {int((d['iso'].branch == 'des').sum())} desorption points · "
-                        f"quantity unit in file: {m.get('q_unit_in_file')} (plotted as cm³ g⁻¹ STP) · isotherm from: {m.get('isotherm_table', '–')}")
-            if d.get("tables"):
-                st.dataframe(pd.DataFrame(d["tables"]), width="stretch", hide_index=True)
+    with LV.gate("Advanced", globals()):
+        with st.expander("🔎 What was read from each file (tables found, which one is used, units, sample name)"):
+            for nm, d in data.items():
+                m = d["meta"]
+                st.markdown(f"**{nm}** – sample in file: `{m.get('sample', '–')}` · mass {m.get('mass_g', '–')} g · "
+                            f"{int((d['iso'].branch == 'ads').sum())} adsorption + {int((d['iso'].branch == 'des').sum())} desorption points · "
+                            f"quantity unit in file: {m.get('q_unit_in_file')} (plotted as cm³ g⁻¹ STP) · isotherm from: {m.get('isotherm_table', '–')}")
+                if d.get("tables"):
+                    st.dataframe(pd.DataFrame(d["tables"]), width="stretch", hide_index=True)
     # ---------------------------------------------------------------- per-sample style
-    with st.expander("🎨 Series style per sample (adsorption / desorption colour, marker, line)", expanded=False):
-        styles = {}
-        defaults = S.colours_for(list(data))
-        for nm, dc in zip(data, defaults):
-            h = hashlib.md5(nm.encode()).hexdigest()[:10]
-            c = st.columns([2, 1, 1, 2, 2, 1, 2, 1])
-            c[0].markdown(f"**{re.sub(r'[$_{{}}]|mathrm', '', nm)}**")
-            ca = c[1].color_picker("ads", dc, key=f"iso_ca_{h}")
-            cd = c[2].color_picker("des", ca, key=f"iso_cd_{h}")
-            mk = c[3].selectbox("marker", list(MARKERS), key=f"iso_mk_{h}")
-            mkd = c[4].selectbox("des marker", ["same"] + list(MARKERS), key=f"iso_mkd_{h}")
-            ms = c[5].number_input("size", 0.5, 12.0, 3.0, 0.5, key=f"iso_ms_{h}")
-            ls = c[6].selectbox("line", list(LINESTYLES), key=f"iso_ls_{h}")
-            lw = c[7].number_input("width", 0.0, 4.0, 0.8, 0.1, key=f"iso_lw_{h}")
-            styles[nm] = {"ads_color": ca, "des_color": cd, "marker": MARKERS[mk], "des_marker": None if mkd == "same" else MARKERS[mkd],
-                          "ms": ms, "ls": LINESTYLES[ls], "lw": lw}
-        st.caption("Adsorption = filled symbols, desorption = open symbols (MOF convention). Lines join the points in measurement order.")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🎨 Series style per sample (adsorption / desorption colour, marker, line)", expanded=False):
+            styles = {}
+            defaults = S.colours_for(list(data))
+            for nm, dc in zip(data, defaults):
+                h = hashlib.md5(nm.encode()).hexdigest()[:10]
+                c = st.columns([2, 1, 1, 2, 2, 1, 2, 1])
+                c[0].markdown(f"**{re.sub(r'[$_{{}}]|mathrm', '', nm)}**")
+                ca = c[1].color_picker("ads", dc, key=f"iso_ca_{h}")
+                cd = c[2].color_picker("des", ca, key=f"iso_cd_{h}")
+                mk = c[3].selectbox("marker", list(MARKERS), key=f"iso_mk_{h}")
+                mkd = c[4].selectbox("des marker", ["same"] + list(MARKERS), key=f"iso_mkd_{h}")
+                ms = c[5].number_input("size", 0.5, 12.0, 3.0, 0.5, key=f"iso_ms_{h}")
+                ls = c[6].selectbox("line", list(LINESTYLES), key=f"iso_ls_{h}")
+                lw = c[7].number_input("width", 0.0, 4.0, 0.8, 0.1, key=f"iso_lw_{h}")
+                styles[nm] = {"ads_color": ca, "des_color": cd, "marker": MARKERS[mk], "des_marker": None if mkd == "same" else MARKERS[mkd],
+                              "ms": ms, "ls": LINESTYLES[ls], "lw": lw}
+            st.caption("Adsorption = filled symbols, desorption = open symbols (MOF convention). Lines join the points in measurement order.")
     c1, c2, c3, c4 = st.columns(4)
     logx = c1.checkbox("log p/p₀ axis (micropore filling)", False)
     both = c1.checkbox("also show linear + log side by side", False)
     show_des = c2.checkbox("show desorption", True)
     psd_kind = c3.selectbox("PSD representation", ["dvdw", "dvdlogw", "cum"], format_func={"dvdw": "dV/dw", "dvdlogw": "dV/dlog(w)", "cum": "cumulative"}.get)
     wmax = c4.number_input("PSD max width (nm)", 0.5, 50.0, 2.0)
-    with st.expander("✨ Figure options (v2.13 redesign)", expanded=False):
-        o1, o2, o3, o4 = st.columns(4)
-        hyst = o1.checkbox("shade hysteresis loop", False, key="sorp_hyst")
-        dlab = o1.checkbox("sample names at curve ends (no legend box)", False, key="sorp_dlab")
-        thin = o2.checkbox("thin out markers (≈18 per branch)", False, key="sorp_thin")
-        inset = False  # user (t102u): no graphs inside graphs
-        cum = o3.checkbox("cumulative pore volume on a twin axis (PSD)", False, key="sorp_cum")
-        bet_all = o3.checkbox("BET / Rouquerol: overlay all samples", False, key="sorp_bet_all")
-        bet_box = o4.checkbox("BET annotation box", True, key="sorp_bet_box")
-        st.caption("ACS styling with Okabe–Ito colours: adsorption filled, desorption open, lines in measurement order. "
-                   "Labels and legends can be dragged in the figure editor below each plot.")
+    with LV.gate("Advanced", globals()):
+        with st.expander("✨ Figure options (v2.13 redesign)", expanded=False):
+            o1, o2, o3, o4 = st.columns(4)
+            hyst = o1.checkbox("shade hysteresis loop", False, key="sorp_hyst")
+            dlab = o1.checkbox("sample names at curve ends (no legend box)", False, key="sorp_dlab")
+            thin = o2.checkbox("thin out markers (≈18 per branch)", False, key="sorp_thin")
+            inset = False  # user (t102u): no graphs inside graphs
+            cum = o3.checkbox("cumulative pore volume on a twin axis (PSD)", False, key="sorp_cum")
+            bet_all = o3.checkbox("BET / Rouquerol: overlay all samples", False, key="sorp_bet_all")
+            bet_box = o4.checkbox("BET annotation box", True, key="sorp_bet_box")
+            st.caption("ACS styling with Okabe–Ito colours: adsorption filled, desorption open, lines in measurement order. "
+                       "Labels and legends can be dragged in the figure editor below each plot.")
     # ---------------------------------------------------------------- BET
     rows = []
     notes = []                                   # v2.14: warnings / infos about the fits: shown in the collapsed details, not up front
@@ -281,10 +285,11 @@ def page_sorption():
         show(fig, "PSD_computed", pd.concat([pd.DataFrame({"sample": n, "w (nm)": r_["w"], "dV/dw": r_["dVdw"], "V_cum": r_["V_cum"],
                                                             "method": r_["method"]}) for n, r_ in comp]), draw_cpsd, "PSD (computed)", units={"x": "pore_nm"})
         if meth in PSDm.KERNELS:
-            with st.expander("Kernel fit of the isotherm (check the fit quality)"):
-                fig, ax = newfig()
-                for (n, r_), col in zip(comp, cols_):
-                    ax.semilogx(r_["p"], r_["q"], "o", ms=2.5, mfc="white", color=col, label=n)
-                    ax.semilogx(r_["p"], r_["fit"], "-", color=col, lw=0.9)
-                ax.set_xlabel("$p/p_0$"); ax.set_ylabel("Quantity adsorbed (cm$^3$ g$^{-1}$ STP)"); ax.legend(frameon=False, fontsize=FONT - 2)
-                show(fig, "PSD_kernel_fit")
+            with LV.gate("Advanced", globals()):
+                with st.expander("Kernel fit of the isotherm (check the fit quality)"):
+                    fig, ax = newfig()
+                    for (n, r_), col in zip(comp, cols_):
+                        ax.semilogx(r_["p"], r_["q"], "o", ms=2.5, mfc="white", color=col, label=n)
+                        ax.semilogx(r_["p"], r_["fit"], "-", color=col, lw=0.9)
+                    ax.set_xlabel("$p/p_0$"); ax.set_ylabel("Quantity adsorbed (cm$^3$ g$^{-1}$ STP)"); ax.legend(frameon=False, fontsize=FONT - 2)
+                    show(fig, "PSD_kernel_fit")

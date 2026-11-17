@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -508,6 +509,91 @@ def _shape_model_hint(ph, info, prior_on):
                        "(useful when many particles look alike).")
 
 
+_TPL_SKIP = ("ps_imgs", "ps_sample", "ps_meth", "ps_tpl_name", "ps_tpl_pick", "ps_nums")
+
+
+def _tpl_path():
+    base = os.path.dirname(os.environ.get("MFS_STORE") or os.path.join(os.path.expanduser("~"), "Documents", "Reticula", "sample_store.json"))
+    return os.path.join(base, "particle_templates.json")
+
+
+def _tpl_load():
+    ss = st.session_state
+    if "ps_templates" not in ss:
+        try:
+            with open(_tpl_path(), encoding="utf-8") as fh:
+                ss["ps_templates"] = json.load(fh)
+        except Exception:
+            ss["ps_templates"] = {}
+    return ss["ps_templates"]
+
+
+def _tpl_save_file():
+    try:
+        os.makedirs(os.path.dirname(_tpl_path()), exist_ok=True)
+        with open(_tpl_path(), "w", encoding="utf-8") as fh:
+            json.dump(st.session_state.get("ps_templates", {}), fh, ensure_ascii=False, indent=1)
+    except Exception as e:
+        st.session_state["_ps_tpl_err"] = str(e)
+
+
+def _tpl_cb(action):
+    """Callbacks (run before the widgets are drawn, so the stored values can be written into them)."""
+    ss = st.session_state
+    tpls = _tpl_load()
+    name = (ss.get("ps_tpl_name") or "").strip()
+    if action == "save" and name:
+        tpls[name] = {k: v for k, v in ss.items() if isinstance(k, str) and k.startswith("ps_") and not k.startswith("ps_tpl") and k not in _TPL_SKIP
+                      and isinstance(v, (bool, int, float, str))}
+        _tpl_save_file()
+        ss["ps_tpl_msg"] = f"Template '{name}' saved ({len(tpls[name])} settings)."
+    elif action == "apply" and ss.get("ps_tpl_pick") in tpls:
+        for k, v in tpls[ss["ps_tpl_pick"]].items():
+            ss[k] = v
+        ss["ps_tpl_msg"] = f"Template '{ss['ps_tpl_pick']}' applied."
+    elif action == "delete" and ss.get("ps_tpl_pick") in tpls:
+        tpls.pop(ss["ps_tpl_pick"], None)
+        _tpl_save_file()
+        ss["ps_tpl_msg"] = "Template deleted."
+
+
+def _size_templates_ui():
+    """v2.15: the detection settings that work for one kind of sample (e.g. 'MOF-801 SEM', 'ZrO2 TEM') are saved under a name and applied
+    with one click - no need to tune the same sliders again. Kept across sessions in a file next to the sample store and in project files."""
+    tpls = _tpl_load()
+    with st.expander(f"💾 Sizing templates ({len(tpls)} saved) – keep the settings per sample type", expanded=False):
+        c1, c2, c3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+        c1.text_input("Save the current settings as", "", key="ps_tpl_name", placeholder="e.g. MOF-801 SEM")
+        c2.button("💾 Save", key="ps_tpl_save", on_click=_tpl_cb, args=("save",), width="stretch")
+        if tpls:
+            d1, d2, d3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+            d1.selectbox("Saved templates", list(tpls), key="ps_tpl_pick")
+            d2.button("↩ Apply", key="ps_tpl_apply", on_click=_tpl_cb, args=("apply",), type="primary", width="stretch")
+            d3.button("🗑 Delete", key="ps_tpl_del", on_click=_tpl_cb, args=("delete",), width="stretch")
+        if st.session_state.get("ps_tpl_msg"):
+            st.caption("✅ " + st.session_state.pop("ps_tpl_msg"))
+
+
+def _confidence_bar(info):
+    """v2.15: how sure the sphere model is about each particle: one stacked bar (high ≥ 0.8, medium, low = excluded / orange)."""
+    cs = [float(v["conf"]) for k, v in info.items() if isinstance(k, int) and isinstance(v, dict) and "conf" in v]
+    if not cs:
+        return
+    cm = float((info.get("_sphere") or {}).get("conf_min", 0.5))
+    hi = sum(c >= 0.8 for c in cs)
+    lo = sum(c < cm for c in cs)
+    mid = len(cs) - hi - lo
+    w = lambda n: 100.0 * n / len(cs)
+    st.markdown(
+        "<div style='font-size:0.8em;color:#64748B;margin:2px 0'>Confidence per particle</div>"
+        "<div style='display:flex;height:10px;border-radius:5px;overflow:hidden;background:#E2E8F0'>"
+        f"<div style='width:{w(hi):.1f}%;background:#10B981' title='high'></div>"
+        f"<div style='width:{w(mid):.1f}%;background:#FBBF24' title='medium'></div>"
+        f"<div style='width:{w(lo):.1f}%;background:#F97316' title='low (excluded)'></div></div>"
+        f"<div style='font-size:0.78em;color:#64748B'>🟢 {hi} high · 🟡 {mid} medium · 🟠 {lo} low (excluded; threshold {cm:.2f})</div>",
+        unsafe_allow_html=True)
+
+
 def _sphere_hint(ph, info):
     """v2.12: one line next to the sphere controls: what the circle model decided and did."""
     s_ = info.get("_sphere") or {}
@@ -517,6 +603,7 @@ def _sphere_hint(ph, info):
             st.markdown(f"⚪ **Spheres{' detected' if s_.get('mode') == 'auto' else ''}**: {s_.get('n', 0)} circle fits · "
                         f"{s_.get('n_split', 0)} in touching / overlapping groups · {s_.get('n_occluded', 0)} occluded · "
                         f"**{s_.get('n_lowconf', 0)} low-confidence** (orange, excluded).")
+            _confidence_bar(info)
         elif s_.get("mode") == "auto":
             st.caption("Shape: " + (f"faceted / irregular (roundness {rd['roundness']:.3f}) – outline model used."
                                     if rd.get("roundness") is not None else rd.get("reason", "not decided – outline model used.")))
@@ -636,6 +723,8 @@ def sem_particles(allims):
     if not sel:
         return
     ims = [cal[names.index(n_)] for n_ in sel]
+    if meth.startswith("automatic"):
+        _size_templates_ui()
     metric = st.selectbox("Size reported", ["ECD (nm)", "Feret max (nm)", "Feret min (nm)"], key="ps_metric",
                           help="ECD = equivalent circle diameter from the area; Feret = caliper diameters (36 directions).")
     rows = []

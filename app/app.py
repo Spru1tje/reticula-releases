@@ -3,7 +3,7 @@ Run:  streamlit run app.py"""
 from __future__ import annotations
 import time as _time
 _T0 = _time.perf_counter()     # v2.11: per-run timing (MFS_TIMING=<file> appends one JSON line per script run)
-import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
+import contextlib, io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
@@ -94,6 +94,8 @@ PAGES = UI.PAGES
 if "composer" not in st.session_state:
     st.session_state.composer = {}
 page = st.sidebar.radio("Technique", PAGES, key="nav", format_func=UI.nav_label, label_visibility="collapsed", on_change=PS.on_nav)
+from mfs import levels as LV            # v2.15: Standard / Advanced / Developer
+LV.sidebar(page)
 with st.sidebar.container(border=True, key="composer_tray"):          # v2.14: always visible: where the combined figure lives
     _nc = len(st.session_state.composer)
     st.markdown("**🧩 Combined figure**" + (f" · {_nc} panel{'s' if _nc != 1 else ''}" if _nc else ""))
@@ -108,7 +110,8 @@ from mfs import globalstyle as GS   # v2.11: one figure style for every page (jo
 WIDTH, ASPECT, FONT, DPI = GS.sidebar(os.path.join(os.path.dirname(os.environ.get("MFS_STORE") or os.path.join(os.path.dirname(
     os.environ.get("MFS_EXPORT_DIR") or os.path.join(HERE, "exports")), "sample_store.json")), "figure_style.json"))
 width_name = st.session_state.get("gs_width")
-with st.sidebar.expander("Sample → colour rules"):
+with (st.sidebar.expander("Sample → colour rules") if LV.at_least("Advanced") else contextlib.nullcontext()):
+  if LV.at_least("Advanced"):
     st.caption("Samples take the palette colours in list order. Add a rule to give every sample whose name matches a pattern "
                "(regex, case-insensitive) a fixed colour in all figures, e.g. `uio-66` → `#0072B2`.")
     if "_cmap_base" not in st.session_state:
@@ -123,9 +126,10 @@ with st.sidebar.expander("Sample → colour rules"):
     S.SAMPLE_COLOURS[:] = [(str(r.pattern), str(r.colour)) for r in cmap_df.itertuples()
                            if isinstance(r.pattern, str) and r.pattern.strip() and isinstance(r.colour, str) and r.colour.strip().startswith("#")]
 
-FU.sidebar_house_style()
-st.sidebar.checkbox("📦 Collect figures for the SI bundle", True, key="si_collect",
-                    help="Every figure shown is kept (with its data and settings) for Tools → SI export bundle.")
+if LV.at_least("Advanced"):
+    FU.sidebar_house_style()
+    st.sidebar.checkbox("📦 Collect figures for the SI bundle", True, key="si_collect",
+                        help="Every figure shown is kept (with its data and settings) for Tools → SI export bundle.")
 PS.mark_global()
 PS.maybe_dialog()
 

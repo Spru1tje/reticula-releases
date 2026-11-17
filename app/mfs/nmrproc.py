@@ -689,3 +689,110 @@ def rephase(sp: Spectrum, p0: float, p1: float, baseline=True) -> Spectrum:
         y, _ = auto_baseline(y)
     sp.y = y; sp.p0, sp.p1 = p0, p1
     return sp
+
+
+# ------------------------------------------------------------------------------------------------ nmrML (v2.15)
+def _local(tag):
+    return tag.rsplit("}", 1)[-1]
+
+
+def _decode_array(text, fmt, compressed):
+    """nmrML binary array: base64 [+ zlib]; little-endian, complex values interleaved (re, im)."""
+    import base64
+    import zlib
+    raw = base64.b64decode("".join((text or "").split()))
+    if compressed:
+        raw = zlib.decompress(raw)
+    f = str(fmt or "").lower()
+    dt = {"complex128": "<f8", "complex64": "<f4", "complex32": "<i2", "float64": "<f8", "float32": "<f4", "float16": "<f2",
+          "int32": "<i4", "int64": "<i8", "integer": "<i4", "int16": "<i2"}.get(f)
+    if dt is None:
+        raise ValueError(f"nmrML: unsupported byte format '{fmt}'")
+    a = np.frombuffer(raw, dtype=dt).astype(float)
+    return (a[0::2] + 1j * a[1::2]) if f.startswith("complex") else a
+
+
+def load_nmrml(src, name: str = ""):
+    """nmrML file (open XML format of the NMR community) → ('fid', Experiment) when it holds the FID (full processing like Bruker data),
+    ('spectrum', Spectrum) when it only holds a processed spectrum. The acquisition parameters (frequency, sweep width, nucleus, scans,
+    temperature, solvent) are read when present."""
+    import xml.etree.ElementTree as ET
+    raw = src.read() if hasattr(src, "read") else (Path(src).read_bytes() if isinstance(src, (str, os.PathLike)) else src)
+    root = ET.fromstring(raw)
+    els = list(root.iter())
+
+    def first(*names):
+        for n in names:
+            for e in els:
+                if _local(e.tag) == n:
+                    return e
+        return None
+
+    def val(*names, default=None):
+        e = first(*names)
+        if e is None:
+            return default
+        v = e.get("value")
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return default if v is None else v
+    freq = val("irradiationFrequency", "effectiveExcitationField", "spectrometerFrequency", default=None)
+    nuc = "1H"
+    ne = first("acquisitionNucleus")
+    if ne is not None:
+        t = (ne.get("name") or ne.get("value") or "").replace("^", "").strip()
+        m = re.search(r"(\d+)\s*([A-Za-z]{1,2})", t)
+        nuc = f"{m.group(1)}{m.group(2)}" if m else ("1H" if "hydrogen" in t.lower() or not t else t)
+    sw_e = first("sweepWidth")
+    sw_val = float(sw_e.get("value")) if sw_e is not None and sw_e.get("value") else None
+    sw_unit = (sw_e.get("unitName") or "").lower() if sw_e is not None else ""
+    ns = val("numberOfScans", default=None)
+    aps = first("acquisitionParameterSet")
+    if aps is not None and aps.get("numberOfScans"):
+        ns = float(aps.get("numberOfScans"))
+    temp = val("sampleAcquisitionTemperature", default=None)
+    solvent = ""
+    se = first("solvent", "solventName")
+    if se is not None:
+        solvent = (se.get("name") or se.get("value") or (se.text or "")).strip()
+    fe = first("fidData")
+    title = ""
+    for e in els:
+        if _local(e.tag) in ("sampleName", "fileDescription", "title"):
+            title = (e.get("name") or e.get("value") or (e.text or "")).strip() or title
+    if fe is not None and (fe.text or "").strip():
+        fid = _decode_array(fe.text, fe.get("byteFormat"), str(fe.get("compressed", "false")).lower() == "true")
+        if not np.iscomplexobj(fid):
+            fid = fid[0::2] + 1j * fid[1::2]
+        sf = float(freq) if freq else 400.0
+        bf = val("effectiveExcitationField", default=None)
+        bf = float(bf) if isinstance(bf, float) and bf > 0 else sf
+        if sw_val is None:
+            raise ValueError("nmrML: sweep width missing")
+        sw_hz = sw_val * sf if "million" in sw_unit or "ppm" in sw_unit else sw_val
+        acq = {"SFO1": sf, "BF1": bf, "SW": sw_hz / bf, "SW_h": sw_hz, "O1": (sf - bf) * 1e6, "NUC1": nuc, "NS": ns, "TD": 2 * len(fid), "TE": temp,
+               "SOLVENT": solvent, "TITLE": title, "PULPROG": "", "DSPFVS": None}
+        pe = first("pulseSequenceFile", "pulseSequence")
+        if pe is not None:
+            acq["PULPROG"] = (pe.get("name") or pe.get("value") or Path(str(pe.get("URI") or "")).name or "").strip()
+        return "fid", Experiment(name or "nmrML", acq, {}, fid, None, Path(name).stem if name else "nmrML")
+    se1 = first("spectrumDataArray")
+    if se1 is None:
+        raise ValueError("nmrML: neither fidData nor a spectrum found")
+    y = _decode_array(se1.text, se1.get("byteFormat"), str(se1.get("compressed", "false")).lower() == "true")
+    xa = first("xAxis")
+    if xa is None or xa.get("startValue") is None:
+        raise ValueError("nmrML: spectrum without x axis")
+    x0, x1 = float(xa.get("startValue")), float(xa.get("endValue"))
+    unit = (xa.get("unitName") or "").lower()
+    sf = float(freq) if freq else 400.0
+    ppm = np.linspace(x0, x1, len(y))
+    if "hertz" in unit or unit == "hz":
+        ppm = ppm / sf
+    if ppm[0] < ppm[-1]:
+        ppm, y = ppm[::-1], y[::-1]
+    info = {"nucleus": nuc, "experiment": nuc, "pulse program": "", "spectrometer (MHz)": round(sf, 2), "solvent": solvent,
+            "software": "nmrML", "fid dtype": "processed"}
+    yb, _ = auto_baseline(np.asarray(y, float))
+    return "spectrum", Spectrum(ppm, yb, nuc, nuc, sf, info, name=name or "nmrML", ref_note="as stored in the nmrML file")

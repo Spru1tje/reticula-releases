@@ -9,6 +9,7 @@ import os
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 
 from mfs import pl as PL
 
@@ -27,6 +28,214 @@ def _spectra_from(files):
         except Exception as e:
             st.error(f"{f.name}: {e}")
     return out
+
+
+# ------------------------------------------------------------------------------------------------ v2.15: robust band ratio
+def _pick_cb(target):
+    """Callback of the buttons under the graph: the range brushed on the graph becomes band 1 / band 2 / the fit range."""
+    ss = st.session_state
+    try:
+        sel = ss["pl_pick"]["selection"]["pl_brush"]
+        lo, hi = sorted(float(v) for v in next(iter(sel.values())))
+    except Exception:
+        ss["pl_pick_msg"] = "Drag a range on the graph first."
+        return
+    ss[target] = (round(lo, 1), round(hi, 1))
+    if target == "pl_b1" or target == "pl_b2":
+        ss["pl_method"] = METHODS[1]
+    ss["pl_pick_msg"] = f"Range {lo:.1f}–{hi:.1f} nm set."
+
+
+METHODS = ["Automatic – global fit of all spectra (recommended)", "Integration windows (choose them on the graph)", "Compare both"]
+
+
+def _brush_picker(spectra, lo, hi, marks):
+    """Mean spectrum with a drag-to-select brush. `marks` = [(lo, hi, label, colour)] shown as shaded ranges. The brushed range is stored by Streamlit
+    under st.session_state['pl_pick'] (read by _pick_cb)."""
+    import altair as alt
+    grid = np.asarray(spectra[0]["x"], float)
+    m = (grid >= lo) & (grid <= hi)
+    ym = np.mean([np.interp(grid, np.asarray(q["x"], float), np.asarray(q["y"], float)) for q in spectra], axis=0)
+    step = max(1, int(m.sum() // 1200))
+    df = pd.DataFrame({"wavelength (nm)": grid[m][::step], "intensity": ym[m][::step]})
+    brush = alt.selection_interval(encodings=["x"], name="pl_brush")
+    base = alt.Chart(df).mark_line(color="#0F172A", strokeWidth=1.4).encode(x=alt.X("wavelength (nm):Q", scale=alt.Scale(zero=False)),
+                                                                           y=alt.Y("intensity:Q", title="mean intensity"))
+    layers = []
+    for a, b, lab, col in marks:
+        layers.append(alt.Chart(pd.DataFrame({"a": [a], "b": [b], "label": [lab]})).mark_rect(opacity=0.18, color=col).encode(x="a:Q", x2="b:Q"))
+    ch = (alt.layer(*layers, base) if layers else base).properties(height=170).add_params(brush)
+    return st.altair_chart(ch, on_select="rerun", key="pl_pick", width="stretch")
+
+
+def _ratio_block(t_order, T, rng, norm, counts_default, g):
+    """Returns (I1, I2, D, D_err, sT_override, info) for the thermometry tab, or None. D_err is None for the integration method."""
+    show, newfig, dl = g["show"], g["newfig"], g["dl"]
+    from mfs import plratio as PR
+    ss = st.session_state
+    c0, c1 = st.columns([3, 2])
+    method = c0.radio("Method", METHODS, key="pl_method", horizontal=False,
+                      help="The global fit describes ALL spectra with the same bands (also hidden shoulders and dirty neighbours) and gives the ratio "
+                           "with an error bar and a quality flag per spectrum. Integration windows cut the overlap at a chosen valley.")
+    raw_counts = all(np.allclose(p["I"], np.round(p["I"])) for p in t_order) and norm.startswith("none")
+    counts = c1.checkbox("Intensities are photon counts (statistics-based weights and σT)", counts_default, key="pl_counts",
+                         help="Raw counts: points are weighted by Poisson statistics. Arbitrary units: the noise is estimated from the data.")
+    # raw (unsmoothed, un-normalised) data inside the chosen wavelength range: the fit has its own background
+    spec = []
+    for p in t_order:
+        w = (p["wl"] >= rng[0]) & (p["wl"] <= rng[1])
+        spec.append({"T": p["T"], "x": p["wl"][w], "y": p["I"][w]})
+    use_fit = not method.startswith("Integration")
+    fit = None
+    bands_txt, extra_txt, bgo, model, add_extra = "", "", 1, "auto", True
+    if use_fit and LV.at_least("Advanced"):
+        with st.expander("⚙️ Fit settings (automatic by default)", expanded=False):
+            a1, a2, a3 = st.columns(3)
+            bands_txt = a1.text_input("Ratio bands: centres (nm), empty = automatic", "", key="pl_bands", help="e.g. 524, 545 – band 1 is the first, band 2 the second.")
+            extra_txt = a2.text_input("Extra (nuisance) bands (nm), empty = automatic", "", key="pl_extra",
+                                      help="Bands that are not part of the ratio but overlap with it (a shoulder, a third emission).")
+            add_extra = a2.checkbox("Let the program add extra bands when needed", True, key="pl_addextra")
+            bgo = a3.slider("Background polynomial order", 0, 3, 1, key="pl_bgo")
+            model = {"automatic (BIC)": "auto", "shared shape": "none", "shape drifts with T": "drift"}[
+                a3.selectbox("Peak model", ["automatic (BIC)", "shared shape", "shape drifts with T"], key="pl_model")]
+    flo, fhi = (float(rng[0]), float(rng[1]))
+    if use_fit and LV.at_least("Advanced"):
+        fw = st.slider("Fit range (nm)", float(rng[0]), float(rng[1]), (float(rng[0]), float(rng[1])), 0.5, key="pl_fitwin")
+        flo, fhi = fw
+    # ---------- graph with brush
+    marks = []
+    dflt = _band_default([{"wl": q["x"], "I": q["y"]} for q in spec], rng[0], rng[1])
+    b1d, b2d = dflt if dflt else ((rng[0], (rng[0] + rng[1]) / 2), ((rng[0] + rng[1]) / 2, rng[1]))
+    b1d, b2d = tuple(round(float(v), 1) for v in b1d), tuple(round(float(v), 1) for v in b2d)
+    b1 = ss.get("pl_b1", b1d)
+    b2 = ss.get("pl_b2", b2d)
+    if not use_fit or method == METHODS[2]:
+        if b1:
+            marks.append((b1[0], b1[1], "band 1", "#0072B2"))
+        if b2:
+            marks.append((b2[0], b2[1], "band 2", "#D55E00"))
+    if use_fit:
+        marks.append((flo, fhi, "fit range", "#10B981"))
+    _brush_picker(spec, float(rng[0]), float(rng[1]), marks)
+    bc = st.columns(4)
+    bc[0].button("→ band 1", key="pl_pb1", on_click=_pick_cb, args=("pl_b1",), width="stretch", help="Use the range you dragged on the graph as band 1")
+    bc[1].button("→ band 2", key="pl_pb2", on_click=_pick_cb, args=("pl_b2",), width="stretch")
+    if use_fit and LV.at_least("Advanced"):
+        bc[2].button("→ fit range", key="pl_pfw", on_click=_pick_cb, args=("pl_fitwin",), width="stretch")
+    if ss.get("pl_pick_msg"):
+        bc[3].caption(ss.pop("pl_pick_msg"))
+    st.caption("Drag over the graph to select a range, then press a button. With the automatic method nothing has to be chosen.")
+    # ---------- integration windows
+    I1w = I2w = None
+    if (not use_fit) or method == METHODS[2]:
+        w1 = st.slider("Band 1 window (nm) – I₁", float(rng[0]), float(rng[1]), b1d, 0.5, key="pl_b1")
+        w2 = st.slider("Band 2 window (nm) – I₂", float(rng[0]), float(rng[1]), b2d, 0.5, key="pl_b2")
+        I1w = np.array([PL.band_integral(p["wl_c"], p["y_c"], w1[0], w1[1], "linear") for p in t_order])
+        I2w = np.array([PL.band_integral(p["wl_c"], p["y_c"], w2[0], w2[1], "linear") for p in t_order])
+        if (I2w <= 0).any() or (I1w <= 0).any():
+            st.warning("A band has no (positive) integrated intensity in its window – adjust the windows.")
+            if not use_fit:
+                return None
+            I1w = I2w = None
+    if not use_fit:
+        return I1w, I2w, I1w / I2w, None, None, {"method": "windows"}
+    # ---------- global fit
+    try:
+        man = [float(v) for v in bands_txt.replace(";", ",").split(",") if v.strip()]
+        ext = [float(v) for v in extra_txt.replace(";", ",").split(",") if v.strip()]
+    except ValueError:
+        st.warning("Band positions not understood – the automatic choice is used.")
+        man, ext = [], []
+    with st.spinner("Fitting all spectra …"):
+        if len(man) >= 2:
+            bands = [(c, 10.0) for c in man[:2]]
+            auto = PR.auto_bands(np.asarray(spec[0]["x"], float), np.mean([np.interp(spec[0]["x"], q["x"], q["y"]) for q in spec], axis=0), flo, fhi, 2)
+            if auto:
+                bands = [min(auto, key=lambda b: abs(b[0] - c)) if abs(min(auto, key=lambda b: abs(b[0] - c))[0] - c) < 8 else (c, 10.0) for c in man[:2]]
+                bands = [(c0_, w_) for (c0_, w_), c in zip(bands, man[:2])]
+            fit = PR.auto_fit(spec, counts, flo, fhi, bgo, 3 if add_extra and not ext else 0, bands=bands)
+            if fit is not None and ext:
+                fit = PR.fit_global(spec, fit["bands"] + [(c, 10.0) for c in ext], (flo, fhi), bgo, model, counts)
+                fit["bands"], fit["extra"] = fit.get("bands", bands), [(c, 10.0) for c in ext]
+        else:
+            fit = PR.auto_fit(spec, counts, flo, fhi, bgo, 3 if add_extra and not ext else 0)
+            if fit is not None and ext:
+                fit = PR.fit_global(spec, fit["bands"] + [(c, 10.0) for c in ext], (flo, fhi), bgo, model, counts)
+        if fit is not None and model != "auto" and not ext:
+            fit = PR.fit_global(spec, fit["bands"] + fit["extra"], (flo, fhi), bgo, model, counts) | {"bands": fit["bands"], "extra": fit["extra"]}
+        if fit is None:
+            st.info("The automatic search did not find two separate bands. Choose the two windows by hand (method: integration windows) "
+                    "or give the band centres in the fit settings.")
+            return None
+        fit = PR.robust_ratio(spec, fit["bands"], bg_order=bgo, counts=counts, main=fit)
+    return _show_fit(fit, spec, T, I1w, I2w, method, counts, g)
+
+
+def _show_fit(fit, spec, T, I1w, I2w, method, counts, g):
+    show, newfig, dl = g["show"], g["newfig"], g["dl"]
+    rows = fit["rows"]
+    A = np.array([r["areas"][0] for r in rows])
+    B = np.array([r["areas"][1] for r in rows])
+    D = np.array([r["ratio"] for r in rows])
+    stat = np.array([r["ratio_err"] for r in rows])
+    tot = fit["ratio_total"]
+    bad = [r for r in rows if r["flag"] != "good"]
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Bands", f"{fit['n_bands']}" + (f" (incl. {len(fit['extra'])} extra)" if fit.get("extra") else ""),
+              help="The first two are the ratio bands: " + ", ".join(f"{c:.1f} nm" for c, _ in fit["bands"][:2]))
+    m2.metric("Model", fit["model"])
+    m3.metric("Typical ratio error", f"{100 * float(np.nanmedian(tot / D)):.1f} %", help="Statistical error + the spread of refits with other windows and the other model.")
+    m4.metric("Spectra to check", f"{len(bad)} of {len(rows)}", "all good" if not bad else "see the table", delta_color="off" if not bad else "inverse")
+    if fit.get("extra"):
+        st.caption("➕ Extra (nuisance) bands added automatically: " + ", ".join(f"{c:.0f} nm" for c, _ in fit["extra"])
+                   + " – they absorb a shoulder / neighbouring emission so that it does not distort the ratio.")
+    if bad:
+        st.warning("The fit is not trustworthy for: " + ", ".join(f"{r['T']:.1f} K ({r['flag']})" for r in bad)
+                   + " – the residual shows structure (dirty / wavy spectrum, an unmodelled band). Look at the fit of those spectra below.")
+    # which temperature to look at
+    ti = st.select_slider("Show the fit of the spectrum at", options=list(range(len(rows))), value=len(rows) // 2, key="pl_fit_i",
+                          format_func=lambda i: f"{rows[i]['T']:.1f} K")
+    r = rows[ti]
+
+    def draw_fit(ax, r=r):
+        ax.plot(r["x"], r["y"], "o", ms=2.2, mfc="none", mec="#222222", mew=0.4, label="measured")
+        ax.plot(r["x"], r["fit"], "-", color="#D62728", lw=1.0, label="fit")
+        cols = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00"]
+        for k, comp in enumerate(r["components"]):
+            ax.fill_between(r["x"], r["background"], r["background"] + comp, color=cols[k % 5], alpha=0.35, lw=0,
+                            label=(f"band {k + 1}" if k < 2 else "extra"))
+        ax.plot(r["x"], r["background"], "--", color="#7F7F7F", lw=0.6)
+        res = r["y"] - r["fit"]
+        off = float(r["y"].min()) - 0.12 * float(np.ptp(r["y"])) - float(np.max(np.abs(res)))
+        ax.plot(r["x"], off + res, "-", color="#7F7F7F", lw=0.6, label="residual")
+        ax.axhline(off, color="#7F7F7F", lw=0.3)
+        ax.set_xlabel("Wavelength (nm)"); ax.set_ylabel("Intensity (counts)" if counts else "Intensity")
+        ax.text(0.02, 0.97, f"{r['T']:.1f} K,  R$^2$ = {r['r2']:.4f}", transform=ax.transAxes, va="top", fontsize=6)
+        ax.legend(frameon=False, fontsize=6, loc="upper right")
+    fig, ax = newfig(0.75); draw_fit(ax)
+    show(fig, "PL_ratio_fit", pd.DataFrame({"wavelength": r["x"], "measured": r["y"], "fit": r["fit"], "background": r["background"]}), draw_fit,
+         "Band fit at one temperature")
+    q = pd.DataFrame({"T (K)": [x["T"] for x in rows], "I1 (area)": A, "I2 (area)": B, "ratio I1/I2": D, "± statistical": stat,
+                      "± systematic": fit["ratio_sys"], "± total": tot, "R²": [x["r2"] for x in rows],
+                      "χ² (red.)": [x["chi2_red"] for x in rows], "residual correlation (DW)": [x["dw"] for x in rows], "quality": [x["flag"] for x in rows]})
+    with st.expander("Quality of every fit (ratio ± error, R², residual statistics)", expanded=bool(bad)):
+        st.dataframe(q.style.format(precision=4), hide_index=True, width="stretch")
+        st.caption("Quality: **good** = random residual; **check** = visible structure or a poor χ²; **poor** = the model does not describe this spectrum. "
+                   "DW (Durbin–Watson) ≈ 2 for random residuals, < 1 for wavy ones. Systematic error = spread of refits with a narrower / wider fit range and the other peak model.")
+    if method == METHODS[2] and I1w is not None:
+        with st.expander("Comparison: fit vs integration windows", expanded=True):
+            Dw = I1w / I2w
+            dev = 100 * (Dw / D - 1)
+
+            def draw_cmp(ax, T=T, D=D, tot=tot, Dw=Dw):
+                ax.errorbar(T, D, yerr=tot, fmt="o", ms=3.5, capsize=2, lw=0.8, color="#0072B2", label="global fit")
+                ax.plot(T, Dw, "s", ms=3.5, mfc="none", color="#D55E00", label="integration windows")
+                ax.set_xlabel("Temperature (K)"); ax.set_ylabel("Δ = $I_1$/$I_2$"); ax.legend(frameon=False, fontsize=6)
+            fig2, ax2 = newfig(0.7); draw_cmp(ax2)
+            show(fig2, "PL_ratio_compare", pd.DataFrame({"T (K)": T, "fit": D, "fit error": tot, "windows": Dw}), draw_cmp, "Fit vs windows")
+            st.caption(f"The windows deviate from the global fit by {np.nanmedian(np.abs(dev)):.1f} % (median, up to {np.nanmax(np.abs(dev)):.1f} %): "
+                       "that is the bias of cutting overlapping bands at a valley.")
+    return A, B, D, tot, None, {"method": "fit", "fit": fit}
 
 
 def _band_default(spectra, lo, hi):
@@ -210,37 +419,31 @@ def render(g):
         st.caption("Ratiometric thermometry with two thermally coupled bands: Δ = I₁/I₂ = α·exp(−ΔE/k_BT); "
                    "relative sensitivity Sᵣ = 100 %·|(1/Δ)·∂Δ/∂T| = 100 %·ΔE/(k_BT²); temperature uncertainty "
                    "σT = (1/Sᵣ)·√(1/I₁ + 1/I₂) for photon counts (the usual figures of merit of luminescent thermometers).")
-        dflt = _band_default([{"wl": p["wl_c"], "I": p["y_c"]} for p in t_order], rng[0], rng[1])
-        if not dflt:
-            st.info("No two separate emission bands were found automatically (a single-band sample can only be used for the quenching analysis). "
-                    "If your spectra have two bands, set the two windows by hand.")
-        b1d, b2d = dflt if dflt else ((rng[0], (rng[0] + rng[1]) / 2), ((rng[0] + rng[1]) / 2, rng[1]))
-        b1 = st.slider("Band 1 window (nm) – I₁ (e.g. ²H₁₁/₂ ≈ 520 nm)", rng[0], rng[1], tuple(round(v, 1) for v in b1d), 0.5, key="pl_b1")
-        b2 = st.slider("Band 2 window (nm) – I₂ (e.g. ⁴S₃/₂ ≈ 540 nm)", rng[0], rng[1], tuple(round(v, 1) for v in b2d), 0.5, key="pl_b2")
         raw_counts = all(np.allclose(p["I"], np.round(p["I"])) for p in t_order) and norm.startswith("none")
-        cc1, cc2 = st.columns(2)
-        counts = cc1.checkbox("Intensities are photon counts (enables σT)", raw_counts, key="pl_counts",
-                              help="σT assumes Poisson statistics of the integrated counts; for arbitrary units it is meaningless.")
-        offs = cc2.checkbox("Add a constant C to the Boltzmann law (Δ = α·exp(−ΔE/k_BT) + C)", False, key="pl_off")
-        I1 = np.array([PL.band_integral(p["wl_c"], p["y_c"], b1[0], b1[1], "linear") for p in t_order])
-        I2 = np.array([PL.band_integral(p["wl_c"], p["y_c"], b2[0], b2[1], "linear") for p in t_order])
-        if (I2 <= 0).any() or (I1 <= 0).any():
-            st.warning("A band has no (positive) integrated intensity in its window – adjust the windows."); return
-        D = I1 / I2
-        bf = PL.fit_boltzmann(T, D, offset=offs)
+        offs = st.checkbox("Add a constant C to the Boltzmann law (Δ = α·exp(−ΔE/k_BT) + C)", False, key="pl_off")
+        got = _ratio_block(t_order, T, rng, norm, raw_counts, g)
+        if got is None:
+            return
+        I1, I2, D, D_err, _, info = got
+        counts = bool(st.session_state.get("pl_counts", raw_counts))
+        if (D <= 0).any() or not np.isfinite(D).all():
+            st.warning("The ratio is not positive for every spectrum – check the bands / windows."); return
+        bf = PL.fit_boltzmann(T, D, offset=offs, sigma=D_err)
         if bf.get("status") != "ok":
             st.warning(f"Boltzmann fit: {bf.get('status')}"); return
         Sr = PL.relative_sensitivity(T, bf["dE_eV"])
         Sa = PL.absolute_sensitivity(T, bf)
-        sT = PL.temperature_uncertainty(Sr, I1, I2) if counts else None
+        sT = PL.temperature_uncertainty_from_ratio(Sr, D, D_err) if D_err is not None else (PL.temperature_uncertainty(Sr, I1, I2) if counts else None)
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("ΔE", f"{bf['dE_cm1']:.0f} cm⁻¹", help=f"{1000 * bf['dE_eV']:.1f} meV")
+        m1.metric("ΔE", f"{bf['dE_cm1']:.0f} cm⁻¹", f"± {bf['dE_err_cm1']:.0f}" if np.isfinite(bf.get("dE_err_cm1", np.nan)) else None, delta_color="off",
+                  help=f"{1000 * bf['dE_eV']:.1f} meV")
         m2.metric("Sᵣ at " + f"{T.min():.0f} K", f"{Sr[0]:.3f} % K⁻¹")
-        m3.metric("σT" + (f" at {T.min():.0f} K" if counts else ""), f"{sT[0]:.2f} K" if counts else "–")
+        m3.metric("σT" + (f" at {T.min():.0f} K" if sT is not None else ""), f"{sT[0]:.2f} K" if sT is not None else "–")
         m4.metric("R²", f"{bf['R2']:.4f}")
         Tf = np.linspace(T.min(), T.max(), 200)
-        mp = [{"T": p["T"], "x": p["wl_c"][(p["wl_c"] >= min(b1[0], b2[0]) - 15) & (p["wl_c"] <= max(b1[1], b2[1]) + 15)],
-               "y": p["y_c"][(p["wl_c"] >= min(b1[0], b2[0]) - 15) & (p["wl_c"] <= max(b1[1], b2[1]) + 15)]} for p in t_order]
+        _cb = [c for c, _ in (info.get("fit") or {}).get("bands", [])[:2]] if info.get("method") == "fit" else []
+        _lo, _hi = ((min(_cb) - 40, max(_cb) + 40) if _cb else (float(rng[0]), float(rng[1])))
+        mp = [{"T": p["T"], "x": p["wl_c"][(p["wl_c"] >= _lo) & (p["wl_c"] <= _hi)], "y": p["y_c"][(p["wl_c"] >= _lo) & (p["wl_c"] <= _hi)]} for p in t_order]
 
         def d_map(ax, mp=mp):
             PL.draw_map(ax, mp, "Wavelength (nm)", "magma", "Intensity (counts)" if norm.startswith("none") else "Intensity")
@@ -255,10 +458,12 @@ def render(g):
         def d_sT(ax, T=T, sT=sT):
             ax.plot(T, sT, "o-", ms=3.2, lw=0.9, color="#0072B2")
             ax.set_xlabel("Temperature (K)"); ax.set_ylabel(r"$\sigma_T$ (K)")
-        panels = [("Emission map", d_map), ("Δ vs T (Boltzmann fit)", d_D), ("Relative sensitivity Sr", d_Sr)] + ([("Temperature uncertainty σT", d_sT)] if counts else [])
+        panels = [("Emission map", d_map), ("Δ vs T (Boltzmann fit)", d_D), ("Relative sensitivity Sr", d_Sr)] + ([("Temperature uncertainty σT", d_sT)] if sT is not None else [])
         fig, axs = C.compose([f for _, f in panels], ncols=2, width=max(g["WIDTH"], 6.6), panel_aspect=0.78, label_style="A", label_inside=False, wspace=0.75, hspace=0.5)
         res = pd.DataFrame({"T (K)": T, "I1": I1, "I2": I2, "Δ = I1/I2": D, "Δ fit": bf["f"](T), "Sr (% per K)": Sr, "Sa (per K)": Sa})
-        if counts:
+        if D_err is not None:
+            res["Δ error"] = D_err
+        if sT is not None:
             res["σT (K)"] = sT
         show(fig, "PL_thermometry", res, None, "PL thermometry")
         pick = st.selectbox("Single panel (e.g. for the combined figure)", ["(none)"] + [n for n, _ in panels], key="pl_single2")
@@ -269,4 +474,4 @@ def render(g):
         st.dataframe(res.round(5), hide_index=True, width="stretch")
         dl(st, "CSV thermometry", res.to_csv(index=False).encode("utf-8-sig"), "PL_thermometry.csv", "pl_th_csv")
         store_put(sample, "pl", {"dE_cm1": bf["dE_cm1"], "alpha": bf["alpha"], "Sr_Tmin_pct_per_K": float(Sr[0]), "R2_boltzmann": bf["R2"],
-                                 **({"sigmaT_Tmin_K": float(sT[0])} if counts else {})}, "Photoluminescence page")
+                                 **({"sigmaT_Tmin_K": float(sT[0])} if sT is not None else {})}, "Photoluminescence page")

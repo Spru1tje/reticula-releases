@@ -60,14 +60,46 @@ def payload(sp, mults, mol, groups, assignment, fixed=None, width=760, mol_size=
                           short=f"{m.centre:.2f}", title=f"δ {m.centre:.2f} {m.mult} {m.nH if m.nH is not None else ''}H"
                           + (f" · {m.label}" if m.label else "")))
     chips = []
+    allxy = np.array([coords[a] for a in coords]) if len(coords) else np.zeros((1, 2))
+    cen = allxy.mean(axis=0)
+    mw_, mh_ = mol_size
+
+    def _out(a, dist):
+        """Position `dist` px away from atom a, pointing away from its bonded heavy atoms (so the chip sits beside the atom, not on it)."""
+        pos = np.asarray(coords[a], float)
+        nb = [np.asarray(coords[n_.GetIdx()], float) for n_ in mol.GetAtomWithIdx(a).GetNeighbors() if n_.GetIdx() in coords]
+        v = pos - (np.mean(nb, axis=0) if nb else cen)
+        if np.linalg.norm(v) < 1.0:
+            v = pos - cen
+        if np.linalg.norm(v) < 1.0:
+            v = np.array([1.0, -1.0])
+        return pos + v / np.linalg.norm(v) * dist
     for g in groups:
-        xy = np.mean([coords[a] for a in g["atoms"]], axis=0)
+        anchor = np.mean([coords[a] for a in g["atoms"]], axis=0)
+        hetero = any(mol.GetAtomWithIdx(a).GetSymbol() != "C" for a in g["atoms"])
+        xy = np.mean([_out(a, 30.0 if hetero else 24.0) for a in g["atoms"]], axis=0)
         sh = "–" if g["shift"] is None else f"{g['shift']:.2f}"
         on = ", ".join(f"{mol.GetAtomWithIdx(a).GetSymbol()}{a + 1}" for a in g["atoms"])
-        chips.append(dict(gid=g["gid"], x=float(xy[0]), y=float(xy[1]), text="H" + g.get("tag", ",".join(map(str, g["labels"]))),
-                          fixed=g["gid"] in fixed,
+        chips.append(dict(gid=g["gid"], x=float(xy[0]), y=float(xy[1]), ax=float(anchor[0]), ay=float(anchor[1]),
+                          text="H" + g.get("tag", ",".join(map(str, g["labels"]))), fixed=g["gid"] in fixed,
                           title=f"H{g.get('tag', '')}: {g['nH']} H on {on} · predicted {sh} ppm ({g['conf']})"))
-    return dict(mol_src=mol_src, spec_src=spec_src, mw=mol_size[0], sw=W, zones=zones, groups=chips,
+    for _ in range(40):                                  # keep the chips apart from each other and inside the picture
+        moved = False
+        for i in range(len(chips)):
+            for j in range(i + 1, len(chips)):
+                dx, dy = chips[j]["x"] - chips[i]["x"], chips[j]["y"] - chips[i]["y"]
+                d = (dx * dx + dy * dy) ** 0.5
+                if d < 30.0:
+                    ux, uy = (dx / d, dy / d) if d > 1e-6 else (1.0, 0.0)
+                    push = (30.0 - d) / 2
+                    chips[i]["x"] -= ux * push; chips[i]["y"] -= uy * push
+                    chips[j]["x"] += ux * push; chips[j]["y"] += uy * push
+                    moved = True
+        for c in chips:
+            c["x"] = float(min(max(c["x"], 16.0), mw_ - 16.0)); c["y"] = float(min(max(c["y"], 12.0), mh_ - 12.0))
+        if not moved:
+            break
+    return dict(mol_src=mol_src, spec_src=spec_src, mw=mol_size[0], mh=mol_size[1], sw=W, zones=zones, groups=chips,
                 assign={str(k): v for k, v in assignment.items()})
 
 

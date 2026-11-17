@@ -10,6 +10,7 @@ import zipfile
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 
 from mfs import nmrproc as NP, nmrpeaks as PK
 
@@ -35,6 +36,9 @@ def _load(data: bytes, name: str):
     low = name.lower()
     if low.endswith((".jdx", ".dx", ".jcamp", ".jdx.gz")):
         return [], NP.load_jcamp(data, name)
+    if low.endswith(".nmrml"):                                   # v2.15: nmrML (FID → full processing, or a processed spectrum)
+        kind, obj = NP.load_nmrml(data, name)
+        return ([obj], None) if kind == "fid" else ([], obj)
     return NP.load(data, name), None
 
 
@@ -93,13 +97,38 @@ def render(g):
     _characterisation(g)
 
 
+def _nmr_library_panel(mults, solvent):
+    """v2.15: match the found multiplets against typical shifts of linkers / modulators / solvents (editable list) and give molar ratios."""
+    from mfs import nmrlib as NL
+    ss = st.session_state
+    ss.setdefault("nmr_lib_user", [])
+    own = st.data_editor(pd.DataFrame(ss["nmr_lib_user"], columns=["compound", "role", "solvent", "δ (ppm)", "mult", "nH"]),
+                         num_rows="dynamic", key="nmrlib_own", hide_index=True, width="stretch",
+                         column_config={"solvent": st.column_config.SelectboxColumn("solvent", options=["D2O", "DMSO", "CDCl3"])})
+    ss["nmr_lib_user"] = own.dropna(how="all").to_dict("records")
+    pairs = [(m.centre, m.integral) for m in mults if not m.note]
+    tol = st.slider("Shift tolerance (ppm)", 0.03, 0.4, 0.12, 0.01, key="nmrlib_tol",
+                    help="Shifts move with pH, concentration and counter-ion: a digest in NaOD can be 0.1 ppm away from a table value.")
+    res = NL.match(pairs, solvent, ss["nmr_lib_user"], tol)
+    if not res:
+        st.info(f"No library compound found in these multiplets (library solvent: {NL.solvent_key(solvent)}). Add your own rows above.")
+        return
+    ref = st.selectbox("Molar ratios relative to", [r["compound"] for r in res], key="nmrlib_ref")
+    rt = NL.ratios(res, ref)
+    st.dataframe(pd.DataFrame([{"compound": r["compound"], "role": r["role"], "signals found": r["found"], "mean |Δδ| (ppm)": round(r["mean_dd"], 3),
+                                "ratio to " + ref.split(" (")[0]: round(rt[r["compound"]], 3) if r["compound"] in rt else None,
+                                "source": r["source"]} for r in res]), hide_index=True, width="stretch")
+    st.caption("Typical literature shifts – suggestions, not proof. Only compounds with ALL their signals found get a ratio "
+               "(integral per H); overlap with other signals or the water line makes a ratio unreliable.")
+
+
 def _characterisation(g):
     show, files_input, store_put, dl = g["show"], g["files_input"], g["store_put"], g["dl"]
     ss = st.session_state
     st.caption("Bruker raw data: the experiment folder (acqus + fid, optional pdata/1) as .zip — Avance II/III (XWIN-NMR, "
                "TopSpin 1–3) and Avance NEO (TopSpin 4) — processed automatically (phase, baseline, reference). "
-               "JCAMP-DX spectra too. Add a .mol/.sdf with the same name for the structure, or draw it below.")
-    files = files_input("Spectra (+ optional .mol)", ["zip", "jdx", "dx", "mol", "sdf"], "NMR_1H/*.zip", "nmr1h")
+               "JCAMP-DX and **nmrML** (.nmrML) spectra too. Add a .mol/.sdf with the same name for the structure, or draw it below.")
+    files = files_input("Spectra (+ optional .mol)", ["zip", "jdx", "dx", "nmrml", "mol", "sdf"], "NMR_1H/*.zip", "nmr1h")
     if not files:
         return
     mols = {os.path.splitext(f.name)[0]: f.getvalue().decode("utf-8", "ignore") for f in files
@@ -130,20 +159,21 @@ def _characterisation(g):
     skey = f"{f.name}|{ename}"
     info = exp.info() if exp is not None else {}
     # ---------------- processing -----------------------------------------------------------------------------------------
-    with st.expander("⚙️ Processing (automatic; override here)", expanded=False):
-        c1, c2, c3, c4 = st.columns(4)
-        lb = c1.number_input("Line broadening LB (Hz)", 0.0, 5.0, 0.3, 0.1, key="nmr1h_lb")
-        ref_mode = c2.selectbox("Referencing", ["auto (TMS/DSS or solvent residual)", "as recorded (TopSpin SR)", "manual shift"],
-                                key="nmr1h_ref")
-        ref_shift = c2.number_input("Manual shift (ppm, added)", -2.0, 2.0, 0.0, 0.001, format="%.3f", key="nmr1h_refv",
-                                    disabled=not ref_mode.startswith("manual"))
-        man = c3.checkbox("Manual phase", key="nmr1h_manph")
-        p0 = c3.slider("p0 (°)", -180.0, 180.0, 0.0, 0.5, key="nmr1h_p0", disabled=not man)
-        p1 = c3.slider("p1 (°)", -360.0, 360.0, 0.0, 1.0, key="nmr1h_p1", disabled=not man)
-        use_ts = c4.checkbox("Use TopSpin's processed 1r instead", key="nmr1h_ts",
-                             disabled=exp is None or exp.proc_1r is None)
-        sol_pick = c4.selectbox("Solvent", SOLVENT_CHOICES, key="nmr1h_sol")
-        kpk = c4.slider("Peak threshold (× noise)", 3.0, 30.0, 6.0, 0.5, key="nmr1h_k")
+    with LV.gate("Advanced", globals()):
+        with st.expander("⚙️ Processing (automatic; override here)", expanded=False):
+            c1, c2, c3, c4 = st.columns(4)
+            lb = c1.number_input("Line broadening LB (Hz)", 0.0, 5.0, 0.3, 0.1, key="nmr1h_lb")
+            ref_mode = c2.selectbox("Referencing", ["auto (TMS/DSS or solvent residual)", "as recorded (TopSpin SR)", "manual shift"],
+                                    key="nmr1h_ref")
+            ref_shift = c2.number_input("Manual shift (ppm, added)", -2.0, 2.0, 0.0, 0.001, format="%.3f", key="nmr1h_refv",
+                                        disabled=not ref_mode.startswith("manual"))
+            man = c3.checkbox("Manual phase", key="nmr1h_manph")
+            p0 = c3.slider("p0 (°)", -180.0, 180.0, 0.0, 0.5, key="nmr1h_p0", disabled=not man)
+            p1 = c3.slider("p1 (°)", -360.0, 360.0, 0.0, 1.0, key="nmr1h_p1", disabled=not man)
+            use_ts = c4.checkbox("Use TopSpin's processed 1r instead", key="nmr1h_ts",
+                                 disabled=exp is None or exp.proc_1r is None)
+            sol_pick = c4.selectbox("Solvent", SOLVENT_CHOICES, key="nmr1h_sol")
+            kpk = c4.slider("Peak threshold (× noise)", 3.0, 30.0, 6.0, 0.5, key="nmr1h_k")
     reference = "auto" if ref_mode.startswith("auto") else ("none" if ref_mode.startswith("as") else float(ref_shift))
     try:
         sp = _process(f.getvalue(), f.name, ename, lb if exp is not None else None, p0 if man else None,
@@ -236,6 +266,9 @@ def _characterisation(g):
     PK.add_integral_uncertainty(mults, sp)             # v2.14: nH ± u and a flag when the integral is not an integer
     if n_sat:
         st.caption(f"ℹ️ {n_sat} small line(s) were recognised as ¹³C satellites and are left out of the analysis.")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🧪 Linker / modulator library – what is in this digest?", expanded=False):
+            _nmr_library_panel(mults, solvent)
     # ---------------- assignment -----------------------------------------------------------------------------------------
     assignment, groups, imp = {}, [], {}
     fk = "nmr1h_fix|" + skey
@@ -403,40 +436,41 @@ def _qnmr(mults, mol, un, imp, skey, g):
     if cv is not None:
         (st.warning if cv > 5 else st.caption)(f"Integral consistency over the compound multiplets: CV {cv:.1f} % per H"
                                                + (" — check phase/baseline, overlap or relaxation delay (D1 ≥ 5·T1)." if cv > 5 else " ✓"))
-    with st.expander("Internal-standard purity (qNMR)", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        names = [s[0] for s in QNMR_STD]
-        si = c1.selectbox("Internal standard", range(len(names)), format_func=lambda i: names[i], key="qn_std")
-        M_s = c1.number_input("M standard (g/mol)", 1.0, 5000.0, float(QNMR_STD[si][1]), key=f"qn_ms{si}")
-        N_s = c1.number_input("nH of the standard signal", 1, 60, int(QNMR_STD[si][2]), key=f"qn_ns{si}")
-        st.caption(f"Typical δ {QNMR_STD[si][3]} · solvents {QNMR_STD[si][4]}")
-        m_s = c2.number_input("Mass standard (mg)", 0.0, 1000.0, 5.0, 0.01, format="%.3f", key="qn_mst")
-        P_s = c2.number_input("Purity standard (%)", 0.0, 100.0, 99.9, 0.1, key="qn_pst")
-        m_a = c3.number_input("Mass analyte (mg)", 0.0, 1000.0, 10.0, 0.01, format="%.3f", key="qn_ma")
-        M_a0 = None
-        if mol is not None:
-            from rdkit.Chem import Descriptors
-            M_a0 = Descriptors.MolWt(mol)
-        M_a = c3.number_input("M analyte (g/mol)", 1.0, 5000.0, float(M_a0 or 300.0), key="qn_Ma")
-        opts = list(range(len(mults)))
-        fmt = lambda i: f"δ {mults[i].centre:.2f} {mults[i].mult} ({mults[i].nH}H){' · ' + mults[i].label if mults[i].label else ''}"
-        sidx = st.selectbox("Standard signal", opts, format_func=fmt, key="qn_si",
-                            index=next((i for i in un if i not in imp), 0) if un else 0)
-        aopts = [i for i in opts if i != sidx]
-        aidx = st.multiselect("Analyte signal(s)", aopts, default=[i for i in comp if i in aopts and not _broad(mults[i])][:3],
-                              format_func=fmt, key="qn_ai")
-        if aidx and mults[sidx].integral > 0 and m_a > 0:
-            vals = []
-            for i in aidx:
-                n_a = max(round(mults[i].nH or 1), 1)
-                vals.append(qnmr_purity(mults[i].integral, n_a, M_a, m_a, mults[sidx].integral, N_s, M_s, m_s, P_s))
-            P = float(np.mean(vals))
-            st.metric("Purity (wt %)", f"{P:.1f} %", help="Mean over the selected analyte signals")
-            if len(vals) > 1:
-                st.caption("Per signal: " + ", ".join(f"{v:.1f} %" for v in vals) + f" · SD {np.std(vals, ddof=1):.1f} %")
-            st.caption("P = (Iₐ/Iₛ)·(Nₛ/Nₐ)·(Mₐ/Mₛ)·(mₛ/mₐ)·Pₛ. Requires full relaxation (D1 ≥ 5·T1, 90° pulse) and a flat "
-                       "baseline around both signals.")
-            return round(P, 2)
+    with LV.gate("Advanced", globals()):
+        with st.expander("Internal-standard purity (qNMR)", expanded=False):
+            c1, c2, c3 = st.columns(3)
+            names = [s[0] for s in QNMR_STD]
+            si = c1.selectbox("Internal standard", range(len(names)), format_func=lambda i: names[i], key="qn_std")
+            M_s = c1.number_input("M standard (g/mol)", 1.0, 5000.0, float(QNMR_STD[si][1]), key=f"qn_ms{si}")
+            N_s = c1.number_input("nH of the standard signal", 1, 60, int(QNMR_STD[si][2]), key=f"qn_ns{si}")
+            st.caption(f"Typical δ {QNMR_STD[si][3]} · solvents {QNMR_STD[si][4]}")
+            m_s = c2.number_input("Mass standard (mg)", 0.0, 1000.0, 5.0, 0.01, format="%.3f", key="qn_mst")
+            P_s = c2.number_input("Purity standard (%)", 0.0, 100.0, 99.9, 0.1, key="qn_pst")
+            m_a = c3.number_input("Mass analyte (mg)", 0.0, 1000.0, 10.0, 0.01, format="%.3f", key="qn_ma")
+            M_a0 = None
+            if mol is not None:
+                from rdkit.Chem import Descriptors
+                M_a0 = Descriptors.MolWt(mol)
+            M_a = c3.number_input("M analyte (g/mol)", 1.0, 5000.0, float(M_a0 or 300.0), key="qn_Ma")
+            opts = list(range(len(mults)))
+            fmt = lambda i: f"δ {mults[i].centre:.2f} {mults[i].mult} ({mults[i].nH}H){' · ' + mults[i].label if mults[i].label else ''}"
+            sidx = st.selectbox("Standard signal", opts, format_func=fmt, key="qn_si",
+                                index=next((i for i in un if i not in imp), 0) if un else 0)
+            aopts = [i for i in opts if i != sidx]
+            aidx = st.multiselect("Analyte signal(s)", aopts, default=[i for i in comp if i in aopts and not _broad(mults[i])][:3],
+                                  format_func=fmt, key="qn_ai")
+            if aidx and mults[sidx].integral > 0 and m_a > 0:
+                vals = []
+                for i in aidx:
+                    n_a = max(round(mults[i].nH or 1), 1)
+                    vals.append(qnmr_purity(mults[i].integral, n_a, M_a, m_a, mults[sidx].integral, N_s, M_s, m_s, P_s))
+                P = float(np.mean(vals))
+                st.metric("Purity (wt %)", f"{P:.1f} %", help="Mean over the selected analyte signals")
+                if len(vals) > 1:
+                    st.caption("Per signal: " + ", ".join(f"{v:.1f} %" for v in vals) + f" · SD {np.std(vals, ddof=1):.1f} %")
+                st.caption("P = (Iₐ/Iₛ)·(Nₛ/Nₐ)·(Mₐ/Mₛ)·(mₛ/mₐ)·Pₛ. Requires full relaxation (D1 ≥ 5·T1, 90° pulse) and a flat "
+                           "baseline around both signals.")
+                return round(P, 2)
     return None
 
 

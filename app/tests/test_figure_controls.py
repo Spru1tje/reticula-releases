@@ -34,6 +34,7 @@ def captured(tmp_path_factory):
     os.environ["MFS_STORE"] = str(tmp_path_factory.mktemp("fcstore") / "store.json")
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
+    
     at.run()
     out = {}
     for pg in PAGES:
@@ -328,6 +329,7 @@ def wired(tmp_path_factory):
     os.environ["MFS_STORE"] = str(tmp_path_factory.mktemp("fcwire") / "store.json")
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
+    
     at.run()
     result = {}
     for pg in PAGES:

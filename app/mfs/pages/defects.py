@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -129,14 +130,15 @@ def page_defects():
     st.header("Defect calculator – shotgun every method, compare, get the minimal formula")
     st.caption("Per node (M₆O₄(OH)₄, paddlewheel, Zn₄O, M₃O, Al-OH chain, MOF-74, Ti₈, ZIF or your own – see the node library). Enter data once; every applicable method runs in parallel. Equations, symbols, assumptions, your own substitution and "
                "pitfalls are shown for each method. Unit tests reproduce the published worked examples (see README).")
-    with st.expander("Load / save inputs (JSON)", expanded=False):
-        exs = sorted(glob.glob(os.path.join(EX, "Defects", "defect_input_*.json")))
-        exn = st.selectbox("Example input (synthetic EXAMPLE data)", ["(none)"] + [os.path.basename(p) for p in exs])
-        upj = st.file_uploader("…or load your own JSON", type=["json"], key="dj")
-        if st.button("Load"):
-            src = json.load(upj) if upj else (json.load(open(os.path.join(EX, "Defects", exn), encoding="utf-8")) if exn != "(none)" else None)
-            if src:
-                st.session_state["def_in"] = src; st.rerun()
+    with LV.gate("Advanced", globals()):
+        with st.expander("Load / save inputs (JSON)", expanded=False):
+            exs = sorted(glob.glob(os.path.join(EX, "Defects", "defect_input_*.json")))
+            exn = st.selectbox("Example input (synthetic EXAMPLE data)", ["(none)"] + [os.path.basename(p) for p in exs])
+            upj = st.file_uploader("…or load your own JSON", type=["json"], key="dj")
+            if st.button("Load"):
+                src = json.load(upj) if upj else (json.load(open(os.path.join(EX, "Defects", exn), encoding="utf-8")) if exn != "(none)" else None)
+                if src:
+                    st.session_state["def_in"] = src; st.rerun()
     base = st.session_state.get("def_in") or default_defect_input("my sample")
     from mfs import samplestore as SS, si_export as SI
     with st.expander("🗂️ Sample store – pull TGA / ¹H NMR / ICP / XRF / N₂ results of one sample from the other pages", expanded=True):
@@ -222,12 +224,13 @@ def page_defects():
                         bool(g("extraframework_Zr"))) if metal in ("Hf", "mixed") else False
     if fw != fw0 and not st.session_state.get("def_in"):
         base = dict(base); base["species"] = default_defect_input(sample, fw)["species"]
-    with st.expander("🧱 Node library – metals, charges, TGA residues (pick above or build a custom node)", expanded=False):
-        from mfs import nodes as _N
-        st.dataframe(pd.DataFrame(_N.table_rows()), hide_index=True, width="stretch")
-        st.caption("Charge for ligands = metals × oxidation state − 2·core O²⁻ − core OH⁻. TGA residue in air per metal "
-                   "(Co → Co₃O₄, Fe/Cr/Al → M₂O₃, Mn → Mn₂O₃). Al-OH chains keep their µ-OH at the plateau; M₆O₄(OH)₄ and Ti₈O₈(OH)₄ "
-                   "dehydroxylate first. Linker/cap molar masses are computed from the formula you type.")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🧱 Node library – metals, charges, TGA residues (pick above or build a custom node)", expanded=False):
+            from mfs import nodes as _N
+            st.dataframe(pd.DataFrame(_N.table_rows()), hide_index=True, width="stretch")
+            st.caption("Charge for ligands = metals × oxidation state − 2·core O²⁻ − core OH⁻. TGA residue in air per metal "
+                       "(Co → Co₃O₄, Fe/Cr/Al → M₂O₃, Mn → Mn₂O₃). Al-OH chains keep their µ-OH at the plateau; M₆O₄(OH)₄ and Ti₈O₈(OH)₄ "
+                       "dehydroxylate first. Linker/cap molar masses are computed from the formula you type.")
     st.subheader("2 · Species (main linker, caps, guests) and ¹H NMR integrals")
     st.caption("Bound (deprotonated) formula; z = carboxylates bound (= node sites occupied, charge); role cap = monocarboxylate modulator. "
                "'at plateau' = still present at the ~400 °C TGA plateau (e.g. benzoate, sulfonated linkers). Integrals on any common scale "
@@ -243,10 +246,11 @@ def page_defects():
         except Exception as e_:
             _mm.append(f"⚠️ {r_.get('name')}: {e_}")
     st.caption("Molar masses (bound form, g mol⁻¹, computed from the formula – type any custom linker/cap): " + " · ".join(x for x in _mm if x))
-    with st.expander("Species library"):
-        lib = pd.DataFrame([(k, *v) for k, v in SPECIES.items()], columns=["name", "formula", "z", "role", "nH", "¹H signal"])
-        lib["M (g/mol)"] = [round(molar_mass(f), 2) for f in lib.formula]
-        st.dataframe(lib, width="stretch", hide_index=True)
+    with LV.gate("Advanced", globals()):
+        with st.expander("Species library"):
+            lib = pd.DataFrame([(k, *v) for k, v in SPECIES.items()], columns=["name", "formula", "z", "role", "nH", "¹H signal"])
+            lib["M (g/mol)"] = [round(molar_mass(f), 2) for f in lib.formula]
+            st.dataframe(lib, width="stretch", hide_index=True)
     nmr = st.session_state.get("nmr_integrals")
     if nmr is not None:
         st.caption("Integrals from the NMR tab are available:"); st.dataframe(nmr.filter(regex="sample|^I "), width="stretch")
@@ -414,5 +418,6 @@ def page_defects():
             st.latex(e)
         st.markdown("\n".join(f"- {a}" for a in h["assumptions"]))
         st.markdown("References: " + "; ".join(f"[{c.split('.')[0]}](https://doi.org/{d})" for c, d in h["refs"]))
-    with st.expander("When and why the methods disagree"):
-        st.table(pd.DataFrame(D.SUMMARY_PITFALLS, columns=["pattern", "likely cause / what to do"]))
+    with LV.gate("Developer", globals()):
+        with st.expander("When and why the methods disagree"):
+            st.table(pd.DataFrame(D.SUMMARY_PITFALLS, columns=["pattern", "likely cause / what to do"]))

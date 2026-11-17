@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -208,15 +209,16 @@ def page_dsc():
     for c in curves:
         c["label"] = c["seg"] if one else f"{c['sample']} · {c['seg']}"
     has_cycle = any(c["kind"] == "cooling" for c in curves) and any(c["kind"] == "heating" for c in curves)
-    with st.expander("🔁 Segments (detected from the sign of dT/dt)", expanded=False):
-        st.dataframe(pd.DataFrame([{"sample": c["sample"], "segment": c["seg"], "file": c.get("file", ""), "kind": c["kind"],
-                                    "T start (°C)": round(float(c["T"][0]), 2), "T end (°C)": round(float(c["T"][-1]), 2),
-                                    "rate (K/min)": round(DSC.heating_rate(c), 3) if DSC.heating_rate(c) is not None else None,
-                                    "t start (min)": round(float(c["t"][0]), 2) if c.get("t") is not None else None,
-                                    "points": len(c["T"])} for c in curves]), hide_index=True, width="stretch")
-        if not has_cycle:
-            st.caption("Only one direction found. For the full cycle upload the cooling export too (same cycle group) – or "
-                       "export all segments from the instrument software (STARe: all curves of the method).")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🔁 Segments (detected from the sign of dT/dt)", expanded=False):
+            st.dataframe(pd.DataFrame([{"sample": c["sample"], "segment": c["seg"], "file": c.get("file", ""), "kind": c["kind"],
+                                        "T start (°C)": round(float(c["T"][0]), 2), "T end (°C)": round(float(c["T"][-1]), 2),
+                                        "rate (K/min)": round(DSC.heating_rate(c), 3) if DSC.heating_rate(c) is not None else None,
+                                        "t start (min)": round(float(c["t"][0]), 2) if c.get("t") is not None else None,
+                                        "points": len(c["T"])} for c in curves]), hide_index=True, width="stretch")
+            if not has_cycle:
+                st.caption("Only one direction found. For the full cycle upload the cooling export too (same cycle group) – or "
+                           "export all segments from the instrument software (STARe: all curves of the method).")
     with st.expander("⚙️ Plot and evaluation settings", expanded=True):
         c1, c2, c3, c4 = st.columns(4)
         labels = [c["label"] for c in curves]
@@ -254,23 +256,24 @@ def page_dsc():
             tg_cool = c2.checkbox("Tg also on cooling segments", False, key="dsc_tgcool")
     styles = DSC.default_styles(list(dict.fromkeys(c["sample"] for c in curves)))
     if view != "Curves":
-        with st.expander("🎨 Segment styles – colour and line style for heating / cooling, per sample", expanded=False):
-            inv = {v: k for k, v in DSC.LINESTYLES.items()}
-            sty = pd.DataFrame([{"sample": smp, "segment kind": kd, "colour": col, "line style": inv.get(ls, "solid")}
-                                for (smp, kd), (col, ls) in styles.items() if any(c["sample"] == smp and c["kind"] == kd for c in curves)])
-            sty = st.data_editor(sty, key="dsc_sty_" + str(abs(hash(tuple(sty["sample"]))) % 10**6), hide_index=True,
-                                 disabled=["sample", "segment kind"],
-                                 column_config={"colour": st.column_config.TextColumn(help="Hex colour, e.g. #C0392B"),
-                                                "line style": st.column_config.SelectboxColumn(options=list(DSC.LINESTYLES))})
-            for _, r in sty.iterrows():
-                col = str(r["colour"]).strip()
-                if re.fullmatch(r"#?[0-9a-fA-F]{6}", col):
-                    col = col if col.startswith("#") else "#" + col
-                    styles[(r["sample"], r["segment kind"])] = (col, DSC.LINESTYLES.get(r["line style"], "-"))
-            q1, q2, q3 = st.columns(3)
-            arrows = q1.checkbox("Direction arrows on the curves", True, key="dsc_arrows")
-            connect = q2.checkbox("Close the loop (join consecutive segments)", True, key="dsc_connect")
-            prog = q3.radio("Temperature trace (vs time)", ["Ts (sample)", "Tr (programme)"], horizontal=True, key="dsc_prog")
+        with LV.gate("Advanced", globals()):
+            with st.expander("🎨 Segment styles – colour and line style for heating / cooling, per sample", expanded=False):
+                inv = {v: k for k, v in DSC.LINESTYLES.items()}
+                sty = pd.DataFrame([{"sample": smp, "segment kind": kd, "colour": col, "line style": inv.get(ls, "solid")}
+                                    for (smp, kd), (col, ls) in styles.items() if any(c["sample"] == smp and c["kind"] == kd for c in curves)])
+                sty = st.data_editor(sty, key="dsc_sty_" + str(abs(hash(tuple(sty["sample"]))) % 10**6), hide_index=True,
+                                     disabled=["sample", "segment kind"],
+                                     column_config={"colour": st.column_config.TextColumn(help="Hex colour, e.g. #C0392B"),
+                                                    "line style": st.column_config.SelectboxColumn(options=list(DSC.LINESTYLES))})
+                for _, r in sty.iterrows():
+                    col = str(r["colour"]).strip()
+                    if re.fullmatch(r"#?[0-9a-fA-F]{6}", col):
+                        col = col if col.startswith("#") else "#" + col
+                        styles[(r["sample"], r["segment kind"])] = (col, DSC.LINESTYLES.get(r["line style"], "-"))
+                q1, q2, q3 = st.columns(3)
+                arrows = q1.checkbox("Direction arrows on the curves", True, key="dsc_arrows")
+                connect = q2.checkbox("Close the loop (join consecutive segments)", True, key="dsc_connect")
+                prog = q3.radio("Temperature trace (vs time)", ["Ts (sample)", "Tr (programme)"], horizontal=True, key="dsc_prog")
     else:
         arrows, connect, prog = True, True, "Ts (sample)"
     use = [c for c in curves if c["label"] in sel]
@@ -406,44 +409,45 @@ def _dsc_cp():
     from mfs import dsc as DSC
     DSC = _CachedReaders(DSC)
     st.subheader("Specific heat capacity – sapphire method (ASTM E1269)")
-    with st.expander("🌡️ cp from blank + sapphire + sample runs (same pans, rate and purge)", expanded=False):
-        st.caption("cp(T) = cp,sapphire(T) · (q_sample − q_blank)/(q_sapphire − q_blank) · m_sapphire/m_sample. Sapphire values: "
-                   "ASTM E1269 Table 1 (150–600 K), Ginnings & Furukawa above. Use the heating segment of each run (isothermal holds removed).")
-        ex_ = st.checkbox("Use the Cp EXAMPLE (synthetic: blank, 25.30 mg sapphire, 9.80 mg MOF-801; truth cp = 0.62 + 0.0016 (T − 25))",
-                          True, key="cp_ex")
-        c1, c2, c3 = st.columns(3)
-        fb = c1.file_uploader("blank (empty pans)", key="cp_b"); fs_ = c2.file_uploader("sapphire", key="cp_s")
-        fx = c3.file_uploader("sample(s)", accept_multiple_files=True, key="cp_x")
-        D_ = os.path.join(EX, "DSC", "Cp_sapphire")
-        fb = fb or (_F(os.path.join(D_, "Cp_blank_EXAMPLE.csv")) if ex_ else None)
-        fs_ = fs_ or (_F(os.path.join(D_, "Cp_sapphire_EXAMPLE.csv")) if ex_ else None)
-        fx = fx or ([_F(os.path.join(D_, "Cp_sample_MOF-801_EXAMPLE.csv"))] if ex_ else [])
-        if not (fb and fs_ and fx):
-            st.caption("Load the three runs."); return
-        try:
-            db, ds = DSC.read_dsc(fb, fb.name), DSC.read_dsc(fs_, fs_.name)
-            heat = lambda d: max([c_ for c_ in d["curves"] if (DSC.heating_rate(c_) or 1) > 0], key=lambda c_: len(c_["T"]))
-            msap = c2.number_input("sapphire mass (mg)", 0.1, 200.0, float(ds["meta"].get("mass_mg") or 25.0), key="cp_ms_" + fs_.name)
-            res_ = []
-            for f_ in fx:
-                dx = DSC.read_dsc(f_, f_.name)
-                mx = c3.number_input(f"mass {f_.name} (mg)", 0.01, 200.0, float(dx["meta"].get("mass_mg") or 10.0), key="cp_mx_" + f_.name)
-                r_ = DSC.cp_from_sapphire(heat(dx), heat(ds), heat(db), mx, msap)
-                res_.append((guess_name(f_.name), r_))
-            show_ref = st.checkbox("show the sapphire reference curve", False, key="cp_ref")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🌡️ cp from blank + sapphire + sample runs (same pans, rate and purge)", expanded=False):
+            st.caption("cp(T) = cp,sapphire(T) · (q_sample − q_blank)/(q_sapphire − q_blank) · m_sapphire/m_sample. Sapphire values: "
+                       "ASTM E1269 Table 1 (150–600 K), Ginnings & Furukawa above. Use the heating segment of each run (isothermal holds removed).")
+            ex_ = st.checkbox("Use the Cp EXAMPLE (synthetic: blank, 25.30 mg sapphire, 9.80 mg MOF-801; truth cp = 0.62 + 0.0016 (T − 25))",
+                              True, key="cp_ex")
+            c1, c2, c3 = st.columns(3)
+            fb = c1.file_uploader("blank (empty pans)", key="cp_b"); fs_ = c2.file_uploader("sapphire", key="cp_s")
+            fx = c3.file_uploader("sample(s)", accept_multiple_files=True, key="cp_x")
+            D_ = os.path.join(EX, "DSC", "Cp_sapphire")
+            fb = fb or (_F(os.path.join(D_, "Cp_blank_EXAMPLE.csv")) if ex_ else None)
+            fs_ = fs_ or (_F(os.path.join(D_, "Cp_sapphire_EXAMPLE.csv")) if ex_ else None)
+            fx = fx or ([_F(os.path.join(D_, "Cp_sample_MOF-801_EXAMPLE.csv"))] if ex_ else [])
+            if not (fb and fs_ and fx):
+                st.caption("Load the three runs."); return
+            try:
+                db, ds = DSC.read_dsc(fb, fb.name), DSC.read_dsc(fs_, fs_.name)
+                heat = lambda d: max([c_ for c_ in d["curves"] if (DSC.heating_rate(c_) or 1) > 0], key=lambda c_: len(c_["T"]))
+                msap = c2.number_input("sapphire mass (mg)", 0.1, 200.0, float(ds["meta"].get("mass_mg") or 25.0), key="cp_ms_" + fs_.name)
+                res_ = []
+                for f_ in fx:
+                    dx = DSC.read_dsc(f_, f_.name)
+                    mx = c3.number_input(f"mass {f_.name} (mg)", 0.01, 200.0, float(dx["meta"].get("mass_mg") or 10.0), key="cp_mx_" + f_.name)
+                    r_ = DSC.cp_from_sapphire(heat(dx), heat(ds), heat(db), mx, msap)
+                    res_.append((guess_name(f_.name), r_))
+                show_ref = st.checkbox("show the sapphire reference curve", False, key="cp_ref")
 
-            def draw_cp(ax, res_=res_):
-                DSC.draw_cp(ax, res_, show_ref=show_ref)
-            fig, ax = newfig(0.75); draw_cp(ax)
-            exp_ = pd.concat([pd.DataFrame({"sample": nm, "T (°C)": r_["T"], "cp (J/g/K)": r_["Cp"], "cp direct (J/g/K)": r_.get("Cp_direct"),
-                                            "cp sapphire (J/g/K)": r_["Cp_sapphire"]}) for nm, r_ in res_])
-            show(fig, "DSC_cp", exp_, draw_cp, "cp")
-            Tt = [25, 50, 100, 150, 200, 250]
-            st.dataframe(pd.DataFrame([{"sample": nm, **{f"cp {T_} °C": float(np.interp(T_, r_["T"], r_["Cp"])) for T_ in Tt if r_["T"].min() <= T_ <= r_["T"].max()},
-                                        "sapphire check (direct/table)": float(np.median(r_["Cp_sapphire_check"] / r_["Cp_sapphire"])) if r_.get("Cp_sapphire_check") is not None else None}
-                                       for nm, r_ in res_]).round(4), hide_index=True, width="stretch")
-            for nm, r_ in res_:
-                store_put(nm, "dsc", {"cp_25C": float(np.interp(25, r_["T"], r_["Cp"])) if r_["T"].min() <= 25 else None,
-                                      "cp_100C": float(np.interp(100, r_["T"], r_["Cp"])) if r_["T"].min() <= 100 <= r_["T"].max() else None}, "DSC cp")
-        except Exception as e:
-            st.warning(f"cp evaluation failed: {e}")
+                def draw_cp(ax, res_=res_):
+                    DSC.draw_cp(ax, res_, show_ref=show_ref)
+                fig, ax = newfig(0.75); draw_cp(ax)
+                exp_ = pd.concat([pd.DataFrame({"sample": nm, "T (°C)": r_["T"], "cp (J/g/K)": r_["Cp"], "cp direct (J/g/K)": r_.get("Cp_direct"),
+                                                "cp sapphire (J/g/K)": r_["Cp_sapphire"]}) for nm, r_ in res_])
+                show(fig, "DSC_cp", exp_, draw_cp, "cp")
+                Tt = [25, 50, 100, 150, 200, 250]
+                st.dataframe(pd.DataFrame([{"sample": nm, **{f"cp {T_} °C": float(np.interp(T_, r_["T"], r_["Cp"])) for T_ in Tt if r_["T"].min() <= T_ <= r_["T"].max()},
+                                            "sapphire check (direct/table)": float(np.median(r_["Cp_sapphire_check"] / r_["Cp_sapphire"])) if r_.get("Cp_sapphire_check") is not None else None}
+                                           for nm, r_ in res_]).round(4), hide_index=True, width="stretch")
+                for nm, r_ in res_:
+                    store_put(nm, "dsc", {"cp_25C": float(np.interp(25, r_["T"], r_["Cp"])) if r_["T"].min() <= 25 else None,
+                                          "cp_100C": float(np.interp(100, r_["T"], r_["Cp"])) if r_["T"].min() <= 100 <= r_["T"].max() else None}, "DSC cp")
+            except Exception as e:
+                st.warning(f"cp evaluation failed: {e}")

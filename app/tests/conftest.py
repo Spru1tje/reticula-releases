@@ -4,6 +4,7 @@ import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pytest
 
 os.environ.setdefault("MFS_NO_UPDATE_CHECK", "1")     # also for the Streamlit servers the browser suites start
+os.environ.setdefault("MFS_DEFAULT_LEVEL", "Developer")      # v2.15: also for the servers the browser suites start
 
 
 @pytest.fixture(autouse=True)
@@ -63,3 +64,10 @@ def pytest_runtest_makereport(item, call):
         if any(t in str(call.excinfo.value) for t in PRIVATE_FIXTURES):
             rep.outcome = "skipped"
             rep.longrepr = (str(item.fspath), (item.location[1] or 0) + 1, "Skipped: private test data not in the public repository")
+
+
+@pytest.fixture(autouse=True)
+def _level_developer(monkeypatch):
+    """v2.15: the app starts in 'Standard'; the older suites test every control, so they run at 'Developer'
+    (tests/test_v215_b.py::test_levels_* use the real default)."""
+    monkeypatch.setenv("MFS_DEFAULT_LEVEL", "Developer")

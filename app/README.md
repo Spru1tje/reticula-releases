@@ -139,6 +139,9 @@ To compare v1 and v2 on any export, run `python tools/n2_before_after.py your_fi
 | **UV/Vis** | Implen NanoPhotometer Excel (.ids only if not encrypted), Cary / generic CSV, JCAMP-DX | Overlay, A ⇄ %T ⇄ %R, blank, smoothing, λmax; Beer–Lambert (LOD/LOQ, unknowns), assay presets (BCA, Bradford, Lowry, ninhydrin, OPA + DH); single-λ kinetics; Kubelka–Munk + Tauc band gaps; derivatives. |
 | **Photoluminescence** (v2.14) | CSV / TXT / DAT / Excel from any spectrofluorometer: two columns or ONE table (wavelength + one column per temperature); temperature from the header or the file name | Spectra coloured by temperature, waterfall, emission map; peak position / FWHM; nm / eV / cm⁻¹; **thermal quenching** (Eₐ, T₅₀, Arrhenius plot); **ratiometric thermometry** (Boltzmann band ratio, ΔE, Sᵣ, σT) as an A–D figure |
 | **Combined figure** (v2.14) | – | Graphs of different techniques in ONE figure (A, B, C …): 🧩 *Add to combined figure* under any graph, then *Open and arrange* in the sidebar. Panel letters inside/outside, caption, journal template. |
+| **PXRD: crystallite size** (v2.15, opt-in) | the patterns on the PXRD page | Switch on *Crystallite size and microstrain*: automatic peak fits, instrumental broadening (typical / measured standard / known), Scherrer, Williamson–Hall, Halder–Wagner with uncertainties |
+| **PXRD: Rietveld / Le Bail** (v2.15, opt-in) | CIF file(s) of the phases | Switch on *Rietveld / Le Bail*, choose the phases, press *Refine*: automatic staged refinement (≈ 1 s), Rwp / GoF / Bragg R, cell ± esd, weight fractions, Rietveld figure, Excel report |
+| **Detail levels** (v2.15) | – | Sidebar → 🎚️ Detail level: **Standard** (default, essentials), **Advanced**, **Developer**; global or per module |
 | **Export guide** | – | Which file to export from each instrument (also in `docs/EXPORT_GUIDE.md`). |
 
 ## 4. Defect calculator (Zr/Hf/Ce/Th₆ nodes, paddlewheels, Zn₄O, Al-OH chains, M₃O trimers, MOF-74, Ti₈, ZIFs, custom nodes)

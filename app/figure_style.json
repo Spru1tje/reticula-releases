@@ -1,0 +1,15 @@
+{
+ "gs_preset": "(custom)",
+ "gs_width": "ACS single column (3.25 in)",
+ "gs_aspect": 0.4,
+ "gs_font": 5.0,
+ "gs_family": "auto",
+ "gs_lw": 0.3,
+ "gs_alw": 0.3,
+ "gs_ms": 1.0,
+ "gs_palette": "Okabe\u2013Ito (sample families)",
+ "gs_tickdir": "in",
+ "gs_minor": false,
+ "gs_legframe": false,
+ "gs_dpi": 600
+}

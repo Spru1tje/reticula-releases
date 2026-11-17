@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import re
 
+import math
 import numpy as np
 
 KB_EV = 8.617333262e-5          # eV / K
@@ -254,23 +255,32 @@ def fit_quench(T, I):
             "T50": (Ea / (KB_EV * lnA) if lnA > 0 else None), "R2": _r2(I, f(T)), "f": f}
 
 
-def fit_boltzmann(T, D, offset=False):
+def fit_boltzmann(T, D, offset=False, sigma=None):
     """D = alpha exp(-dE / kB T) (+ C). Returns dict(alpha, dE_eV, dE_cm1, C, R2, f)."""
     from scipy.optimize import curve_fit
     T = np.asarray(T, float); D = np.asarray(D, float)
+    sg = None if sigma is None else np.asarray(sigma, float)
     ok = np.isfinite(T) & np.isfinite(D) & (D > 0)
+    if sg is not None:
+        ok &= np.isfinite(sg) & (sg > 0)
     T, D = T[ok], D[ok]
+    sg = None if sg is None else sg[ok]
     if len(T) < 3:
         return {"status": "needs at least 3 temperatures"}
     slope, icpt = np.polyfit(1.0 / T, np.log(D), 1)
     p0 = [float(np.exp(icpt)), float(-slope * KB_EV)] + ([0.0] if offset else [])
     mdl = (lambda t, a, de, c: a * np.exp(-de / (KB_EV * t)) + c) if offset else (lambda t, a, de: a * np.exp(-de / (KB_EV * t)))
     try:
-        p, _ = curve_fit(mdl, T, D, p0=p0, maxfev=20000)
+        p, pcov = curve_fit(mdl, T, D, p0=p0, sigma=sg, absolute_sigma=sg is not None, maxfev=20000)
     except Exception as e:
         return {"status": f"fit failed: {e}"}
     f = (lambda t: mdl(np.asarray(t, float), *p))
+    err = np.sqrt(np.clip(np.diag(pcov), 0, None)) if np.all(np.isfinite(pcov)) else np.full(len(p), np.nan)
+    chi2 = float(np.sum(((D - f(T)) / sg) ** 2) / max(len(T) - len(p), 1)) if sg is not None else None
+    if sg is not None and chi2 and chi2 > 1:                 # the scatter is larger than the stated errors: scale them (Birge ratio)
+        err = err * math.sqrt(chi2)
     return {"status": "ok", "alpha": float(p[0]), "dE_eV": float(p[1]), "dE_cm1": float(p[1] * EV_TO_CM),
+            "alpha_err": float(err[0]), "dE_err_eV": float(err[1]), "dE_err_cm1": float(err[1] * EV_TO_CM), "chi2_red": chi2,
             "C": float(p[2]) if offset else 0.0, "R2": _r2(D, f(T)), "f": f}
 
 
@@ -284,6 +294,12 @@ def absolute_sensitivity(T, fit):
     """Sa = |dD/dT| of the fitted ratio (per K); for D = alpha exp(-dE/kT) + C it is (D - C) dE / (kB T^2)."""
     T = np.asarray(T, float)
     return (fit["f"](T) - fit.get("C", 0.0)) * fit["dE_eV"] / (KB_EV * T ** 2)
+
+
+def temperature_uncertainty_from_ratio(sr_pct, D, D_err):
+    """sigma_T in K from the relative error of the measured ratio: (sigma_D / D) / Sr  (works for any way of extracting the ratio)."""
+    sr = np.asarray(sr_pct, float) / 100.0
+    return (np.asarray(D_err, float) / np.maximum(np.asarray(D, float), 1e-300)) / sr
 
 
 def temperature_uncertainty(sr_pct, I1, I2):

@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.15.0 — 2026-11-17
+
+### New: detail levels (Standard / Advanced / Developer)
+- The app starts in **Standard**: only what a publishable figure needs. **Advanced** adds the details (ticks and presets of *Customise this figure*, fit options, series styles, libraries, quality checks), **Developer** shows everything.
+- One switch in the sidebar for all modules, and an override per module (e.g. Standard everywhere, Advanced for PXRD). The choice is saved in the project file.
+
+### New: PXRD – crystallite size and Rietveld / Le Bail (both hidden until you switch them on)
+- **Crystallite size and microstrain**: automatic peak detection and pseudo-Voigt fits of every sample, instrumental broadening removed (typical value, a measured LaB₆ / Si standard, or a value you know), Scherrer per peak (mean ± SD), **Williamson–Hall** and **Halder–Wagner** with uncertainties from weighted regression, W–H figure, plain-language warnings (too few peaks, negative strain, size above the limit of a laboratory diffractometer).
+- **Rietveld / Le Bail refinement** (own implementation): pick the phases (bundled CIFs or your own, any number) and press *Refine*. Automatic staged strategy (start-value search for cell scale and peak width, then cell, zero shift, peak shape, displacement, asymmetry), scale factors and background solved exactly in every step, about **one second per pattern**. Gives Rwp, Rp, GoF, Bragg R, cell parameters ± esd, weight fractions (Hill & Howard), the standard Rietveld figure (observed, calculated, background, difference, reflection ticks), an Excel report and results into the sample store. Validated on synthetic patterns (cell within the esd, weight fractions within 0.5 %, nanocrystalline broad peaks, Kα1 + Kα2) and against the structure factors of pymatgen. Not included yet: preferred orientation, atom positions, anisotropic broadening (stated in the report).
+
+### New: reproducibility and journals
+- **Provenance in every figure file**: program version, page, source files, figure settings and time are embedded in PNG, TIFF, PDF and SVG; the ZIP and *Save to folder* add `<figure>_provenance.json`.
+- **SI export bundle**: all figure data in **one Excel** (a sheet per figure + index), a **journal check** (final width, smallest font and thinnest line at the printed size, colour-blind distinguishability, resolution) with **one-click fix** (width, fonts, lines, colour-blind safe palette), **Methods text** for every technique (placeholders in [brackets] for what only the author knows), and a **sample summary table** (one row per sample from the sample store; Excel, CSV, LaTeX).
+
+### Photoluminescence: robust band ratio (thermometry)
+- **Automatic global fit** (default): all spectra of the series are described by the same bands (pseudo-Voigt; position and width may drift with temperature); areas and background of every spectrum are solved exactly. Hidden shoulders of overlapping bands are found (second derivative), extra "nuisance" bands are added automatically when the residual shows a clear structure and the BIC improves, and the shared-shape and drifting-shape models are compared with the BIC. A single dirty spectrum does not bend the result (robust loss).
+- **Honest uncertainties**: the ratio error includes the covariance of the two areas and a systematic part from refits with a narrower / wider fit range and the other model; the Boltzmann fit is weighted with these errors and gives ΔE ± error; σT follows from the ratio error. Quality flag per spectrum (good / check / poor from R², reduced χ², residual correlation) with a plain warning.
+- **Select ranges on the graph**: drag over the mean spectrum and press *→ band 1 / band 2 / fit range*; the method *Integration windows* and *Compare both* (shows how much the windows deviate from the fit) remain available.
+- On synthetic series with overlapping bands, a shoulder and a weak neighbour the fit recovers the ratio within 2 %, where valley windows are off by > 8 %.
+
+### Modules
+- **FTIR / Raman**: band assignment from an editable list of typical ranges (your own rows first), simultaneous multi-band pseudo-Voigt fit with uncertainties and a figure.
+- **XPS**: batch fit – the same component model applied to every spectrum of a region, table + stacked-share figure. (UV/Vis already fits the band gap of all selected spectra.)
+- **SEM / TEM particle sizer**: sizing **templates** (save the detection settings per sample type, apply with one click, kept between sessions and in the project) and a confidence bar per image (high / medium / low).
+- **¹H NMR**: library of linkers, modulators and solvents (typical shifts in D₂O/NaOD, DMSO-d₆, CDCl₃; editable) that matches the found multiplets and gives molar ratios.
+
+### Combined figure
+- Panels no longer overlap: the gaps grow automatically until colour bars, axis titles and panel letters of neighbouring panels are clear of each other.
+- New *Fine-tune the layout*: spacing between columns / rows, wide panels (span all columns), relative column widths and row heights, panel-letter size, automatic overlap check on / off.
+
+### ¹H NMR
+- **nmrML** files (`.nmrML`) can be uploaded: with an FID they go through the same automatic processing as Bruker data, a stored processed spectrum is used as is.
+- Assignment structure: the proton chips (Hₐ, H_b …) sit **beside** their atom with a dotted leader line instead of on top of it, do not overlap each other, are larger and have readable text on every colour.
+
+### Development
+- `docs/DEVELOPMENT.md`: every new page must go through `show()`, be added to the figure-controls suite and have a methods text.
+
 ## 2.14.0 — 2026-11-18
 
 ### New: photoluminescence page

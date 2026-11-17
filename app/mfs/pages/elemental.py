@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -88,33 +89,34 @@ def _icp_generic_ratios(df, val, err, sec):
     from mfs import ratios as RT
     from mfs.chem import AW
     els = [e for e in sorted({str(x).split()[0] for x in df["element"].dropna().unique()}) if e in AW]
-    with st.expander("Molar ratios for any elements (choose the reference metal)", expanded=False):
-        if len(els) < 2:
-            st.info("Needs at least two elements with known atomic weights."); return
-        c1, c2 = st.columns([3, 1])
-        refs = c1.multiselect("Reference element(s) (the framework metal, e.g. Zr, or Zr + Hf)", els, default=els[:1], key=f"{sec}_gr_ref")
-        per = c2.number_input("per n reference atoms", 1, 100, 1, key=f"{sec}_gr_per", help="6 gives 'per M6 node' for a hexanuclear cluster.")
-        if not refs:
-            return
-        d = df.copy(); d[val] = pd.to_numeric(d[val], errors="coerce"); d[err] = pd.to_numeric(d[err], errors="coerce").fillna(0)
-        rows = []
-        for smp, g in d.dropna(subset=[val]).groupby("sample", sort=False):
-            wt, sd = {}, {}
-            for el, ge in g.groupby("element"):
-                el = str(el).split()[0]
-                if el not in AW:
-                    continue
-                wt[el] = float(ge[val].mean())
-                sd[el] = float(max(np.sqrt((ge[err] ** 2).mean()), ge[val].std(ddof=1) if len(ge) > 1 else 0))
-            r = RT.molar_ratios(wt, sd, refs, per=float(per))
-            row = {"sample": smp}
-            for k, (v_, s_) in r.items():
-                row[k], row[f"σ {k}"] = v_, s_
-            rows.append(row)
-        if rows:
-            tab = pd.DataFrame(rows)
-            st.dataframe(tab.style.format(precision=3), hide_index=True, width="stretch")
-            dl(st, "CSV molar ratios ± σ", tab.to_csv(index=False).encode("utf-8-sig"), f"{sec.upper()}_molar_ratios.csv", f"{sec}_gr_csv")
+    with LV.gate("Advanced", globals()):
+        with st.expander("Molar ratios for any elements (choose the reference metal)", expanded=False):
+            if len(els) < 2:
+                st.info("Needs at least two elements with known atomic weights."); return
+            c1, c2 = st.columns([3, 1])
+            refs = c1.multiselect("Reference element(s) (the framework metal, e.g. Zr, or Zr + Hf)", els, default=els[:1], key=f"{sec}_gr_ref")
+            per = c2.number_input("per n reference atoms", 1, 100, 1, key=f"{sec}_gr_per", help="6 gives 'per M6 node' for a hexanuclear cluster.")
+            if not refs:
+                return
+            d = df.copy(); d[val] = pd.to_numeric(d[val], errors="coerce"); d[err] = pd.to_numeric(d[err], errors="coerce").fillna(0)
+            rows = []
+            for smp, g in d.dropna(subset=[val]).groupby("sample", sort=False):
+                wt, sd = {}, {}
+                for el, ge in g.groupby("element"):
+                    el = str(el).split()[0]
+                    if el not in AW:
+                        continue
+                    wt[el] = float(ge[val].mean())
+                    sd[el] = float(max(np.sqrt((ge[err] ** 2).mean()), ge[val].std(ddof=1) if len(ge) > 1 else 0))
+                r = RT.molar_ratios(wt, sd, refs, per=float(per))
+                row = {"sample": smp}
+                for k, (v_, s_) in r.items():
+                    row[k], row[f"σ {k}"] = v_, s_
+                rows.append(row)
+            if rows:
+                tab = pd.DataFrame(rows)
+                st.dataframe(tab.style.format(precision=3), hide_index=True, width="stretch")
+                dl(st, "CSV molar ratios ± σ", tab.to_csv(index=False).encode("utf-8-sig"), f"{sec.upper()}_molar_ratios.csv", f"{sec}_gr_csv")
 
 
 def _icp_ratios(df, val, err, sec):

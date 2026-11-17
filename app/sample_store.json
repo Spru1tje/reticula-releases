@@ -12,7 +12,7 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-17T21:12:56"
+    "updated": "2026-11-17T23:23:45"
    }
   }
  },
@@ -32,7 +32,7 @@
      "S_ext": 25.236259861125152
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T21:13:15"
+    "updated": "2026-11-17T23:32:00"
    }
   }
  },
@@ -52,7 +52,7 @@
      "S_ext": 41.087791611216176
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T21:13:15"
+    "updated": "2026-11-17T23:32:00"
    },
    "tga": {
     "values": {
@@ -68,7 +68,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T21:12:58"
+    "updated": "2026-11-17T23:32:19"
    },
    "dsc": {
     "values": {
@@ -76,7 +76,7 @@
      "cp_100C": 0.7385646145917613
     },
     "source": "DSC cp",
-    "updated": "2026-11-17T21:12:59"
+    "updated": "2026-11-17T23:23:50"
    },
    "kinetics": {
     "values": {
@@ -89,7 +89,7 @@
      "label": "MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T21:13:00"
+    "updated": "2026-11-17T23:34:02"
    },
    "icp": {
     "values": {
@@ -106,7 +106,7 @@
      "xrf_S_per_M_sd": 0.0
     },
     "source": "ICP page",
-    "updated": "2026-11-17T21:13:02"
+    "updated": "2026-11-17T23:23:53"
    },
    "xps": {
     "values": {
@@ -114,7 +114,17 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T21:13:07"
+    "updated": "2026-11-17T23:24:00"
+   },
+   "pxrd": {
+    "values": {
+     "MOF-801 cell a (Å)": 17.838645390818876,
+     "MOF-801 volume (Å^3)": 5676.565025693507,
+     "Rwp (%)": 10.62727116883244,
+     "MOF-801 weight fraction (%)": 100.0
+    },
+    "source": "PXRD Rietveld",
+    "updated": "2026-11-17T23:00:13"
    }
   }
  },
@@ -134,7 +144,7 @@
      "S_ext": 36.51588069459394
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T21:13:15"
+    "updated": "2026-11-17T23:32:00"
    },
    "kinetics": {
     "values": {
@@ -147,7 +157,7 @@
      "label": "PM"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T21:13:00"
+    "updated": "2026-11-17T23:34:02"
    },
    "icp": {
     "values": {
@@ -164,7 +174,17 @@
      "xrf_S_per_M_sd": 0.0023493795479097917
     },
     "source": "ICP page",
-    "updated": "2026-11-17T21:13:02"
+    "updated": "2026-11-17T23:23:53"
+   },
+   "pxrd": {
+    "values": {
+     "crystallite_size_scherrer_nm": 79.4778977053186,
+     "crystallite_size_scherrer_sd_nm": 5.612816547955902,
+     "crystallite_size_WH_nm": 70.27345526833768,
+     "microstrain_WH_percent": -0.022767786836609398
+    },
+    "source": "PXRD crystallite size",
+    "updated": "2026-11-17T23:00:12"
    }
   }
  },
@@ -184,7 +204,7 @@
      "S_ext": 38.483724927891984
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T21:13:15"
+    "updated": "2026-11-17T23:32:00"
    },
    "tga": {
     "values": {
@@ -200,7 +220,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T21:12:58"
+    "updated": "2026-11-17T23:32:19"
    },
    "kinetics": {
     "values": {
@@ -213,7 +233,7 @@
      "label": "Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T21:13:00"
+    "updated": "2026-11-17T23:34:02"
    },
    "icp": {
     "values": {
@@ -230,7 +250,7 @@
      "xrf_S_per_M_sd": 0.0013754594240809794
     },
     "source": "ICP page",
-    "updated": "2026-11-17T21:13:02"
+    "updated": "2026-11-17T23:23:53"
    },
    "xps": {
     "values": {
@@ -238,7 +258,17 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T21:13:07"
+    "updated": "2026-11-17T23:24:00"
+   },
+   "pxrd": {
+    "values": {
+     "crystallite_size_scherrer_nm": 81.72339900708727,
+     "crystallite_size_scherrer_sd_nm": 6.8814356894413375,
+     "crystallite_size_WH_nm": 71.91550247031873,
+     "microstrain_WH_percent": -0.02310848760362531
+    },
+    "source": "PXRD crystallite size",
+    "updated": "2026-11-17T23:00:12"
    }
   }
  },
@@ -258,7 +288,7 @@
      "S_ext": 45.5987139873979
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T21:13:15"
+    "updated": "2026-11-17T23:32:00"
    },
    "tga": {
     "values": {
@@ -274,7 +304,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T21:12:58"
+    "updated": "2026-11-17T23:32:19"
    },
    "kinetics": {
     "values": {
@@ -287,7 +317,7 @@
      "label": "ZrO2@Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T21:13:00"
+    "updated": "2026-11-17T23:34:02"
    },
    "icp": {
     "values": {
@@ -304,7 +334,7 @@
      "xrf_S_per_M_sd": 0.0007071992563601338
     },
     "source": "ICP page",
-    "updated": "2026-11-17T21:13:02"
+    "updated": "2026-11-17T23:23:53"
    },
    "xps": {
     "values": {
@@ -312,7 +342,17 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T21:13:07"
+    "updated": "2026-11-17T23:24:00"
+   },
+   "pxrd": {
+    "values": {
+     "crystallite_size_scherrer_nm": 78.905610716758,
+     "crystallite_size_scherrer_sd_nm": 5.97209232719989,
+     "crystallite_size_WH_nm": 71.55329946082813,
+     "microstrain_WH_percent": -0.019387993651604492
+    },
+    "source": "PXRD crystallite size",
+    "updated": "2026-11-17T23:00:12"
    }
   }
  },
@@ -332,7 +372,7 @@
      "S_ext": 74.37863399132486
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T21:13:15"
+    "updated": "2026-11-17T23:32:00"
    },
    "kinetics": {
     "values": {
@@ -345,7 +385,7 @@
      "label": "ZrO2"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T21:13:00"
+    "updated": "2026-11-17T23:34:02"
    },
    "icp": {
     "values": {
@@ -362,7 +402,17 @@
      "xrf_S_per_M_sd": 0.0
     },
     "source": "ICP page",
-    "updated": "2026-11-17T21:13:02"
+    "updated": "2026-11-17T23:23:53"
+   },
+   "pxrd": {
+    "values": {
+     "crystallite_size_scherrer_nm": 5.260918749925063,
+     "crystallite_size_scherrer_sd_nm": 0.04697205607483905,
+     "crystallite_size_WH_nm": null,
+     "microstrain_WH_percent": null
+    },
+    "source": "PXRD crystallite size",
+    "updated": "2026-11-17T23:00:12"
    }
   }
  },
@@ -380,7 +430,7 @@
      "label": "Blank (no catalyst)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T21:13:00"
+    "updated": "2026-11-17T23:34:02"
    }
   }
  },
@@ -396,7 +446,7 @@
      "sigmaT_Tmin_K": 0.27562126340201976
     },
     "source": "Photoluminescence page",
-    "updated": "2026-11-17T20:39:04"
+    "updated": "2026-11-17T23:22:06"
    }
   }
  },

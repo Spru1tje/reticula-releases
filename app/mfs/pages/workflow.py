@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -69,21 +70,40 @@ def page_composer():
     inside = c3.checkbox("Letters inside the panel", True, key="comp_inside")
     hide_long = c3.checkbox("Hide long legends (> 6 entries)", True, key="comp_hide_leg",
                             help="A legend with many samples takes over a small panel; the samples are then named by the colours / the caption.")
-    with st.expander("⚙️ Size, journal template, font", expanded=False):
-        t1, t2, t3 = st.columns([1.2, 1.2, 2.6])
-        tpl = t1.selectbox("Journal template", ["custom"] + list(TP.TEMPLATES), key="comp_tpl")
-        colw = t2.radio("Column", ["single", "1.5", "double"], index=2, horizontal=True, key="comp_col", disabled=tpl == "custom")
-        if tpl != "custom":
-            t3.caption(TP.TEMPLATES[tpl]["note"])
-        c1, c2, c3 = st.columns(3)
-        if tpl == "custom":
-            width = S.WIDTHS[c1.selectbox("Width", list(S.WIDTHS), index=1)]
-            fsz = c3.slider("Font (pt)", 5.0, 10.0, float(FONT), 0.5, key="comp_fs")
-        else:
-            T_ = TP.TEMPLATES[tpl]; width = TP.width(tpl, colw)
-            fsz = c3.slider("Font (pt)", float(T_["min_font"]), 10.0, float(T_["font_size"]), 0.5, key=f"comp_fs_{tpl}")
-            c1.metric("Width", f"{width:.2f} in / {width * 2.54:.1f} cm")
-        asp = c2.slider("Panel height / width", 0.4, 1.5, 0.8, 0.05, key="comp_asp")
+    with LV.gate("Advanced", globals()):
+        with st.expander("⚙️ Size, journal template, font", expanded=False):
+            t1, t2, t3 = st.columns([1.2, 1.2, 2.6])
+            tpl = t1.selectbox("Journal template", ["custom"] + list(TP.TEMPLATES), key="comp_tpl")
+            colw = t2.radio("Column", ["single", "1.5", "double"], index=2, horizontal=True, key="comp_col", disabled=tpl == "custom")
+            if tpl != "custom":
+                t3.caption(TP.TEMPLATES[tpl]["note"])
+            c1, c2, c3 = st.columns(3)
+            if tpl == "custom":
+                width = S.WIDTHS[c1.selectbox("Width", list(S.WIDTHS), index=1)]
+                fsz = c3.slider("Font (pt)", 5.0, 10.0, float(FONT), 0.5, key="comp_fs")
+            else:
+                T_ = TP.TEMPLATES[tpl]; width = TP.width(tpl, colw)
+                fsz = c3.slider("Font (pt)", float(T_["min_font"]), 10.0, float(T_["font_size"]), 0.5, key=f"comp_fs_{tpl}")
+                c1.metric("Width", f"{width:.2f} in / {width * 2.54:.1f} cm")
+            asp = c2.slider("Panel height / width", 0.4, 1.5, 0.8, 0.05, key="comp_asp")
+    with st.expander("🔧 Fine-tune the layout – spacing, wide panels, column / row sizes, letter size", expanded=False):
+        f1, f2, f3 = st.columns(3)
+        auto_sp = f1.checkbox("Keep panels from overlapping (automatic)", True, key="comp_autosp",
+                              help="The gaps grow until colour bars, axis titles and panel letters of neighbouring panels no longer touch.")
+        wsp = f2.slider("Space between columns", 0.1, 1.2, 0.42, 0.02, key="comp_wsp", help="Minimum; the automatic check can add more.")
+        hsp = f3.slider("Space between rows", 0.1, 1.2, 0.42, 0.02, key="comp_hsp")
+        g1, g2, g3 = st.columns(3)
+        wide = g1.multiselect("Wide panels (span all columns)", sel, key="comp_wide", format_func=_lab) if ncols > 1 else []
+        wr_txt = g2.text_input("Column widths (relative, e.g. 1, 1.5, 1)", "", key="comp_wr", help="Empty = equal.")
+        hr_txt = g3.text_input("Row heights (relative, e.g. 1, 2)", "", key="comp_hr", help="Empty = equal.")
+        lsz = st.slider("Panel letter size (pt, 0 = automatic)", 0.0, 24.0, 0.0, 0.5, key="comp_lsz")
+
+        def _ratios(t):
+            try:
+                v = [float(x) for x in t.replace(";", ",").split(",") if x.strip()]
+                return v if v and all(x > 0 for x in v) else None
+            except ValueError:
+                return None
     letters = [C.panel_label(i, lab) for i in range(len(sel))]
     auto_cap = "Fig. X  " + ", ".join(f"{l} {k}" for l, k in zip(letters, sel)) + ". [material / sample]"
     cap_on = st.checkbox("3 · Caption under the figure", False, key="comp_cap_on")
@@ -102,8 +122,10 @@ def page_composer():
             if hide_long and lg is not None and len(lg.get_texts()) > 6:
                 lg.remove()
         return draw
+    spans = [(1, ncols) if k in wide else (1, 1) for k in sel] if wide else None
     fig, axs = C.compose([_panel(k) for k in sel], ncols=ncols, width=width, panel_aspect=asp, label_style=lab, font_size=fsz,
-                         label_inside=inside, caption=cap if cap_on else None)
+                         label_inside=inside, caption=cap if cap_on else None, wspace=wsp, hspace=hsp, spans=spans, auto_space=auto_sp,
+                         width_ratios=_ratios(wr_txt), height_ratios=_ratios(hr_txt), label_size=lsz or None)
     if tpl != "custom":
         for lvl, msg in TP.check(fig, tpl, colw):
             (st.success if lvl == "ok" else st.warning)(f"{tpl} check: {msg}")

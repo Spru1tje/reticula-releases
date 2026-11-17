@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -24,6 +25,7 @@ INJECTED = (
     'sample_table',
     'show',
     'store_put',
+    'dl',
 )
 
 
@@ -60,7 +62,7 @@ def page_pxrd():
                 d = R.read_xy(rf); ref = (st.text_input("Reference label", "Reference"), d.x.values, d.y.values)
     except Exception as e:
         st.warning(f"Reference simulation failed: {e}")
-    traces, rows = [], []
+    traces, rows, raws = [], [], {}
     for nm, f in samples:
         try:
             d = R.read_pxrd(f, f.name)
@@ -85,6 +87,7 @@ def page_pxrd():
         y = A.process(d.x.values, d.y.values, **opts)
         traces.append((nm, d.x.values, y))
         rows.append(pd.DataFrame({"sample": nm, "two_theta": d.x, "I_raw": d.y, "I_processed": y}))
+        raws[nm] = (d.x.values, d.y.values)
         for k_, s_ in enumerate(extra, 2):
             ye = A.process(s_["x"], s_["y"], **opts)
             traces.append((f"{nm} · scan {k_}", s_["x"], ye))
@@ -95,83 +98,330 @@ def page_pxrd():
     fig, ax = newfig(); draw(ax)
     show(fig, "PXRD", pd.concat(rows) if rows else None, draw, "PXRD", units={"x": "2theta"})
     from mfs import xrd as X
-    with st.expander("📏 Peak width / Scherrer crystallite size (with instrumental correction)"):
-        if traces:
-            c1, c2, c3, c4 = st.columns(4)
-            pks = c1.text_input("Peaks (°2θ, comma separated)", "8.6, 9.9", key="sch_pk")
-            Kf = c2.number_input("Shape factor K", 0.5, 1.5, 0.9, 0.01, key="sch_K")
-            shape = c3.selectbox("Width correction", ["gaussian", "lorentzian", "voigt"], key="sch_shape",
-                                 help="gaussian: β² = B² − b² · lorentzian: β = B − b · voigt: β = B − b²/B")
-            st.caption("Defaults: MOF-801 (111) 8.6° and (200) 9.9° (Cu Kα1); UiO-66: 7.4° and 8.5°.")
-            inst_src = c4.radio("Instrumental FWHM", ["constant", "from a standard (LaB₆ / Si) pattern"], key="sch_src")
-            pk_list = [float(v) for v in pks.replace(";", ",").split(",") if v.strip()]
-            inst = lambda tt: 0.05
-            if inst_src == "constant":
-                b0 = st.number_input("Instrumental FWHM (°)", 0.0, 1.0, 0.05, 0.005, key="sch_b")
-                inst = lambda tt, b0=b0: b0
-            else:
-                sf = st.file_uploader("Standard pattern (.xy)", key="sch_std")
-                spk = st.text_input("Standard peaks (°2θ)", "21.36, 30.38, 37.44, 43.51" , key="sch_spk",
-                                    help="LaB₆ SRM 660 (Cu Kα1): 21.36 (100), 30.38 (110), 37.44 (111), 43.51 (200) …")
-                if sf:
-                    try:
-                        dstd = R.read_xy(sf)
-                        inst, pos, fw = X.instrument_fwhm_from_standard(dstd.x.values, dstd.y.values, [float(v) for v in spk.split(",") if v.strip()])
-                        st.caption("Standard fitted: " + ", ".join(f"{p_:.2f}° → {f_:.3f}°" for p_, f_ in zip(pos, fw)) + " (linear FWHM(2θ))")
-                    except Exception as e:
-                        st.warning(f"Standard fit failed: {e}")
+    if LV.opt_in("📐 Crystallite size and microstrain (Scherrer · Williamson–Hall · Halder–Wagner)", "pxrd_size",
+                 help="Off until you switch it on: fits the peaks of every sample and gives size and strain with uncertainties."):
+        _crystal_size_ui(traces, lo, hi)
+    if LV.opt_in("🧮 Rietveld / Le Bail refinement (cell, phases, weight fractions)", "pxrd_rv",
+                 help="Off until you switch it on: choose the phases (CIF) and press Refine – everything else is automatic."):
+        _rietveld_ui(raws, lo, hi, ref_mode, subst)
+    with LV.gate("Developer", globals()):
+        with st.expander("📏 Peak width / Scherrer crystallite size (with instrumental correction)"):
+            if traces:
+                c1, c2, c3, c4 = st.columns(4)
+                pks = c1.text_input("Peaks (°2θ, comma separated)", "8.6, 9.9", key="sch_pk")
+                Kf = c2.number_input("Shape factor K", 0.5, 1.5, 0.9, 0.01, key="sch_K")
+                shape = c3.selectbox("Width correction", ["gaussian", "lorentzian", "voigt"], key="sch_shape",
+                                     help="gaussian: β² = B² − b² · lorentzian: β = B − b · voigt: β = B − b²/B")
+                st.caption("Defaults: MOF-801 (111) 8.6° and (200) 9.9° (Cu Kα1); UiO-66: 7.4° and 8.5°.")
+                inst_src = c4.radio("Instrumental FWHM", ["constant", "from a standard (LaB₆ / Si) pattern"], key="sch_src")
+                pk_list = [float(v) for v in pks.replace(";", ",").split(",") if v.strip()]
+                inst = lambda tt: 0.05
+                if inst_src == "constant":
+                    b0 = st.number_input("Instrumental FWHM (°)", 0.0, 1.0, 0.05, 0.005, key="sch_b")
+                    inst = lambda tt, b0=b0: b0
                 else:
-                    st.caption("No standard loaded – 0.05° used.")
-            srows = []
-            for nm, x, y in traces:
-                for g in pk_list:
-                    try:
-                        r = X.fit_peak(x, y, g)
-                        sz = X.scherrer_size(r["center"], r["fwhm"], inst(r["center"]), K=Kf, shape=shape)
-                        srows.append({"sample": nm, "2θ (°)": r["center"], "FWHM obs (°)": r["fwhm"], "± (°)": r["fwhm_err"],
-                                      "FWHM inst (°)": inst(r["center"]), "β sample (°)": sz["beta_sample"], "D (nm)": sz["size_nm"], "note": sz["note"]})
-                    except Exception as e:
-                        srows.append({"sample": nm, "2θ (°)": g, "note": f"fit failed ({e})"})
-            st.dataframe(pd.DataFrame(srows).style.format(precision=3), width="stretch", hide_index=True)
-            st.caption("pseudo-Voigt fit with linear background; D = Kλ/(β cos θ), λ = 1.540598 Å (Cu Kα1). Sizes > ~100 nm are not reliable.")
-    with st.expander("💎 Crystallinity index vs a reference sample"):
-        if len(traces) >= 2:
-            names = [t[0] for t in traces]
-            c1, c2 = st.columns(2)
-            rname = c1.selectbox("Reference (100 % crystalline)", names, key="ci_ref")
-            win = c2.text_input("Reflection windows (°2θ, lo-hi; …)", "8.2-9.0; 9.5-10.3; 14.6-15.4", key="ci_win")
-            ws = [tuple(float(v) for v in w.split("-")) for w in win.split(";") if "-" in w]
-            rt = traces[names.index(rname)]
-            raw = {r_["sample"].iloc[0]: r_ for r_ in rows}
-            use_raw = st.checkbox("use the raw intensities (recommended: same mass / holder / time); untick to use the processed curves", True, key="ci_raw")
-            ci = []
-            for nm, x, y in traces:
-                yy = raw[nm].I_raw.values if use_raw else y; yr = raw[rname].I_raw.values if use_raw else rt[2]
-                r_ = X.crystallinity_index(x, yy, rt[1], yr, ws)
-                ci.append({"sample": nm, "CI (%)": r_["CI_pct"], "Σ area sample": r_["A_sample"], "Σ area reference": r_["A_ref"]})
-            st.dataframe(pd.DataFrame(ci).style.format(precision=1), width="stretch", hide_index=True)
-        else:
-            st.caption("Load at least two patterns (sample(s) + a reference).")
-    with st.expander("↔️ Peak-shift tracking (Δ2θ, d-spacing, cubic lattice parameter)"):
-        if traces:
-            c1, c2, c3 = st.columns(3)
-            tp = c1.text_input("Peaks (°2θ)", "8.6, 9.9", key="sh_pk")
-            hk = c2.text_input("hkl (optional, same order)", "111, 200", key="sh_hkl")
-            rsel = c3.selectbox("Reference trace", [t[0] for t in traces], key="sh_ref")
-            pl = [float(v) for v in tp.split(",") if v.strip()]
-            hl = [tuple(int(ch) for ch in h.strip()) if h.strip().isdigit() and len(h.strip()) == 3 else None for h in hk.split(",")]
-            tr = X.track_shifts(traces, pl, ref_index=[t[0] for t in traces].index(rsel), hkl=hl)
-            tdf = pd.DataFrame(tr)
-            st.dataframe(tdf.style.format(precision=4), width="stretch", hide_index=True)
+                    sf = st.file_uploader("Standard pattern (.xy)", key="sch_std")
+                    spk = st.text_input("Standard peaks (°2θ)", "21.36, 30.38, 37.44, 43.51" , key="sch_spk",
+                                        help="LaB₆ SRM 660 (Cu Kα1): 21.36 (100), 30.38 (110), 37.44 (111), 43.51 (200) …")
+                    if sf:
+                        try:
+                            dstd = R.read_xy(sf)
+                            inst, pos, fw = X.instrument_fwhm_from_standard(dstd.x.values, dstd.y.values, [float(v) for v in spk.split(",") if v.strip()])
+                            st.caption("Standard fitted: " + ", ".join(f"{p_:.2f}° → {f_:.3f}°" for p_, f_ in zip(pos, fw)) + " (linear FWHM(2θ))")
+                        except Exception as e:
+                            st.warning(f"Standard fit failed: {e}")
+                    else:
+                        st.caption("No standard loaded – 0.05° used.")
+                srows = []
+                for nm, x, y in traces:
+                    for g in pk_list:
+                        try:
+                            r = X.fit_peak(x, y, g)
+                            sz = X.scherrer_size(r["center"], r["fwhm"], inst(r["center"]), K=Kf, shape=shape)
+                            srows.append({"sample": nm, "2θ (°)": r["center"], "FWHM obs (°)": r["fwhm"], "± (°)": r["fwhm_err"],
+                                          "FWHM inst (°)": inst(r["center"]), "β sample (°)": sz["beta_sample"], "D (nm)": sz["size_nm"], "note": sz["note"]})
+                        except Exception as e:
+                            srows.append({"sample": nm, "2θ (°)": g, "note": f"fit failed ({e})"})
+                st.dataframe(pd.DataFrame(srows).style.format(precision=3), width="stretch", hide_index=True)
+                st.caption("pseudo-Voigt fit with linear background; D = Kλ/(β cos θ), λ = 1.540598 Å (Cu Kα1). Sizes > ~100 nm are not reliable.")
+    with LV.gate("Advanced", globals()):
+        with st.expander("💎 Crystallinity index vs a reference sample"):
+            if len(traces) >= 2:
+                names = [t[0] for t in traces]
+                c1, c2 = st.columns(2)
+                rname = c1.selectbox("Reference (100 % crystalline)", names, key="ci_ref")
+                win = c2.text_input("Reflection windows (°2θ, lo-hi; …)", "8.2-9.0; 9.5-10.3; 14.6-15.4", key="ci_win")
+                ws = [tuple(float(v) for v in w.split("-")) for w in win.split(";") if "-" in w]
+                rt = traces[names.index(rname)]
+                raw = {r_["sample"].iloc[0]: r_ for r_ in rows}
+                use_raw = st.checkbox("use the raw intensities (recommended: same mass / holder / time); untick to use the processed curves", True, key="ci_raw")
+                ci = []
+                for nm, x, y in traces:
+                    yy = raw[nm].I_raw.values if use_raw else y; yr = raw[rname].I_raw.values if use_raw else rt[2]
+                    r_ = X.crystallinity_index(x, yy, rt[1], yr, ws)
+                    ci.append({"sample": nm, "CI (%)": r_["CI_pct"], "Σ area sample": r_["A_sample"], "Σ area reference": r_["A_ref"]})
+                st.dataframe(pd.DataFrame(ci).style.format(precision=1), width="stretch", hide_index=True)
+            else:
+                st.caption("Load at least two patterns (sample(s) + a reference).")
+    with LV.gate("Advanced", globals()):
+        with st.expander("↔️ Peak-shift tracking (Δ2θ, d-spacing, cubic lattice parameter)"):
+            if traces:
+                c1, c2, c3 = st.columns(3)
+                tp = c1.text_input("Peaks (°2θ)", "8.6, 9.9", key="sh_pk")
+                hk = c2.text_input("hkl (optional, same order)", "111, 200", key="sh_hkl")
+                rsel = c3.selectbox("Reference trace", [t[0] for t in traces], key="sh_ref")
+                pl = [float(v) for v in tp.split(",") if v.strip()]
+                hl = [tuple(int(ch) for ch in h.strip()) if h.strip().isdigit() and len(h.strip()) == 3 else None for h in hk.split(",")]
+                tr = X.track_shifts(traces, pl, ref_index=[t[0] for t in traces].index(rsel), hkl=hl)
+                tdf = pd.DataFrame(tr)
+                st.dataframe(tdf.style.format(precision=4), width="stretch", hide_index=True)
 
-            def draw_sh(ax, tdf=tdf):
-                for i_, (g, gg) in enumerate(tdf.groupby("peak (°2θ, guess)", sort=False)):
-                    ax.errorbar(range(len(gg)), 1000 * gg["Δ2θ vs ref (°)"], yerr=1000 * gg["± (°)"], fmt="o-", ms=4, lw=0.8, capsize=2, label=f"{g:g}°")
-                ax.axhline(0, color="0.6", lw=0.5)
-                ax.set_xticks(range(len(traces))); ax.set_xticklabels([t[0] for t in traces], rotation=30, ha="right")
-                ax.set_ylabel(r"$\Delta 2\theta$ vs reference (m°)"); ax.legend(frameon=False)
-            fig, ax = newfig(); draw_sh(ax)
-            show(fig, "PXRD_peak_shifts", tdf, draw_sh, "Peak shifts")
+                def draw_sh(ax, tdf=tdf):
+                    for i_, (g, gg) in enumerate(tdf.groupby("peak (°2θ, guess)", sort=False)):
+                        ax.errorbar(range(len(gg)), 1000 * gg["Δ2θ vs ref (°)"], yerr=1000 * gg["± (°)"], fmt="o-", ms=4, lw=0.8, capsize=2, label=f"{g:g}°")
+                    ax.axhline(0, color="0.6", lw=0.5)
+                    ax.set_xticks(range(len(traces))); ax.set_xticklabels([t[0] for t in traces], rotation=30, ha="right")
+                    ax.set_ylabel(r"$\Delta 2\theta$ vs reference (m°)"); ax.legend(frameon=False)
+                fig, ax = newfig(); draw_sh(ax)
+                show(fig, "PXRD_peak_shifts", tdf, draw_sh, "Peak shifts")
+
+
+def _crystal_size_ui(traces, lo, hi):
+    """v2.15: crystallite size + microstrain of every sample. Opt-in (the caller shows it only after a click)."""
+    from mfs import crystsize as CS, xrd as X
+    if not traces:
+        st.info("Load a pattern first.")
+        return
+    box = st.container(border=True, key="cs_box")
+    c1, c2 = box.columns([3, 2])
+    inst_mode = c1.radio("Instrument broadening", ["Typical laboratory diffractometer (0.05°)", "I measured a standard (LaB₆ / Si)", "I know the value"],
+                         key="cs_inst", help="The peak width of the instrument itself is subtracted. A standard measured on YOUR instrument is the correct way.")
+    wl_name = c2.selectbox("Radiation", ["Cu Kα1 (1.5406 Å)", "Co Kα1 (1.7889 Å)", "Mo Kα1 (0.7093 Å)", "Cr Kα1 (2.2897 Å)", "Other"], key="cs_wl")
+    wl = {"Cu": 1.5406, "Co": 1.7889, "Mo": 0.7093, "Cr": 2.2897}.get(wl_name[:2])
+    if wl is None:
+        wl = c2.number_input("Wavelength (Å)", 0.2, 5.0, 1.5406, 0.0001, format="%.4f", key="cs_wl_o")
+    inst = None
+    if inst_mode.startswith("I measured"):
+        sf = box.file_uploader("Standard pattern (.xy, e.g. LaB₆ SRM 660)", key="cs_std")
+        if sf:
+            try:
+                dstd = R.read_xy(sf)
+                gp = CS.auto_peaks(dstd.x.values, dstd.y.values, n_max=8)
+                inst, pos, fw = X.instrument_fwhm_from_standard(dstd.x.values, dstd.y.values, gp)
+                box.caption("Standard: " + ", ".join(f"{p_:.2f}° → {f_:.3f}°" for p_, f_ in zip(pos, fw)))
+            except Exception as e:
+                box.warning(f"Standard could not be fitted: {e}")
+        else:
+            box.caption("Upload the pattern of the standard – until then 0.05° is used.")
+    elif inst_mode.startswith("I know"):
+        b0 = box.number_input("Instrumental FWHM (°2θ)", 0.0, 1.0, 0.05, 0.005, format="%.3f", key="cs_b0")
+        inst = lambda tt, b0=b0: b0
+    K, shape, manual = 0.9, "voigt", None
+    if LV.at_least("Advanced"):
+        a1, a2, a3 = box.columns(3)
+        K = a1.number_input("Shape factor K", 0.5, 1.5, 0.9, 0.01, key="cs_K", help="0.9 for spherical crystallites; 0.94 for cubic.")
+        shape = a2.selectbox("Width correction", ["voigt", "gaussian", "lorentzian"], key="cs_shape",
+                             help="voigt (default): β = √((βo−βi)·√(βo²−βi²)) · gaussian: β² = βo²−βi² · lorentzian: β = βo−βi")
+        txt = a3.text_input("Peaks to use (°2θ; empty = automatic)", "", key="cs_peaks")
+        try:
+            manual = [float(v) for v in txt.replace(";", ",").split(",") if v.strip()] or None
+        except ValueError:
+            box.warning("Peak list not understood – automatic detection is used.")
+    results, rows, notes = {}, [], []
+    for nm, x, y in traces:
+        r = CS.analyse(x, y, wl, inst, K, shape, manual, lo=lo, hi=hi)
+        results[nm] = r
+        sc, wh, hw = r["scherrer"], r["wh"], r["hw"]
+        rows.append({"sample": nm, "peaks": sc["n"] if sc else 0,
+                     "D Scherrer (nm)": sc["D_mean"] if sc else np.nan, "± SD": sc["D_sd"] if sc else np.nan,
+                     "D W–H (nm)": wh["D_nm"] if wh else np.nan, "± err": wh["D_err_nm"] if wh else np.nan,
+                     "strain ε (%)": wh["strain"] * 100 if wh else np.nan, "± ε err (%)": wh["strain_err"] * 100 if wh else np.nan,
+                     "D H–W (nm)": hw["D_nm"] if hw else np.nan, "R² (W–H)": wh["r2"] if wh else np.nan})
+        notes += [f"{nm}: {n}" for n in r["notes"]]
+        if sc:
+            store_put(nm, "pxrd", {"crystallite_size_scherrer_nm": sc["D_mean"], "crystallite_size_scherrer_sd_nm": sc["D_sd"],
+                                   "crystallite_size_WH_nm": wh["D_nm"] if wh else None, "microstrain_WH_percent": wh["strain"] * 100 if wh else None},
+                      "PXRD crystallite size")
+    tab = pd.DataFrame(rows)
+    box.dataframe(tab.style.format(precision=2, na_rep="–"), hide_index=True, width="stretch")
+    for n in notes:
+        box.caption("⚠️ " + n)
+    if not inst:
+        box.caption("ℹ️ The instrumental width was assumed (0.05°) – measure a standard for a result you can defend in a paper.")
+    if any(r["wh"] for r in results.values()):
+        def draw(ax, results=results):
+            CS.draw_wh(ax, results, {nm: S.SERIES_COLOURS.get(nm) if hasattr(S, "SERIES_COLOURS") else None for nm in results})
+        fig, ax = newfig(); draw(ax)
+        show(fig, "PXRD_Williamson-Hall", tab, draw, "Williamson–Hall plot")
+    if LV.at_least("Advanced"):
+        with st.expander("🔬 Fitted peaks (position, width, size of every peak)"):
+            pk = pd.concat([pd.DataFrame(r["peaks"]).assign(sample=nm) for nm, r in results.items() if r["peaks"]]) if results else pd.DataFrame()
+            if len(pk):
+                st.dataframe(pk[[c for c in ["sample", "two_theta", "fwhm_obs", "fwhm_err", "fwhm_inst", "beta", "D_scherrer_nm", "D_err_nm", "ok", "note"] if c in pk]]
+                             .style.format(precision=3, na_rep="–"), hide_index=True, width="stretch")
+    first = next((r for r in results.values() if r["scherrer"]), None)
+    if first:
+        st.caption("📝 Methods: Crystallite sizes were estimated from the broadening of the reflections (pseudo-Voigt fits, instrumental broadening "
+                   f"{'from a measured standard' if inst_mode.startswith('I measured') and inst else 'assumed / given'} removed) with the Scherrer equation (K = {K:g}) and by "
+                   "Williamson–Hall analysis of ≥ 3 reflections; uncertainties are from the weighted regression.")
+
+
+def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
+    """v2.15: Rietveld / Le Bail refinement - pick phases, press Refine. Opt-in (shown only after a click)."""
+    import math
+    from mfs import rietveld as RV
+    if not raws:
+        st.info("Load a pattern first.")
+        return
+    box = st.container(border=True, key="rv_box")
+    ss = st.session_state
+    c1, c2, c3 = box.columns([2, 3, 2])
+    nm = c1.selectbox("Pattern", list(raws), key="rv_sample")
+    bundled = {"UiO-66 (bundled CIF, COD 4512074)": "UiO-66_Zr_COD4512074.cif", "MOF-801 (bundled CIF, COD 4121459)": "MOF-801_Zr_COD4121459.cif"}
+    dflt = [k for k in bundled if ("801" in k and "801" in ref_mode) or ("UiO" in k and "UiO" in ref_mode)]
+    pick = c2.multiselect("Phases in the sample", list(bundled), default=dflt, key="rv_phases",
+                          help="Choose every crystalline phase that is present. A missing phase shows up as extra peaks in the difference curve.")
+    ups = box.file_uploader("…and / or your own CIF file(s)", type=["cif"], accept_multiple_files=True, key="rv_cifs")
+    rad = c3.selectbox("Radiation", list(RV.RADIATION), key="rv_rad", help="Kα1 only = monochromated beam (e.g. STOE); Kα1 + Kα2 = Kβ filter (e.g. Rigaku, Bruker).")
+    d1, d2, d3 = box.columns([3, 2, 2])
+    rng = d1.slider("2θ range used (°)", float(lo - 2 if lo > 4 else 2.0), 120.0, (float(lo), float(max(hi, lo + 10))), 0.5, key="rv_rng")
+    mode_l = d2.radio("Method", ["Rietveld (structure known)", "Le Bail (cell + peak shape only)"], key="rv_mode",
+                      help="Rietveld uses the intensities of the CIF; Le Bail lets every intensity free – use it when the structure is not right.")
+    hf = d3.checkbox("Replace Zr by Hf", subst.startswith("Hf"), key="rv_hf", help="For Hf analogues of the bundled Zr structures.")
+    bgo, mono = 6, 0.0
+    if LV.at_least("Advanced"):
+        e1, e2 = box.columns(2)
+        bgo = e1.slider("Background polynomial order", 2, 14, 6, key="rv_bg")
+        mono = e2.number_input("Monochromator 2θ (° – 0 = none, 26.6 = graphite)", 0.0, 60.0, 0.0, 0.1, key="rv_mono")
+    phases_src = [(k.split(" (")[0], os.path.join(REF, bundled[k])) for k in pick]
+    for u in ups or []:
+        phases_src.append((os.path.splitext(u.name)[0], u.getvalue()))
+    store = ss.setdefault("rv_res", {})
+    run = box.button("▶ Refine", key="rv_go", type="primary", width="stretch", disabled=not phases_src,
+                     help="Runs the complete automatic strategy: start values, cell, peak shape, background, displacement." if phases_src else "Choose at least one phase.")
+    if run:
+        x, y = raws[nm]
+        bar = box.progress(0.0, text="Starting …")
+        try:
+            sub = {"Zr": "Hf"} if hf else None
+            ph = [RV.Phase.from_cif(src, name, substitute=sub) for name, src in phases_src]
+            res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,
+                                  mono_2theta=mono, progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_))
+            store[nm] = res
+            bar.empty()
+        except Exception as e:
+            bar.empty()
+            box.error(f"Refinement failed: {e}")
+    res = store.get(nm)
+    if res is None:
+        box.caption("Choose the phase(s) and press **Refine**. A pattern takes about a second.")
+        return
+    stt = res["stats"]
+    rw = stt["Rwp"]
+    verdict = "✅ good" if rw < 0.10 else ("🟡 acceptable" if rw < 0.20 else "🔴 poor")
+    m = st.columns(2 + len(res["phases"]))
+    m[0].metric("Rwp", f"{100 * rw:.1f} %", verdict)
+    m[1].metric("GoF" if res["counts"] else "Rp", f"{math.sqrt(stt['chi2']):.2f}" if res["counts"] else f"{100 * stt['Rp']:.1f} %",
+                help="GoF (= Rwp/Rexp) close to 1 means the fit is as good as the counting noise allows." if res["counts"] else "")
+    for k, p in enumerate(res["phases"]):
+        a = p["cell"][0]
+        ea = (p["cell_esd"] or {}).get("a")
+        m[2 + k].metric(p["name"][:22], f"{100 * p['weight_fraction']:.1f} wt %" if res["mode"] == "rietveld" else f"a = {a:.4f} Å",
+                        f"a = {a:.4f}" + (f"({round(ea * 1e4):d})" if ea else "") + " Å" if res["mode"] == "rietveld" else None, delta_color="off")
+    for n in res["notes"][:-1]:
+        st.caption("⚠️ " + n)
+    st.caption("ℹ️ " + res["notes"][-1])
+
+    def draw(ax, res=res):
+        RV.draw(ax, res)
+    fig, ax = newfig(aspect=0.75)
+    RV.draw(ax, res)
+    show(fig, f"PXRD_Rietveld_{nm}" if res["mode"] == "rietveld" else f"PXRD_LeBail_{nm}",
+         pd.DataFrame({"two_theta": res["x"], "observed": res["y"], "calculated": res["calc"], "background": res["bg"], "difference": res["resid"]}),
+         draw, "Rietveld refinement" if res["mode"] == "rietveld" else "Le Bail fit", units={"x": "2theta"})
+    tab = []
+    for p in res["phases"]:
+        row = {"phase": p["name"], "cell (Å)": ", ".join(f"{v:.4f}" for v in p["cell"][:3]) if p["system"] != "cubic" else f"{p['cell'][0]:.4f}",
+               "esd a": (p["cell_esd"] or {}).get("a"), "V (Å³)": p["volume"], "density (g/cm³)": p["density"]}
+        if res["mode"] == "rietveld":
+            row.update({"weight %": 100 * p["weight_fraction"], "Bragg R (%)": 100 * p["Rb"], "B (Å²)": p["B"]})
+        tab.append(row)
+    st.dataframe(pd.DataFrame(tab).style.format(precision=4, na_rep="–"), hide_index=True, width="stretch")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🔬 Refined profile parameters (± esd)"):
+            st.dataframe(pd.DataFrame([{"parameter": v["label"], "value": v["value"], "± esd": v["esd"], "refined": v["refined"]} for v in res["global"].values()])
+                         .style.format(precision=5, na_rep="–"), hide_index=True, width="stretch")
+            if np.isfinite(res["size_nm_apparent"]) and res["size_nm_apparent"] < 1000:
+                st.caption(f"Apparent size from the Lorentzian width: {res['size_nm_apparent']:.0f} nm, apparent strain {100 * res['strain_apparent']:.2f} % "
+                           "(instrument broadening included – a lower limit for the size).")
+    dl(st, "⬇️ Rietveld report (Excel: summary, phases, profile, pattern, notes)", lambda: RV.report_xlsx(res, nm), f"Rietveld_{re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)}.xlsx", "rv_xlsx")
+    for p in res["phases"]:
+        vals = {f"{p['name']} cell a (Å)": p["cell"][0], f"{p['name']} volume (Å^3)": p["volume"], "Rwp (%)": 100 * rw}
+        if res["mode"] == "rietveld":
+            vals[f"{p['name']} weight fraction (%)"] = 100 * p["weight_fraction"]
+        store_put(nm, "pxrd", vals, "PXRD Rietveld" if res["mode"] == "rietveld" else "PXRD Le Bail")
+
+
+def _band_tools(traces, kind, lo, hi, is_T):
+    """v2.15: assign the bands of a spectrum from an editable list of typical ranges, and fit overlapping bands simultaneously."""
+    from mfs import bands as BD, spectra as SP
+    if not traces:
+        return
+    tech = "raman" if kind == "raman" else "ir"
+    names = [t[0] for t in traces]
+    c1, c2, c3 = st.columns([2, 1, 1])
+    nm = c1.selectbox("Spectrum", names, key="bd_sample")
+    prom = c2.slider("Peak prominence", 0.01, 0.5, 0.05, 0.01, key="bd_prom")
+    nmax = c3.number_input("Max. bands", 1, 40, 12, key="bd_nmax")
+    x, y = next((t[1], t[2]) for t in traces if t[0] == nm)
+    pk = SP.pick_peaks(x, y, prom, int(nmax), (lo, hi), minima=is_T)
+    ss = st.session_state
+    ss.setdefault("band_user", [])
+    with st.expander("✏️ My own assignments (take precedence; saved in the project)", expanded=False):
+        own = st.data_editor(pd.DataFrame(ss["band_user"], columns=["from (cm⁻¹)", "to (cm⁻¹)", "assignment"]).astype({"assignment": str}),
+                             num_rows="dynamic", key="bd_own", hide_index=True, width="stretch")
+        ss["band_user"] = own.dropna(how="all").to_dict("records")
+    rows = []
+    for a in BD.assign(pk, ss["band_user"], tech):
+        c = a["candidates"]
+        rows.append({"band (cm⁻¹)": round(a["position"]), "assignment": c[0][0] if c else "–", "source": c[0][1] if c else "",
+                     "other possibilities": "; ".join(t[0] for t in c[1:]) if len(c) > 1 else ""})
+    if rows:
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+        st.caption("Typical ranges from standard IR / Raman tables – indicative only: confirm with literature for your framework.")
+    else:
+        st.info("No bands found – lower the prominence.")
+        return
+    st.markdown("**Fit overlapping bands (pseudo-Voigt)**")
+    f1, f2 = st.columns([3, 2])
+    top = max(pk, key=lambda v: abs(float(np.interp(v, np.sort(x), y[np.argsort(x)])) - float(np.median(y))))      # strongest band → its neighbourhood
+    near = sorted(v for v in pk if abs(v - top) <= 150)
+    txt = f1.text_input("Band positions (cm⁻¹, comma separated)", ", ".join(f"{v:.0f}" for v in near), key="bd_pos")
+    win = f2.text_input("Fit window (cm⁻¹, from–to)", f"{max(float(x.min()), min(near) - 60):.0f}-{min(float(x.max()), max(near) + 60):.0f}", key="bd_win")
+    if st.button("▶ Fit bands", key="bd_go", type="primary"):
+        try:
+            cs = [float(v) for v in txt.replace(";", ",").split(",") if v.strip()]
+            a_, b_ = sorted(float(v) for v in win.replace("–", "-").split("-")[:2])
+            yy = -y if is_T else y
+            r = BD.fit_bands(x, yy, cs, a_, b_)
+            r["is_T"] = is_T
+            ss["bd_res"] = (nm, r)
+        except Exception as e:
+            st.warning(f"Fit failed: {e}")
+    got = ss.get("bd_res")
+    if got and got[0] == nm:
+        r = got[1]
+        tab = pd.DataFrame([{"centre (cm⁻¹)": b["center"], "± ": b["center_err"], "FWHM (cm⁻¹)": b["fwhm"], "± FWHM": b["fwhm_err"], "area": b["area"],
+                             "area %": 100 * b["area"] / sum(q["area"] for q in r["bands"]), "η (Lorentz share)": b["eta"]} for b in r["bands"]])
+        st.dataframe(tab.style.format(precision=2), hide_index=True, width="stretch")
+        st.caption(f"R² = {r['r2']:.4f}, rms = {r['rms']:.4g}. Areas are in the units of the plotted spectrum × cm⁻¹; compare them between spectra that are normalised the same way.")
+
+        def draw(ax, r=r):
+            BD.draw_fit(ax, r, invert_x=kind != "raman")
+            ax.set_xlabel(P.LABELS[kind][0])
+            ax.set_ylabel("−Transmittance (a.u.)" if r.get("is_T") else P.LABELS[kind][1])
+        fig, ax = newfig(0.8); draw(ax)
+        show(fig, ("FTIR" if kind != "raman" else "Raman") + "_bandfit", tab, draw, "Band fit", units={"x": "wavenumber"} if kind != "raman" else None)
 
 
 def page_ftir():
@@ -206,24 +456,25 @@ def page_ftir():
     kind = "raman" if "Raman" in mode else ("ftir_A" if ("absorbance" in mode or conv) else "ftir_T")
     from mfs import spectra as SP
     is_T = kind == "ftir_T"
-    with st.expander("🧪 Reference band, peak labels, zoomed inset, difference spectra", expanded=False):
-        c1, c2, c3, c4 = st.columns(4)
-        nb = c1.checkbox("Normalise to a reference band", False, key="ft_nb")
-        dlo, dhi, dlab = (1540.0, 1620.0, "νas(COO⁻)") if kind != "raman" else (1630.0, 1690.0, "ν(C=C)")
-        blo = c2.number_input("band from (cm⁻¹)", 50.0, 4000.0, dlo, key="ft_blo")
-        bhi = c3.number_input("band to (cm⁻¹)", 50.0, 4000.0, dhi, key="ft_bhi")
-        bmode = c4.radio("by", ["height", "area"], horizontal=True, key="ft_bm")
-        c1, c2, c3, c4 = st.columns(4)
-        pl = c1.checkbox("Label peaks", False, key="ft_pl")
-        prom = c2.slider("min. prominence (fraction of range)", 0.01, 0.5, 0.08, 0.01, key="ft_prom")
-        npk = c3.number_input("max labels per trace", 1, 40, 8, key="ft_npk")
-        npk0 = {t[0]: len(SP.pick_peaks(t[1], t[2], prom, 40, (lo, hi), minima=is_T)) for t in traces}
-        pl_which = c4.multiselect("traces", [t[0] for t in traces], default=[max(npk0, key=npk0.get)] if npk0 else [], key="ft_plw")
-        c1, c2, c3 = st.columns(3)
-        ins = c1.checkbox("Zoomed inset", False, key="ft_ins")
-        zr = c2.text_input("inset range (cm⁻¹, lo-hi)", "1000-1250" if kind != "raman" else "200-700", key="ft_zr")
-        zloc = c3.selectbox("inset position", ["upper left", "upper center", "upper right", "center left", "lower left"], key="ft_zloc")
-        st.caption(f"Reference band suggestion: {dlab}. Normalisation keeps the relative intensities between traces (one common scale).")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🧪 Reference band, peak labels, zoomed inset, difference spectra", expanded=False):
+            c1, c2, c3, c4 = st.columns(4)
+            nb = c1.checkbox("Normalise to a reference band", False, key="ft_nb")
+            dlo, dhi, dlab = (1540.0, 1620.0, "νas(COO⁻)") if kind != "raman" else (1630.0, 1690.0, "ν(C=C)")
+            blo = c2.number_input("band from (cm⁻¹)", 50.0, 4000.0, dlo, key="ft_blo")
+            bhi = c3.number_input("band to (cm⁻¹)", 50.0, 4000.0, dhi, key="ft_bhi")
+            bmode = c4.radio("by", ["height", "area"], horizontal=True, key="ft_bm")
+            c1, c2, c3, c4 = st.columns(4)
+            pl = c1.checkbox("Label peaks", False, key="ft_pl")
+            prom = c2.slider("min. prominence (fraction of range)", 0.01, 0.5, 0.08, 0.01, key="ft_prom")
+            npk = c3.number_input("max labels per trace", 1, 40, 8, key="ft_npk")
+            npk0 = {t[0]: len(SP.pick_peaks(t[1], t[2], prom, 40, (lo, hi), minima=is_T)) for t in traces}
+            pl_which = c4.multiselect("traces", [t[0] for t in traces], default=[max(npk0, key=npk0.get)] if npk0 else [], key="ft_plw")
+            c1, c2, c3 = st.columns(3)
+            ins = c1.checkbox("Zoomed inset", False, key="ft_ins")
+            zr = c2.text_input("inset range (cm⁻¹, lo-hi)", "1000-1250" if kind != "raman" else "200-700", key="ft_zr")
+            zloc = c3.selectbox("inset position", ["upper left", "upper center", "upper right", "center left", "lower left"], key="ft_zloc")
+            st.caption(f"Reference band suggestion: {dlab}. Normalisation keeps the relative intensities between traces (one common scale).")
     if nb:
         nt, weak = [], []
         for nm, x, y in traces:
@@ -267,36 +518,40 @@ def page_ftir():
     if peaks_:
         st.dataframe(pd.DataFrame([{"sample": k, "peaks (cm⁻¹)": ", ".join(f"{v:.0f}" for v in vv)} for k, vv in peaks_.items()]),
                      hide_index=True, width="stretch")
+    with LV.gate("Advanced", globals()):
+        with st.expander("🏷️ Band assignment and multi-band fit", expanded=False):
+            _band_tools(traces, kind, lo, hi, is_T)
     if len(traces) >= 2:
-        with st.expander("➖ Difference spectra (sample − f × reference)", expanded=False):
-            names = [t[0] for t in traces]
-            c1, c2, c3 = st.columns(3)
-            refn = c1.selectbox("reference", names, index=0, key="ft_dref")
-            sams = c2.multiselect("samples", [n for n in names if n != refn], default=[n for n in names if n != refn][:2], key="ft_dsam")
-            fmode = c3.radio("factor", ["1", "least squares in a window", "manual"], key="ft_dfm")
-            fw = c3.text_input("window (cm⁻¹)", "1350-1450", key="ft_dfw") if fmode.startswith("least") else None
-            fman = c3.number_input("f", 0.0, 10.0, 1.0, 0.05, key="ft_dfman") if fmode == "manual" else 1.0
-            rt = traces[names.index(refn)]
-            diffs, drows = [], []
-            for sn in sams:
-                stt = traces[names.index(sn)]
-                f_ = fman
-                if fw:
-                    try:
-                        a_, b_ = sorted(float(v) for v in fw.split("-")[:2]); f_ = SP.auto_factor((rt[1], rt[2]), (stt[1], stt[2]), a_, b_)
-                    except Exception as e:
-                        st.caption(f"factor: {e}")
-                g_, d_ = SP.difference((rt[1], rt[2]), (stt[1], stt[2]), f_)
-                diffs.append((f"{sn} − {f_:.2f}×{refn}", g_, d_)); drows.append(pd.DataFrame({"difference": diffs[-1][0], "x": g_, "y": d_}))
+        with LV.gate("Advanced", globals()):
+            with st.expander("➖ Difference spectra (sample − f × reference)", expanded=False):
+                names = [t[0] for t in traces]
+                c1, c2, c3 = st.columns(3)
+                refn = c1.selectbox("reference", names, index=0, key="ft_dref")
+                sams = c2.multiselect("samples", [n for n in names if n != refn], default=[n for n in names if n != refn][:2], key="ft_dsam")
+                fmode = c3.radio("factor", ["1", "least squares in a window", "manual"], key="ft_dfm")
+                fw = c3.text_input("window (cm⁻¹)", "1350-1450", key="ft_dfw") if fmode.startswith("least") else None
+                fman = c3.number_input("f", 0.0, 10.0, 1.0, 0.05, key="ft_dfman") if fmode == "manual" else 1.0
+                rt = traces[names.index(refn)]
+                diffs, drows = [], []
+                for sn in sams:
+                    stt = traces[names.index(sn)]
+                    f_ = fman
+                    if fw:
+                        try:
+                            a_, b_ = sorted(float(v) for v in fw.split("-")[:2]); f_ = SP.auto_factor((rt[1], rt[2]), (stt[1], stt[2]), a_, b_)
+                        except Exception as e:
+                            st.caption(f"factor: {e}")
+                    g_, d_ = SP.difference((rt[1], rt[2]), (stt[1], stt[2]), f_)
+                    diffs.append((f"{sn} − {f_:.2f}×{refn}", g_, d_)); drows.append(pd.DataFrame({"difference": diffs[-1][0], "x": g_, "y": d_}))
 
-            def draw_d(ax, diffs=diffs):
-                for k, (nm, g_, d_) in enumerate(diffs):
-                    sc = np.nanmax(np.abs(d_[(g_ >= lo) & (g_ <= hi)])) or 1
-                    ax.plot(g_, d_ / sc + 2.2 * k, lw=0.9, color=P.colours_for([n for n, _, _ in diffs])[k])
-                    ax.axhline(2.2 * k, color="0.7", lw=0.5, ls=":")
-                    ax.text(0.02, (2.2 * k + 0.6), nm, transform=ax.get_yaxis_transform(), fontsize=6)
-                ax.set_xlim((hi, lo) if kind != "raman" else (lo, hi)); ax.set_yticks([])
-                ax.set_xlabel(P.LABELS[kind][0]); ax.set_ylabel("Difference (norm.)")
-            if diffs:
-                fig, ax = newfig(0.8); draw_d(ax)
-                show(fig, ("FTIR" if kind != "raman" else "Raman") + "_difference", pd.concat(drows), draw_d, "Difference spectra")
+                def draw_d(ax, diffs=diffs):
+                    for k, (nm, g_, d_) in enumerate(diffs):
+                        sc = np.nanmax(np.abs(d_[(g_ >= lo) & (g_ <= hi)])) or 1
+                        ax.plot(g_, d_ / sc + 2.2 * k, lw=0.9, color=P.colours_for([n for n, _, _ in diffs])[k])
+                        ax.axhline(2.2 * k, color="0.7", lw=0.5, ls=":")
+                        ax.text(0.02, (2.2 * k + 0.6), nm, transform=ax.get_yaxis_transform(), fontsize=6)
+                    ax.set_xlim((hi, lo) if kind != "raman" else (lo, hi)); ax.set_yticks([])
+                    ax.set_xlabel(P.LABELS[kind][0]); ax.set_ylabel("Difference (norm.)")
+                if diffs:
+                    fig, ax = newfig(0.8); draw_d(ax)
+                    show(fig, ("FTIR" if kind != "raman" else "Raman") + "_difference", pd.concat(drows), draw_d, "Difference spectra")

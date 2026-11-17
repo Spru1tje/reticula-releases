@@ -22,7 +22,7 @@ from . import pagestate as PS
 
 EXT = ".reticula"
 FORMAT = 1
-GLOBAL_KEYS = ("series_colours", "si_collect", "sample_store", "def_in", "store_persist", "undo_limit")
+GLOBAL_KEYS = ("_lv", "ps_templates", "band_user", "nmr_lib_user", "series_colours", "si_collect", "sample_store", "def_in", "store_persist", "undo_limit")
 GLOBAL_PREFIX = ("gs_",)            # global figure style widgets (M7)
 GLOBAL_SKIP = {"gs_reset"}          # buttons: their state is read-only and must never be written back
 
