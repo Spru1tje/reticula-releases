@@ -27,9 +27,9 @@
 | 5 | Legend-title font size | **done** (Customise → Legend → "Legend-title size") |
 | 6 | More font types | **done** (per figure and for the legend; installed extra families are offered, e.g. Verdana, Georgia, Palatino, Garamond, Consolas) |
 | 7 | Particle sizer progress bar with time left | **done** (bar per batch: image k of n, seconds elapsed and left; the estimate learns from earlier runs in the session) |
-| 8 | Ar and CO₂ sorption | **instrument readers for 3P (Ar) and Quantachrome Autosorb 6100 / iQ moved to the later to-do list** (decision 17 Nov). The analysis part (Ar 87 K, CO₂ 273 K in the existing sorption page, using the file formats that are already supported) stays proposed in section 2 |
+| 8 | Ar and CO₂ sorption | **removed from v2.14** (decision 17 Nov): moved to the later list, section 5. The proposal in section 2 is kept for then |
 
-## 2. Ar / CO₂ sorption – proposal
+## 2. Ar / CO₂ sorption – proposal (NOT in v2.14, kept for later)
 Instruments: 3P (Ar), Quantachrome Autosorb 6100 and Autosorb iQ (physisorption).
 Open-source readers show the layouts that exist: Quantachrome ASiQwin **text/Excel export** (header block with analysis gas, bath temperature,
 sample weight, outgas, then p/p0 and volume @ STP columns); 3P **.xlsx report**. The native Quantachrome `.qps` is binary (no public spec found) – use the export.
@@ -65,4 +65,4 @@ Next step: one `.dts` of your own **together with the Excel/CSV export of the sa
 in minutes; without it any value I extracted would be a guess. A cumulant fit of the stored correlation curve would give a Z-average/PDI estimate but not the instrument's own number, so it is not offered as "Z-average".
 
 ## 5. Later (to-do)
-- 3P (Ar) and Quantachrome Autosorb 6100 / iQ file readers (need one real export per instrument).
+- Gas-sorption page for Ar 87 K and CO₂ 273 K (analyses in section 2) and the 3P (Ar) / Quantachrome Autosorb 6100 / iQ file readers (need one real export per instrument).
