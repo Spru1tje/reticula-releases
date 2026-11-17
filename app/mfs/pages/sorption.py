@@ -99,7 +99,9 @@ def page_sorption():
                    "Labels and legends can be dragged in the figure editor below each plot.")
     # ---------------------------------------------------------------- BET
     rows = []
-    st.subheader("BET (Rouquerol consistency criteria, ISO 9277)")
+    notes = []                                   # v2.14: warnings / infos about the fits: shown in the collapsed details, not up front
+    rq_ok = {}
+    st.subheader("BET surface area")
     for nm, d in data.items():
         a = d["iso"][d["iso"].branch == "ads"]
         bet = A.bet_rouquerol(a.p_rel.values, a.q.values)
@@ -109,12 +111,12 @@ def page_sorption():
         rr = m.get("bet_reported_range")
         fixed = A.bet_fixed_range(a.p_rel.values, a.q.values, *(rr or (0.05, 0.30)))
         for w in A.isotherm_quality(a.p_rel.values, a.q.values):
-            st.warning(f"{nm}: {w}")
+            notes.append(("warn", f"{nm}: {w}"))
         if m.get("bet_C_reported"):
             try:
                 if float(m["bet_C_reported"]) <= 0:
-                    st.info(f"{nm}: the file's BET fit has C = {float(m['bet_C_reported']):.1f} (negative). A negative C has no physical "
-                            "meaning (ISO 9277 requires C > 0), so the reported area is not a valid BET area – the app's own value is used.")
+                    notes.append(("info", f"{nm}: the file's BET fit has C = {float(m['bet_C_reported']):.1f} (negative). A negative C has no physical "
+                                  "meaning (ISO 9277 requires C > 0), so the reported area is not a valid BET area – the app's own value is used."))
             except ValueError:
                 pass
         if bet is None:
@@ -135,36 +137,53 @@ def page_sorption():
             store_put(nm, "n2", {"S_BET": bet["area"], "C": bet["C"], "p_lo": bet["p_lo"], "p_hi": bet["p_hi"], "points": bet["n"],
                                  "all_criteria": bet["all_criteria"], "V_total": vt, "V_micro": tp["V_micro"] if tp else None,
                                  "S_ext": tp["S_ext"] if tp else None}, "N2 sorption page")
+            rq_ok[nm] = bool(bet["all_criteria"]) and not bet.get("few_points")
             if bet.get("few_points"):
-                st.warning(f"{nm}: only {bet['n']} adsorption points lie in the Rouquerol range (p/p₀ {bet['p_lo']:.3g}–{bet['p_hi']:.3g}); "
-                           "the BET area is computed from these 3 points (the app normally requires ≥ 4). Treat it as an estimate and "
-                           "measure more points below p/p₀ 0.05.")
+                notes.append(("warn", f"{nm}: only {bet['n']} adsorption points lie in the Rouquerol range (p/p₀ {bet['p_lo']:.3g}–{bet['p_hi']:.3g}); "
+                              "the BET area is computed from these 3 points (the app normally requires ≥ 4). Treat it as an estimate and "
+                              "measure more points below p/p₀ 0.05."))
             if not bet["all_criteria"]:
                 miss = [n for n, k in (("1 (n(1-p) increasing)", "c1"), ("3 (n_m inside the fitted range)", "c3"), ("4 (1/(√C+1) ≈ p at n_m, ±20 %)", "c4")) if not bet[k]]
-                st.warning(f"{nm}: no p/p0 range satisfies every Rouquerol criterion – failed: {', '.join(miss)}. "
-                           "Common for ultramicroporous MOFs: report a BET-equivalent area with the p/p0 range and show the Rouquerol plot in the SI.")
+                notes.append(("warn", f"{nm}: no p/p0 range satisfies every Rouquerol criterion – failed: {', '.join(miss)}. "
+                              "Common for ultramicroporous MOFs: report a BET-equivalent area with the p/p0 range and show the Rouquerol plot in the SI."))
     if rows:
-        tab = pd.DataFrame(rows); st.dataframe(tab, width="stretch", hide_index=True)
-        st.caption("The value **reported in the file** is shown for reference only. Instrument software fits a fixed window "
-                   "(typically p/p₀ 0.05–0.30); for microporous MOFs that window lies after micropore filling and usually gives a lower, "
-                   "Rouquerol-inconsistent area. This app's value uses the Rouquerol-consistent range (ISO 9277:2022). The column "
-                   "'same data, file's range' shows that the difference is the pressure window, not the data.")
+        tab = pd.DataFrame(rows)
+        main = pd.DataFrame({"sample": tab["sample"], "S_BET (m² g⁻¹)": tab["S_BET (m2/g) – this app"],
+                             "p/p₀ range": tab["p/p0 range"], "V_total @0.95 (cm³ g⁻¹)": tab["V_total @0.95 (cm3/g)"],
+                             "V_micro t-plot (cm³ g⁻¹)": tab["V_micro t-plot (cm3/g)"],
+                             "Rouquerol": ["✅ consistent" if rq_ok.get(n) else "⚠️ see details" for n in tab["sample"]]})
+        st.dataframe(main, width="stretch", hide_index=True)
+        n_warn = sum(1 for lv, _ in notes if lv == "warn")
+        with st.expander("🔎 Rouquerol consistency, comparison with the file's own BET value, notes"
+                         + (f" ({n_warn} note{'s' if n_warn != 1 else ''})" if n_warn else ""), expanded=False):
+            for lv, txt in notes:
+                (st.warning if lv == "warn" else st.info)(txt)
+            crit = []
+            for nm, d in data.items():
+                b_ = d.get("bet")
+                if not b_:
+                    continue
+                ok = lambda v: "✅" if v else "❌"
+                crit.append({"sample": nm, "p/p₀ range (auto)": f"{b_['p_lo']:.2e}–{b_['p_hi']:.2e}", "points": b_["n"],
+                             "1 · n(1−p/p₀) increases": ok(b_["c1"]), "2 · C > 0": ok(b_["C"] > 0) + f" C = {b_['C']:.0f}",
+                             "3 · n_m inside the range": ok(b_["c3"]) + (f" p(n_m) = {b_['p_nm']:.2e}" if b_["c3"] else ""),
+                             "4 · 1/(√C+1) ≈ p(n_m) ±20 %": ok(b_["c4"]) + f" {b_['p_th']:.2e}",
+                             "S_BET (m²/g)": round(b_["area"], 0)})
+            if crit:
+                st.markdown("**Rouquerol criteria panel** – the BET range is chosen automatically as the range with the highest R² among "
+                            "all ranges that satisfy every criterion (ISO 9277:2022, Rouquerol et al. 2007)")
+                st.dataframe(pd.DataFrame(crit), width="stretch", hide_index=True)
+            st.markdown("**All fit values** (C, R², area range over the valid windows, the file's own value and the same data in the file's window)")
+            st.dataframe(tab, width="stretch", hide_index=True)
+            st.caption("The value **reported in the file** is shown for reference only. Instrument software fits a fixed window "
+                       "(typically p/p₀ 0.05–0.30); for microporous MOFs that window lies after micropore filling and usually gives a lower, "
+                       "Rouquerol-inconsistent area. This app's value uses the Rouquerol-consistent range (ISO 9277:2022). The column "
+                       "'same data, file's range' shows that the difference is the pressure window, not the data.")
         dl(st, "CSV BET/t-plot table", tab.to_csv(index=False).encode("utf-8-sig"), "BET_table.csv", "bet_tab_csv")
-        crit = []
-        for nm, d in data.items():
-            b = d.get("bet")
-            if not b:
-                continue
-            ok = lambda v: "✅" if v else "❌"
-            crit.append({"sample": nm, "p/p₀ range (auto)": f"{b['p_lo']:.2e}–{b['p_hi']:.2e}", "points": b["n"],
-                         "1 · n(1−p/p₀) increases": ok(b["c1"]), "2 · C > 0": ok(b["C"] > 0) + f" C = {b['C']:.0f}",
-                         "3 · n_m inside the range": ok(b["c3"]) + (f" p(n_m) = {b['p_nm']:.2e}" if b["c3"] else ""),
-                         "4 · 1/(√C+1) ≈ p(n_m) ±20 %": ok(b["c4"]) + f" {b['p_th']:.2e}",
-                         "S_BET (m²/g)": round(b["area"], 0)})
-        if crit:
-            st.markdown("**Rouquerol criteria panel** – the BET range is chosen automatically as the range with the highest R² among "
-                        "all ranges that satisfy every criterion (ISO 9277:2022, Rouquerol et al. 2007)")
-            st.dataframe(pd.DataFrame(crit), width="stretch", hide_index=True)
+    elif notes:
+        with st.expander("🔎 Notes", expanded=False):
+            for lv, txt in notes:
+                (st.warning if lv == "warn" else st.info)(txt)
     sbet_leg = c2.checkbox("S_BET in the legend", False, key="sorp_sbet_leg")
     lab_ = {nm: (f"{nm} ({d['bet']['area']:.0f} m$^2$ g$^{{-1}}$)" if sbet_leg and d.get("bet") else nm) for nm, d in data.items()}
     styles = {lab_[k]: v for k, v in styles.items()}
@@ -194,29 +213,30 @@ def page_sorption():
         st.subheader("Pore-size distribution (separate panel)")
         fig, ax = newfig(); draw_psd(ax)
         show(fig, "DFT_PSD", pd.concat([df.assign(sample=n) for n, df in psds]), draw_psd, "PSD", units={"x": "pore_nm"})
-    sel = st.selectbox("BET plots for", [n for n in data if "bet" in data[n]])
-    if sel:
-        bet = data[sel]["bet"]
-        withbet = [n for n in data if data[n].get("bet")]
-        ov = [(n, data[n]["bet"], c) for n, c in zip(withbet, S.colours_for(withbet))] if (bet_all and len(withbet) > 1) else None
-        fig, axs = C.compose([lambda ax: P.draw_rouquerol(ax, bet, name=sel, overlay=ov),
-                              lambda ax: P.draw_bet(ax, bet, sel, overlay=ov, box=bet_box)],
-                             ncols=2, width=max(WIDTH, 5.0), panel_aspect=0.8, wspace=0.5)
-        show(fig, "BET_all" if ov else f"BET_{re.sub(r'[^A-Za-z0-9]+', '_', sel)}")
-        st.subheader("t-plot (Harkins–Jura) – micropore volume")
-        trng = st.slider("t range for the linear fit (Å)", 3.0, 10.0, (3.5, 5.0), 0.1, key="sorp_trng")
-        a_ = data[sel]["iso"][data[sel]["iso"].branch == "ads"]
-        tp = A.t_plot(a_.p_rel.values, a_.q.values, trng)
-        if tp:
-            st.write(f"**{sel}**: V_micro = **{tp['V_micro']:.3f} cm³ g⁻¹** (intercept {tp['intercept']:.1f} cm³ STP g⁻¹), "
-                     f"S_ext = {tp['S_ext']:.0f} m² g⁻¹ (t {trng[0]}–{trng[1]} Å). A negative intercept means no micropores in this t window.")
+    with st.expander("📈 BET / Rouquerol plots and t-plot (micropore volume) – click to open", expanded=False):
+        sel = st.selectbox("BET plots for", [n for n in data if "bet" in data[n]])
+        if sel:
+            bet = data[sel]["bet"]
+            withbet = [n for n in data if data[n].get("bet")]
+            ov = [(n, data[n]["bet"], c) for n, c in zip(withbet, S.colours_for(withbet))] if (bet_all and len(withbet) > 1) else None
+            fig, axs = C.compose([lambda ax: P.draw_rouquerol(ax, bet, name=sel, overlay=ov),
+                                  lambda ax: P.draw_bet(ax, bet, sel, overlay=ov, box=bet_box)],
+                                 ncols=2, width=max(WIDTH, 5.0), panel_aspect=0.8, wspace=0.5)
+            show(fig, "BET_all" if ov else f"BET_{re.sub(r'[^A-Za-z0-9]+', '_', sel)}")
+            st.subheader("t-plot (Harkins–Jura) – micropore volume")
+            trng = st.slider("t range for the linear fit (Å)", 3.0, 10.0, (3.5, 5.0), 0.1, key="sorp_trng")
+            a_ = data[sel]["iso"][data[sel]["iso"].branch == "ads"]
+            tp = A.t_plot(a_.p_rel.values, a_.q.values, trng)
+            if tp:
+                st.write(f"**{sel}**: V_micro = **{tp['V_micro']:.3f} cm³ g⁻¹** (intercept {tp['intercept']:.1f} cm³ STP g⁻¹), "
+                         f"S_ext = {tp['S_ext']:.0f} m² g⁻¹ (t {trng[0]}–{trng[1]} Å). A negative intercept means no micropores in this t window.")
 
-            def draw_t(ax, tp=tp, trng=trng):
-                P.draw_tplot(ax, tp, trng, name=sel)
-            fig, ax = newfig(); draw_t(ax)
-            show(fig, f"tplot_{safe_name(sel)}", pd.DataFrame({"t (A)": tp["t"], "q (cm3/g STP)": tp["q"]}), draw_t, "t-plot")
-        else:
-            st.info("Fewer than 3 points in this t range.")
+                def draw_t(ax, tp=tp, trng=trng):
+                    P.draw_tplot(ax, tp, trng, name=sel)
+                fig, ax = newfig(); draw_t(ax)
+                show(fig, f"tplot_{safe_name(sel)}", pd.DataFrame({"t (A)": tp["t"], "q (cm3/g STP)": tp["q"]}), draw_t, "t-plot")
+            else:
+                st.info("Fewer than 3 points in this t range.")
     st.subheader("Pore-size distribution computed from the isotherm")
     from mfs import psd as PSDm
     METH = list(PSDm.KERNELS) + ["Horváth–Kawazoe slit (carbon parameters)", "Saito–Foley cylinder (oxide parameters)",
