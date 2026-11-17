@@ -256,18 +256,60 @@ def no_y_ticks(ax):
     ax.tick_params(axis="y", which="both", left=False, right=False)
 
 
-def export(fig, fmt: str, dpi: int = 600) -> bytes:
+def provenance_json(prov: dict) -> str:
+    """v2.15: the provenance record of a figure (version, page, sources, settings, time) as compact JSON text."""
+    import json
+    return json.dumps(prov, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
+
+
+def read_provenance(data: bytes, fmt: str):
+    """The provenance dict embedded in an exported figure (png / pdf / svg / tiff), or None."""
+    import json
+    import re
+    try:
+        if fmt == "png":
+            from PIL import Image
+            return json.loads(Image.open(io.BytesIO(data)).text["Reticula-provenance"])
+        if fmt in ("tiff", "tif"):
+            from PIL import Image
+            return json.loads(Image.open(io.BytesIO(data)).tag_v2[270])
+        if fmt == "svg":
+            import html
+            m = re.search(r"<dc:description>(.*?)</dc:description>", data.decode("utf-8", "replace"), re.S)
+            return json.loads(html.unescape(m.group(1))) if m else None
+        if fmt == "pdf":
+            m = re.search(rb"/Subject \(Reticula provenance: (.*?)\)(?=\s*(?:>>|/))", data, re.S)
+            if m:
+                s = re.sub(r"\\(.)", r"\1", m.group(1).decode("latin-1"))
+                return json.loads(s)
+    except Exception:
+        return None
+    return None
+
+
+def export(fig, fmt: str, dpi: int = 600, prov: dict | None = None) -> bytes:
+    """`prov` (v2.15): provenance record written INTO the file (PNG text chunk, PDF subject, SVG description, TIFF description);
+    without it the output is byte-for-byte reproducible."""
     buf = io.BytesIO()
     kw = {}
+    ptxt = provenance_json(prov) if prov else None
     if fmt in ("png", "tiff", "tif"):
         kw["dpi"] = dpi
+    if fmt == "png" and ptxt:
+        kw["metadata"] = {"Software": "Reticula", "Reticula-provenance": ptxt}
     if fmt in ("tiff", "tif"):
         kw["pil_kwargs"] = {"compression": "tiff_lzw"}
+        if ptxt:
+            kw["pil_kwargs"]["description"] = ptxt
         fmt = "tiff"
     if fmt == "pdf":
         kw["metadata"] = {"CreationDate": None, "Creator": "Reticula"}
+        if ptxt:
+            kw["metadata"]["Subject"] = "Reticula provenance: " + ptxt
     elif fmt == "svg":
         kw["metadata"] = {"Date": None, "Creator": "Reticula"}
+        if ptxt:
+            kw["metadata"]["Description"] = ptxt
     fig.savefig(buf, format=fmt, **kw)
     return buf.getvalue()
 

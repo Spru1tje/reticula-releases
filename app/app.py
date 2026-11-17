@@ -187,9 +187,24 @@ def newfig(aspect=None, width=None):
     return plt.subplots(figsize=(width or WIDTH, (width or WIDTH) * (aspect or ASPECT)))
 
 
-def export_bytes(fig, fmt):
+def export_bytes(fig, fmt, prov=None):
     with _RENDER_LOCK:
-        return S.export(fig, fmt, DPI)
+        return S.export(fig, fmt, DPI, prov)
+
+
+SOURCES: list[str] = []          # v2.15: names of the data files of this page run (for the provenance record)
+
+
+def provenance(stem, cfg=None):
+    """v2.15: what is needed to reproduce a figure: program version, page, source files, figure settings, time.
+    Built in the main thread (deferred downloads render in a worker thread without session access)."""
+    try:
+        st_cfg = json.loads(json.dumps(cfg, default=str)) if cfg is not None else None
+    except Exception:
+        st_cfg = None
+    return {"program": "Reticula", "version": __version__, "page": page, "figure": safe_name(stem), "sources": list(dict.fromkeys(SOURCES)),
+            "export": {"width_in": WIDTH, "aspect": ASPECT, "font": FONT, "dpi": DPI}, "customisation": st_cfg,
+            "created": datetime.datetime.now().isoformat(timespec="seconds")}
 
 
 def dl(container, label, data, file_name, key, mime=None, help=None, width="content"):
@@ -203,26 +218,32 @@ def dl(container, label, data, file_name, key, mime=None, help=None, width="cont
                                      key=key, on_click="ignore", help=help, width=width)
 
 
-def save_to_folder(fig, stem, data=None, formats=("png", "tiff", "svg", "pdf")):
+def save_to_folder(fig, stem, data=None, formats=("png", "tiff", "svg", "pdf"), prov=None):
     os.makedirs(EXPORT_DIR, exist_ok=True)
     paths = []
     for fmt in formats:
         p = os.path.join(EXPORT_DIR, f"{stem}.{'tif' if fmt == 'tiff' else fmt}")
         with open(p, "wb") as fh:
-            fh.write(export_bytes(fig, fmt))
+            fh.write(export_bytes(fig, fmt, prov))
+        paths.append(p)
+    if prov:
+        p = os.path.join(EXPORT_DIR, f"{stem}_provenance.json")
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(prov, indent=1, ensure_ascii=False, default=str))
         paths.append(p)
     if data is not None:
         p = os.path.join(EXPORT_DIR, f"{stem}_processed.csv"); data.to_csv(p, index=False); paths.append(p)
     return paths
 
 
-def downloads(fig, stem, data: pd.DataFrame | None = None, key=None):
+def downloads(fig, stem, data: pd.DataFrame | None = None, key=None, cfg=None):
     stem = safe_name(stem); key = key or stem
+    prov = provenance(stem, cfg)
     bar = st.container(border=True, key=f"exportbar_{safe_name(key)}")
     bar.markdown('<div class="rt-sec">⬇️ Export</div>', unsafe_allow_html=True)
     cols = bar.columns([1, 1, 1, 1, 1, 1.15, 1.7])
     for c, fmt in zip(cols, ["png", "tiff", "svg", "pdf"]):
-        dl(c, fmt.upper(), (lambda f=fmt: export_bytes(fig, f)), f"{stem}.{'tif' if fmt == 'tiff' else fmt}", f"{key}_{fmt}", width="stretch",
+        dl(c, fmt.upper(), (lambda f=fmt: export_bytes(fig, f, prov)), f"{stem}.{'tif' if fmt == 'tiff' else fmt}", f"{key}_{fmt}", width="stretch",
            help=f"{'%d dpi ' % DPI if fmt in ('png', 'tiff') else 'vector, '}{fmt.upper()}")
     if data is not None:
         dl(cols[4], "CSV", (lambda: data.to_csv(index=False).encode("utf-8-sig")), f"{stem}_processed.csv", f"{key}_csv", width="stretch",
@@ -232,14 +253,15 @@ def downloads(fig, stem, data: pd.DataFrame | None = None, key=None):
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for fmt in ("png", "tiff", "svg", "pdf"):
-                z.writestr(f"{stem}.{'tif' if fmt == 'tiff' else fmt}", export_bytes(fig, fmt))
+                z.writestr(f"{stem}.{'tif' if fmt == 'tiff' else fmt}", export_bytes(fig, fmt, prov))
+            z.writestr(f"{stem}_provenance.json", json.dumps(prov, indent=1, ensure_ascii=False, default=str))
             if data is not None:
                 z.writestr(f"{stem}_processed.csv", data.to_csv(index=False).encode("utf-8-sig"))
         return buf.getvalue()
     dl(cols[5], "ZIP (all)", _zip, f"{stem}_all_formats.zip", f"{key}_zip", width="stretch")
     if cols[6].button("💾 Save to folder", key=f"{key}_save", help=f"Writes all formats to {EXPORT_DIR}", width="stretch"):
         try:
-            paths = save_to_folder(fig, stem, data)
+            paths = save_to_folder(fig, stem, data, prov=prov)
             bar.success("Saved:\n\n" + "\n\n".join(f"`{p}`" for p in paths))
             st.session_state["last_export_dir"] = EXPORT_DIR
         except Exception as e:
@@ -323,7 +345,7 @@ def _show_impl(fig, stem, data, composer_fn, title, units, series, controls):
         st.image(_PF.preview_png(fig, 200, _RENDER_LOCK))
     if st.session_state.get("si_collect", True):
         _si_capture(fig, stem, data, title, locals().get("cfg"))
-    downloads(fig, stem, data)
+    downloads(fig, stem, data, cfg=locals().get("cfg"))
     if composer_fn is not None:
         _composer_controls(stem, title or stem, composer_fn, locals().get("cfg"), locals().get("fams"))
     plt.close(fig)
@@ -407,8 +429,10 @@ def files_input(label, types, example_glob, key, multiple=True):
     up = box.file_uploader(label, type=types, accept_multiple_files=multiple, key=key)
     use_ex = box.checkbox("Use the bundled EXAMPLE data (synthetic)", value=not up, key=key + "_ex")
     files = (up if multiple else [up]) if up else []
+    SOURCES.extend(getattr(f, "name", "") for f in files if f is not None)
     if use_ex and not files:
         files = [_F(p) for p in sorted(glob.glob(os.path.join(EX, example_glob)))]
+        SOURCES.extend(f.name + " (bundled example)" for f in files)
     return [f for f in files if f is not None]
 
 

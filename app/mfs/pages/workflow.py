@@ -200,6 +200,12 @@ def page_batch():
         dl(st, "⬇️ ZIP (figures + data + log + preset)", z, f"batch_{safe_name(k_)}.zip", "bp_zip")
 
 
+def _xlsx_bytes(df):
+    buf = io.BytesIO()
+    df.to_excel(buf, index=False, engine="openpyxl")
+    return buf.getvalue()
+
+
 def page_si():
     from mfs import si_bundle as SB
     st.header("SI export bundle")
@@ -233,6 +239,39 @@ def page_si():
             out[k] = d
         return SB.build(out, st.session_state.get("sample_store", {}), __version__, inc)
     dl(c1, f"⬇️ SI bundle ({len(sel)} figures)", _bundle, "Reticula_SI_bundle.zip", "si_zip")
+    from mfs import journal as J
+    dl(c1, "⬇️ All figure data in ONE Excel (a sheet per figure)",
+       lambda: J.figure_data_xlsx({k: figs[k] for k in sel}, __version__), "Reticula_figure_data.xlsx", "si_xlsx")
+    from mfs import summary as SUM
+    with st.expander("📝 Methods text for the techniques used (edit the [brackets])", expanded=False):
+        st.text_area("Methods", SUM.methods_text([figs[k].get("page", "") for k in sel], __version__), height=300, key="si_methods",
+                     help="Starting text for the Methods / SI: only the processing is described, the experiment is left in [brackets].")
+    _sm = SUM.sample_summary(st.session_state.get("sample_store", {}))
+    if len(_sm):
+        with st.expander(f"🧾 Sample summary table ({len(_sm)} samples)", expanded=False):
+            st.dataframe(_sm, hide_index=True, width="stretch")
+            _cc = st.columns(3)
+            dl(_cc[0], "⬇️ Excel", lambda: _xlsx_bytes(_sm), "Reticula_sample_summary.xlsx", "si_sum_x")
+            dl(_cc[1], "⬇️ CSV", lambda: _sm.to_csv(index=False).encode("utf-8-sig"), "Reticula_sample_summary.csv", "si_sum_c")
+            dl(_cc[2], "⬇️ LaTeX", lambda: SUM.summary_latex(_sm).encode("utf-8"), "Reticula_sample_summary.tex", "si_sum_t")
+    with st.expander("📏 Journal check – will the figures be readable at the final size?", expanded=False):
+        jn = st.selectbox("Journal / column", list(J.JOURNALS), key="si_journal")
+        w_, f_, l_, d_ = J.JOURNALS[jn]
+        if jn == "Custom":
+            cc = st.columns(3)
+            w_ = cc[0].number_input("Final width (in)", 1.0, 12.0, w_, 0.05, key="si_jw")
+            f_ = cc[1].number_input("Min font (pt)", 3.0, 12.0, f_, 0.5, key="si_jf")
+            l_ = cc[2].number_input("Min line (pt)", 0.1, 2.0, l_, 0.05, key="si_jl")
+        if st.button("🔧 Fix all selected figures", key="si_jfix", type="primary", width="stretch",
+                     help="Sets the width, raises too small fonts and thin lines, replaces colours that colour-blind readers confuse."):
+            with _RENDER_LOCK:
+                for k in sel:
+                    ch = J.fix(figs[k]["fig"], w_, f_, l_)
+                    st.caption(f"**{k}**: " + ("; ".join(ch) if ch else "nothing to change"))
+        for k in sel:
+            iss = J.check(figs[k]["fig"], w_, f_, l_, png_dpi=DPI, min_dpi=d_)
+            bad = [i for i in iss if i["level"] != "ok"]
+            st.markdown(f"{'✅' if not bad else '⚠️'} **{k}**" + ("" if not bad else " – " + " ".join(i["text"] for i in bad)))
     figt, part, rest = SB.tables({k: figs[k] for k in sel}, st.session_state.get("sample_store", {}))
     st.markdown("**Parameters table (preview)**")
     st.dataframe(part, hide_index=True, width="stretch", height=260)
