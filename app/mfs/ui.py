@@ -12,7 +12,7 @@ TEAL, INDIGO = "#0F766E", "#312E81"
 NAV = [("Home", "🏠", None),
        ("PXRD", "💠", "Structure"), ("Structure (CIF)", "💎", None),
        ("N2 sorption (BET/PSD)", "🫧", "Porosity"),
-       ("FTIR / Raman", "〰️", "Spectroscopy"), ("UV/Vis", "🌈", None), ("1H NMR (digest)", "🧲", None), ("XPS", "⚛️", None), ("ICP-OES / XRF", "🧪", None),
+       ("FTIR / Raman", "〰️", "Spectroscopy"), ("UV/Vis", "🌈", None), ("Photoluminescence", "💡", None), ("1H NMR (digest)", "🧲", None), ("XPS", "⚛️", None), ("ICP-OES / XRF", "🧪", None),
        ("TGA", "🔥", "Thermal"), ("DSC", "🌡️", None),
        ("SEM / TEM / EDX", "🔬", "Microscopy"),
        ("Kinetics & adsorption", "⏱️", "Kinetics / Bio"), ("SDS-PAGE (Image Lab)", "🧬", None), ("Zeta / DLS", "⚡", None),

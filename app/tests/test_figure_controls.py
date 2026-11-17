@@ -23,7 +23,7 @@ sys.path.insert(0, HERE)
 from mfs import figctl as F  # noqa: E402
 
 PAGES = ["PXRD", "FTIR / Raman", "UV/Vis", "1H NMR (digest)", "N2 sorption (BET/PSD)", "TGA", "DSC", "Defect calculator",
-         "Kinetics & adsorption", "ICP-OES / XRF", "SEM / TEM / EDX", "SDS-PAGE (Image Lab)", "Zeta / DLS", "XPS", "Structure (CIF)"]
+         "Kinetics & adsorption", "ICP-OES / XRF", "SEM / TEM / EDX", "SDS-PAGE (Image Lab)", "Zeta / DLS", "XPS", "Structure (CIF)", "Photoluminescence"]
 
 
 # ------------------------------------------------------------------------------------------------ capture the real figures

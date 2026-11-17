@@ -520,6 +520,11 @@ def page_uvvis():
     UVP.render(globals())
 
 
+def page_pl():
+    from mfs import pl_page as PLP          # v2.14: photoluminescence (steady-state, temperature-dependent, thermometry)
+    PLP.render(globals())
+
+
 UI.header(HERE, page)
 try:                                   # v2.11: opt-in update check (asks once; background thread; silent offline)
     from mfs import update as _UPD
@@ -544,7 +549,7 @@ PG.bind(globals())                 # hand the helpers and this run's sidebar val
 _PAGEFN = {"Home": page_home, "PXRD": page_pxrd, "FTIR / Raman": page_ftir, "1H NMR (digest)": page_nmr, "N2 sorption (BET/PSD)": page_sorption,
  "TGA": page_tga, "DSC": page_dsc, "Defect calculator": page_defects, "Kinetics & adsorption": page_kinetics, "ICP-OES / XRF": page_icp, "SEM / TEM / EDX": page_sem,
  "SDS-PAGE (Image Lab)": page_sds, "Zeta / DLS": page_zeta, "XPS": page_xps, "Figure composer": page_composer, "Batch processing": page_batch,
- "SI export bundle": page_si, "Sample database": page_db, "Structure (CIF)": page_structure, "UV/Vis": page_uvvis, "Export guide": page_guide}
+ "SI export bundle": page_si, "Sample database": page_db, "Structure (CIF)": page_structure, "UV/Vis": page_uvvis, "Photoluminescence": page_pl, "Export guide": page_guide}
 try:
     if os.environ.get("MFS_PROFILE"):        # dev: cProfile of the page function -> <MFS_PROFILE>_<page>.prof
         import cProfile as _cp

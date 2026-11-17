@@ -383,5 +383,36 @@
     "updated": "2026-11-17T20:29:35"
    }
   }
+ },
+ "plthermometryerupconversionexample": {
+  "name": "PL_thermometry_Er_upconversion_EXAMPLE",
+  "sections": {
+   "pl": {
+    "values": {
+     "dE_cm1": 740.2897283525892,
+     "alpha": 10.629334317413317,
+     "Sr_Tmin_pct_per_K": 1.2394110311028486,
+     "R2_boltzmann": 0.9996401142270991,
+     "sigmaT_Tmin_K": 0.27562126340201976
+    },
+    "source": "Photoluminescence page",
+    "updated": "2026-11-17T20:39:04"
+   }
+  }
+ },
+ "plthermalquenchingphosphorexample": {
+  "name": "PL_thermal_quenching_phosphor_EXAMPLE",
+  "sections": {
+   "pl": {
+    "values": {
+     "Ea_meV": 252.9769397952479,
+     "T50_K": 380.38532810889456,
+     "A": 2247.639757215436,
+     "R2_quench": 0.9998929923626683
+    },
+    "source": "Photoluminescence page",
+    "updated": "2026-11-17T20:39:06"
+   }
+  }
  }
 }

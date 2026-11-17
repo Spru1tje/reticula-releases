@@ -361,3 +361,80 @@ def test_combined_figure_from_three_techniques_in_the_app(tmp_path, monkeypatch)
     assert sorted(t.get_text() for a in fig.axes for t in a.texts if t.get_text() in ("A", "B", "C")) == ["A", "B", "C"]
     # the tray in the sidebar names the panels
     assert any("3 panels" in m.value for m in at.sidebar.markdown)
+
+
+# ---------------------------------------------------------------- photoluminescence
+def test_pl_temperature_parsing_and_units():
+    from mfs import pl as PL
+    cases = {"293.15 K": (293.15, "K"), "25C": (25.0, "C"), "50 °C": (50.0, "C"), "300K": (300.0, "K"), "T_300K": (300.0, "K"),
+             "sample_25C_rep1": (25.0, "C"), "310": (310.0, None), "Er3+ sample": (None, None), "Wavelength (nm)": (None, None)}
+    for t, want in cases.items():
+        assert PL.parse_temperature(t) == want, (t, PL.parse_temperature(t))
+    assert PL.to_kelvin([(20.0, None), (50.0, None)]) == [293.15, 323.15]                       # small plain numbers: degrees C
+    assert PL.to_kelvin([(300.0, None), (400.0, None)]) == [300.0, 400.0]                        # large: K
+    assert PL.to_kelvin([(25.0, "C"), (300.0, "K"), (None, None)]) == [298.15, 300.0, None]
+
+
+def test_pl_reader_wide_table_two_column_and_excel(tmp_path):
+    from mfs import pl as PL
+    wide = "# comment\nWavelength (nm),293.15 K,303.15 K\n500,1,2\n501,2,3\n502,3,4\n503,4,5\n504,5,6\n505,6,7\n"
+    sp = PL.read_pl(wide.encode(), "wide.csv")
+    assert [s["name"] for s in sp] == ["293.15 K", "303.15 K"] and sp[0]["wl"][0] == 500 and sp[1]["I"][-1] == 7
+    two = "\n".join(f"{500 + k}\t{k * 2.5}" for k in range(10)) + "\n"
+    s2 = PL.read_pl(two.encode(), "sample_300K.txt")
+    assert len(s2) == 1 and PL.parse_temperature(s2[0]["T_text"]) == (300.0, "K")
+    import pandas as pd
+    p = tmp_path / "pl.xlsx"
+    pd.DataFrame({"Wavelength": np.arange(500, 510.0), "25 C": np.arange(10.0), "35 C": np.arange(10.0) * 2}).to_excel(p, index=False)
+    s3 = PL.read_pl(p.read_bytes(), "pl.xlsx")
+    assert [s["name"] for s in s3] == ["25 C", "35 C"] and s3[1]["I"][-1] == 18
+    with pytest.raises(ValueError, match="No spectrum"):
+        PL.read_pl(b"hello\nworld\n", "bad.txt")
+
+
+def test_pl_fits_recover_known_parameters():
+    from mfs import pl as PL
+    T = np.linspace(80, 500, 20)
+    I = 1000.0 / (1 + 2000.0 * np.exp(-0.25 / (PL.KB_EV * T)))
+    q = PL.fit_quench(T, I)
+    assert q["status"] == "ok" and abs(q["Ea_meV"] - 250) < 3 and abs(q["A"] / 2000 - 1) < 0.05
+    assert abs(q["T50"] - 0.25 / (PL.KB_EV * np.log(2000))) < 3 and q["R2"] > 0.9999
+    assert PL.fit_quench(T, np.full_like(T, 5.0))["status"].startswith("the intensity does not quench")
+    Tt = np.linspace(293.15, 323.15, 7)
+    D = 10.7 * np.exp(-(741.0 / PL.EV_TO_CM) / (PL.KB_EV * Tt))
+    b = PL.fit_boltzmann(Tt, D)
+    assert abs(b["dE_cm1"] - 741) < 1 and abs(b["alpha"] - 10.7) < 0.05
+    sr = PL.relative_sensitivity(Tt, b["dE_eV"])
+    num = 100 * np.abs(np.gradient(D, Tt) / D)                                    # numerical (1/D) dD/dT
+    assert np.allclose(sr[1:-1], num[1:-1], rtol=0.01)
+    assert np.allclose(PL.absolute_sensitivity(Tt, b), D * sr / 100, rtol=1e-6)
+    st = PL.temperature_uncertainty(sr, 40000.0, 100000.0)
+    assert np.allclose(st, np.sqrt(1 / 40000.0 + 1 / 100000.0) / (sr / 100))
+
+
+def test_pl_peak_stats_axis_conversion_and_integrals():
+    from mfs import pl as PL
+    wl = np.linspace(400, 600, 801)
+    y = 500.0 * np.exp(-0.5 * ((wl - 512.3) / 7.0) ** 2) + 3.0
+    ps = PL.peak_stats(wl, y)
+    assert abs(ps["pos"] - 512.3) < 0.1 and abs(ps["fwhm"] - 2.3548 * 7.0) < 0.2
+    x, ye = PL.to_axis(wl, y, "eV")
+    assert np.all(np.diff(x) > 0) and abs(np.trapezoid(ye, x) - np.trapezoid(y, wl)) / np.trapezoid(y, wl) < 5e-3     # Jacobian: area conserved
+    assert PL.band_integral(wl, y, 400, 600, "linear") > 0.95 * 500 * 7 * np.sqrt(2 * np.pi)
+
+
+def test_pl_page_runs_on_both_examples_and_gives_the_known_numbers(tmp_path, monkeypatch):
+    monkeypatch.setenv("MFS_STORE", str(tmp_path / "store.json"))
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400)
+    at.run()
+    at.sidebar.radio[0].set_value("Photoluminescence").run()
+    assert not at.exception, [e.value for e in at.exception][:2]
+    vals = {m.label: m.value for m in at.metric}
+    assert abs(float(vals["ΔE"].split()[0]) - 741) < 25 and 1.1 < float(vals["Sᵣ at 293 K"].split()[0]) < 1.4
+    figs = {k for k, r in at.session_state["si_figs"].items() if r["page"] == "Photoluminescence"}
+    assert {"PL_spectra", "PL_temperature_dependence", "PL_thermometry"} <= figs
+    at.radio(key="pl_example").set_value("Thermal quenching – phosphor, 80–500 K").run()
+    assert not at.exception, [e.value for e in at.exception][:2]
+    vals = {m.label: m.value for m in at.metric}
+    assert abs(float(vals["Eₐ"].split()[0]) - 250) < 10 and abs(float(vals["T₅₀"].split()[0]) - 382) < 12
