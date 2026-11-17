@@ -339,6 +339,24 @@ def _axis_apply(ax, axis, p, cfg, minor_on):
         A.set_minor_locator(NullLocator())
 
 
+def apply_panel(ax, cfg, families=None, idx=0):
+    """v2.14: the per-panel settings made under a single figure (axis titles, units, ranges, log, increments, title) on ONE axes - used
+    when that figure becomes a panel of a combined figure. Ticks, fonts and legend follow the combined figure's own panel."""
+    cfg = merge(default_settings(), cfg or {})
+    p = dict(cfg["panels"].get(str(idx), {}))
+    fam = (families or {}).get(idx) or (families or {}).get("all") or {}
+    p.setdefault("x_family", fam.get("x")); p.setdefault("y_family", fam.get("y"))
+    if p.get("xlabel") and not (p.get("x_unit") and _unit(p.get("x_family"), p.get("x_unit")) and _unit(p.get("x_family"), p.get("x_unit"))[3]):
+        ax.set_xlabel(_txt(cfg, p["xlabel"]))
+    if p.get("ylabel") and not (p.get("y_unit") and _unit(p.get("y_family"), p.get("y_unit")) and _unit(p.get("y_family"), p.get("y_unit"))[3]):
+        ax.set_ylabel(_txt(cfg, p["ylabel"]))
+    _axis_apply(ax, "x", p, cfg, cfg["ticks"].get("minor", True))
+    _axis_apply(ax, "y", p, cfg, cfg["ticks"].get("minor", True))
+    if cfg.get("title"):
+        ax.set_title(_txt(cfg, cfg["title"]), fontsize=cfg.get("title_size") or None)
+    return ax
+
+
 def apply(fig, cfg, families=None):
     """Apply a settings dict to a finished figure. families: {panel_index or 'all': {'x': fam, 'y': fam}}."""
     cfg = merge(default_settings(), cfg or {})

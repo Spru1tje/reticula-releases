@@ -91,7 +91,18 @@ S.set_series_colours(st.session_state.get("series_colours", {}))
 UI.inject(HERE)
 UI.sidebar_brand(HERE, __version__)
 PAGES = UI.PAGES
+if "composer" not in st.session_state:
+    st.session_state.composer = {}
 page = st.sidebar.radio("Technique", PAGES, key="nav", format_func=UI.nav_label, label_visibility="collapsed", on_change=PS.on_nav)
+with st.sidebar.container(border=True, key="composer_tray"):          # v2.14: always visible: where the combined figure lives
+    _nc = len(st.session_state.composer)
+    st.markdown("**🧩 Combined figure**" + (f" · {_nc} panel{'s' if _nc != 1 else ''}" if _nc else ""))
+    if _nc:
+        st.caption(" · ".join(str(k) for k in list(st.session_state.composer)[:4]) + (" …" if _nc > 4 else ""))
+        st.button("Open and arrange", key="tray_open", on_click=UI._go, args=("Figure composer",), width="stretch", type="primary")
+    else:
+        st.caption("Put graphs of several techniques in ONE figure (A, B, C …): click **🧩 Add to combined figure** under any graph.")
+        st.button("How it works", key="tray_open", on_click=UI._go, args=("Figure composer",), width="stretch")
 st.sidebar.markdown("---")
 from mfs import globalstyle as GS   # v2.11: one figure style for every page (journal presets, fonts, lines, palette)
 WIDTH, ASPECT, FONT, DPI = GS.sidebar(os.path.join(os.path.dirname(os.environ.get("MFS_STORE") or os.path.join(os.path.dirname(
@@ -314,10 +325,32 @@ def _show_impl(fig, stem, data, composer_fn, title, units, series, controls):
         _si_capture(fig, stem, data, title, locals().get("cfg"))
     downloads(fig, stem, data)
     if composer_fn is not None:
-        if st.button("➕ Add this panel to the figure composer", key=f"add_{safe_name(stem)}"):
-            st.session_state.composer[title or stem] = composer_fn
-            st.success(f"Added '{title or stem}' ({len(st.session_state.composer)} panels in composer)")
+        _composer_controls(stem, title or stem, composer_fn, locals().get("cfg"), locals().get("fams"))
     plt.close(fig)
+
+
+def _composer_controls(stem, key, fn, cfg, fams):
+    """v2.14: the button under every graph that puts it into the combined figure (and takes it out again). The latest drawing and
+    settings of every graph are also remembered in fig_registry, so the composer page can offer ALL graphs seen in this session."""
+    ss = st.session_state
+    comp = ss.composer
+    ss.setdefault("fig_registry", {})[key] = {"fn": fn, "cfg": cfg, "fams": fams, "page": page, "stem": stem}
+    if key in comp:
+        comp[key] = fn                                     # keep an added panel in step with its data
+    inside = key in comp
+    c1, c2 = st.columns([2, 5], vertical_alignment="center")
+    if c1.button("✔ In the combined figure – remove" if inside else "🧩 Add to combined figure", key=f"add_{safe_name(stem)}",
+                 type="secondary" if inside else "primary", width="stretch",
+                 help="Collect graphs of different techniques into ONE multi-panel figure (A, B, C …). Open it in the sidebar: 🧩 Combined figure."):
+        if inside:
+            comp.pop(key, None)
+        else:
+            comp[key] = fn
+        st.toast(("Removed from" if inside else "Added to") + f" the combined figure ({len(comp)} panel{'s' if len(comp) != 1 else ''}) – open it in the sidebar.", icon="🧩")
+        st.rerun()
+    n = len(comp)
+    c2.caption(f"🧩 {n} panel{'s' if n != 1 else ''} in the combined figure – sidebar → *Open and arrange*." if n
+               else "🧩 Combine graphs of several techniques into one figure (A, B, C …): add this one, then go to another technique.")
 
 
 _SI_SKIP = re.compile(r"^(fc_|sc_|data_|exportbar_|add_|si_|db_|bp_|FormSubmitter|nav$|cmap$|house_|store_|_)")

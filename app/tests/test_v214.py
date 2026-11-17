@@ -306,3 +306,58 @@ def test_edge_refinement_removes_the_mask_bias_for_non_round_particles():
     assert len(refined) >= 40
     assert abs(raw.mean()) > 6.0                                       # the raw mask is biased high
     assert abs(refined.mean()) < abs(raw.mean()) - 2.0                 # the calibrated edge is clearly closer
+
+
+# ---------------------------------------------------------------- combined figure (several techniques in one figure)
+def test_compose_letters_inside_caption_and_auto_columns():
+    from mfs import composer as CP
+    assert [CP.auto_columns(n) for n in (1, 2, 3, 4, 5, 6)] == [1, 2, 3, 2, 3, 3]
+    assert [CP.panel_label(i, "A") for i in range(3)] == ["A", "B", "C"] and CP.panel_label(1, "(A)") == "(B)"
+    fns = [lambda ax, k=k: ax.plot([0, 1], [0, k + 1]) for k in range(3)]
+    fig, axs = CP.compose(fns, ncols=3, width=7.0, label_style="A", label_inside=True, caption="Fig. 2 (A) UV/Vis, (B) FTIR and (C) XRD of the same material.")
+    assert len(axs) == 3
+    letters = [t.get_text() for ax in axs for t in ax.texts]
+    assert letters == ["A", "B", "C"]
+    assert any("UV/Vis" in t.get_text() for t in fig.texts)                      # the caption is part of the figure
+    fig.canvas.draw()
+    cap = [t for t in fig.texts if "UV/Vis" in t.get_text()][0].get_window_extent()
+    lowest_ax = min(ax.get_window_extent().y0 for ax in axs)
+    assert cap.y1 <= lowest_ax + 1                                                # ... under the axes, not over them
+    plt.close(fig)
+
+
+def test_panel_settings_travel_with_the_panel():
+    from mfs import composer as CP
+    cfg = F.default_settings()
+    cfg["panels"]["0"] = {"xlabel": "Wavelength (nm)", "xmin": 200.0, "xmax": 800.0}
+    cfg["title"] = "UV/Vis"
+
+    def draw(ax):
+        ax.plot([100, 900], [0, 1]); ax.set_xlabel("original")
+    fig, axs = CP.compose([lambda ax: (draw(ax), F.apply_panel(ax, cfg, None, 0))], ncols=1)
+    ax = axs[0]
+    assert ax.get_xlabel() == "Wavelength (nm)" and sorted(ax.get_xlim()) == [200.0, 800.0] and ax.get_title() == "UV/Vis"
+    plt.close(fig)
+
+
+def test_combined_figure_from_three_techniques_in_the_app(tmp_path, monkeypatch):
+    monkeypatch.setenv("MFS_STORE", str(tmp_path / "store.json"))
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400)
+    at.run()
+    for pg in ("PXRD", "FTIR / Raman", "UV/Vis"):
+        at.sidebar.radio[0].set_value(pg).run()
+        assert not at.exception, [e.value for e in at.exception][:2]
+        btn = [b for b in at.button if b.key and b.key.startswith("add_")][0]
+        assert "Add to combined figure" in btn.label
+        btn.click().run()
+        assert not at.exception, [e.value for e in at.exception][:2]
+    assert len(at.session_state["composer"]) == 3
+    assert len(at.session_state["fig_registry"]) >= 3
+    at.sidebar.radio[0].set_value("Figure composer").run()
+    assert not at.exception, [e.value for e in at.exception][:2]
+    fig = at.session_state["si_figs"]["combined_figure"]["fig"]
+    assert len([a for a in fig.axes if a.axison]) == 3
+    assert sorted(t.get_text() for a in fig.axes for t in a.texts if t.get_text() in ("A", "B", "C")) == ["A", "B", "C"]
+    # the tray in the sidebar names the panels
+    assert any("3 panels" in m.value for m in at.sidebar.markdown)

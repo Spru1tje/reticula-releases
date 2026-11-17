@@ -96,7 +96,7 @@ div[class*="st-key-exportbar_"] [data-testid="stButton"] button { background:var
 /* home */
 .rt-hero { padding:26px 30px; border-radius:18px; background:#fff; border:1px solid #DCE3EE; margin-bottom:16px; }
 .rt-hero h2 { margin:0 0 6px 0; color:#0B1F3A; }
-.rt-tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:6px 0 22px 0; }
+.rt-tiles { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin:6px 0 22px 0; }
 .rt-tile { background:#fff; border:1px solid #DCE3EE; border-radius:14px; padding:16px 16px 12px 16px; border-top:4px solid var(--rt-teal); }
 .rt-tile .k { font-size:.75rem; font-weight:700; color:var(--rt-teal); letter-spacing:.1em; }
 .rt-tile .h { font-weight:700; color:#0B1F3A; margin:4px 0; }
@@ -134,7 +134,7 @@ def header(here, page):
                 unsafe_allow_html=True)
 
 
-DISPLAY = {"1H NMR (digest)": "¹H NMR"}      # v2.13: page key kept (projects, saved state), label changed
+DISPLAY = {"1H NMR (digest)": "¹H NMR", "Figure composer": "Combined figure"}      # v2.13: page key kept (projects, saved state), label changed
 
 
 def nav_label(p):
@@ -156,6 +156,7 @@ plus a defect calculator for any MOF node (Zr₆, Hf₆, Ce₆, Cu paddlewheel, 
 <div class="rt-tile"><div class="k">STEP 2</div><div class="h">Load your data</div><div class="b">Drop the instrument export in <b>📁 Data</b>, or tick the bundled EXAMPLE data to try it.</div></div>
 <div class="rt-tile"><div class="k">STEP 3</div><div class="h">Fine-tune</div><div class="b"><b>🎛️ Customise this figure</b>: title, axes &amp; ticks, legend, colours, presets.</div></div>
 <div class="rt-tile"><div class="k">STEP 4</div><div class="h">Export</div><div class="b">The export bar under each figure: PNG/TIFF 600 dpi, SVG, PDF, CSV, ZIP or 💾 Save to folder.</div></div>
+<div class="rt-tile"><div class="k">STEP 5</div><div class="h">Combine</div><div class="b">Several techniques in <b>ONE figure</b> (A, B, C …): click <b>🧩 Add to combined figure</b> under any graph.</div></div>
 </div>""", unsafe_allow_html=True)
     st.markdown('<div class="rt-sec">Technique gallery · click to open (figures made from the synthetic EXAMPLE data)</div>',
                 unsafe_allow_html=True)

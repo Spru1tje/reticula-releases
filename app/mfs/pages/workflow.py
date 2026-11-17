@@ -33,39 +33,83 @@ INJECTED = (
 
 
 def page_composer():
-    st.header("Figure composer")
-    st.caption("Panels added from the technique tabs are drawn again into one figure (vector output), with (a), (b), (c) labels.")
-    comp = st.session_state.composer
-    if not comp:
-        st.info("No panels yet – use '➕ Add this panel…' under any figure."); return
-    order = st.data_editor(pd.DataFrame({"panel": list(comp), "use": True, "position": range(len(comp))}), key="comp_ed", hide_index=True)
-    sel = [r.panel for r in order.sort_values("position").itertuples() if r.use]
+    st.header("🧩 Combined figure")
+    st.caption("Bring the graphs of several techniques into ONE figure – for example (A) UV/Vis, (B) FTIR and (C) XRD of the same "
+               "material – with panel letters, one font and one size, and a caption. Vector output (PDF / SVG) like every figure.")
+    ss = st.session_state
+    comp = ss.composer
+    reg = ss.get("fig_registry", {})
+    options = list(dict.fromkeys(list(reg) + list(comp)))
+    if not options:
+        st.info("**How it works**  \n1. Open a technique (PXRD, FTIR, UV/Vis, TGA …) and look at your graph.  \n"
+                "2. Click **🧩 Add to combined figure** under it.  \n3. Do the same for the other techniques, then come back here "
+                "(sidebar → *Open and arrange*): the panels appear below, ready to export.  \n\n"
+                "Every graph you open in this session is remembered, so you can also just pick them here afterwards.")
+        return
+
+    def _lab(k):
+        r = reg.get(k)
+        return f"{r['page']} · {k}" if r else k
+    sel = st.multiselect("1 · Panels – the order in which you pick them is the order in the figure", options,
+                         default=[k for k in comp if k in options], format_func=_lab, key="comp_sel",
+                         placeholder="Choose the graphs to combine …")
+    if list(comp) != list(sel):                                   # keep the session list (and the sidebar tray) in step
+        comp.clear()
+        comp.update({k: (reg[k]["fn"] if k in reg else None) for k in sel})
+    pages_seen = sorted({reg[k]["page"] for k in options if k in reg})
+    if len(sel) == 0:
+        st.info("Pick at least one graph above" + (f" (graphs from: {', '.join(pages_seen)})." if pages_seen else "."))
+        return
     from mfs import templates as TP
-    t1, t2, t3 = st.columns([1.2, 1.2, 2.6])
-    tpl = t1.selectbox("Journal template", ["custom"] + list(TP.TEMPLATES), key="comp_tpl")
-    colw = t2.radio("Column", ["single", "1.5", "double"], index=2, horizontal=True, key="comp_col", disabled=tpl == "custom")
-    if tpl != "custom":
-        t3.caption(TP.TEMPLATES[tpl]["note"])
-    c1, c2, c3, c4, c5 = st.columns(5)
-    ncols = c1.slider("Columns", 1, 4, 2)
-    if tpl == "custom":
-        width = S.WIDTHS[c2.selectbox("Width", list(S.WIDTHS), index=1)]
-        lab = c4.selectbox("Labels", ["(a)", "a", "A", "a)"])
-        fsz = c5.slider("Font (pt)", 5.0, 10.0, float(FONT), 0.5, key="comp_fs")
-    else:
-        T_ = TP.TEMPLATES[tpl]; width = TP.width(tpl, colw)
-        labs = ["(a)", "a", "A", "a)"]
-        lab = c4.selectbox("Labels", labs, index=labs.index(T_["label_style"]), key=f"comp_lab_{tpl}")
-        fsz = c5.slider("Font (pt)", float(T_["min_font"]), 10.0, float(T_["font_size"]), 0.5, key=f"comp_fs_{tpl}")
-        c2.metric("Width", f"{width:.2f} in / {width * 2.54:.1f} cm")
-    asp = c3.slider("Panel aspect", 0.4, 1.5, 0.8, 0.05)
-    if st.button("Clear composer"):
-        st.session_state.composer = {}; st.rerun()
-    fig, axs = C.compose([comp[k] for k in sel], ncols=ncols, width=width, panel_aspect=asp, label_style=lab, font_size=fsz)
+    c1, c2, c3 = st.columns([1.4, 1.2, 1.2])
+    lay = c1.radio("2 · Layout", ["Auto", "One row", "One column", "2 columns", "3 columns"], horizontal=True, key="comp_lay")
+    ncols = {"Auto": C.auto_columns(len(sel)), "One row": len(sel), "One column": 1, "2 columns": 2, "3 columns": 3}[lay]
+    ncols = max(1, min(ncols, len(sel)))
+    lab = c2.selectbox("Panel letters", C.LABEL_STYLES, index=2, key="comp_lab", help="A, B, C … as in most papers")
+    inside = c3.checkbox("Letters inside the panel", True, key="comp_inside")
+    hide_long = c3.checkbox("Hide long legends (> 6 entries)", True, key="comp_hide_leg",
+                            help="A legend with many samples takes over a small panel; the samples are then named by the colours / the caption.")
+    with st.expander("⚙️ Size, journal template, font", expanded=False):
+        t1, t2, t3 = st.columns([1.2, 1.2, 2.6])
+        tpl = t1.selectbox("Journal template", ["custom"] + list(TP.TEMPLATES), key="comp_tpl")
+        colw = t2.radio("Column", ["single", "1.5", "double"], index=2, horizontal=True, key="comp_col", disabled=tpl == "custom")
+        if tpl != "custom":
+            t3.caption(TP.TEMPLATES[tpl]["note"])
+        c1, c2, c3 = st.columns(3)
+        if tpl == "custom":
+            width = S.WIDTHS[c1.selectbox("Width", list(S.WIDTHS), index=1)]
+            fsz = c3.slider("Font (pt)", 5.0, 10.0, float(FONT), 0.5, key="comp_fs")
+        else:
+            T_ = TP.TEMPLATES[tpl]; width = TP.width(tpl, colw)
+            fsz = c3.slider("Font (pt)", float(T_["min_font"]), 10.0, float(T_["font_size"]), 0.5, key=f"comp_fs_{tpl}")
+            c1.metric("Width", f"{width:.2f} in / {width * 2.54:.1f} cm")
+        asp = c2.slider("Panel height / width", 0.4, 1.5, 0.8, 0.05, key="comp_asp")
+    letters = [C.panel_label(i, lab) for i in range(len(sel))]
+    auto_cap = "Fig. X  " + ", ".join(f"{l} {k}" for l, k in zip(letters, sel)) + ". [material / sample]"
+    cap_on = st.checkbox("3 · Caption under the figure", False, key="comp_cap_on")
+    cap = st.text_area("Caption (edit freely)", auto_cap, height=80, key="comp_cap", label_visibility="collapsed" if not cap_on else "visible",
+                       disabled=not cap_on)
+
+    def _panel(k):
+        r = reg.get(k) or {}
+        fn, cfg, fams = r.get("fn") or comp.get(k), r.get("cfg"), r.get("fams")
+
+        def draw(ax, fn=fn, cfg=cfg, fams=fams):
+            fn(ax)
+            if cfg:
+                F.apply_panel(ax, cfg, fams, 0)                 # the settings made under the single figure travel with the panel
+            lg = ax.get_legend()
+            if hide_long and lg is not None and len(lg.get_texts()) > 6:
+                lg.remove()
+        return draw
+    fig, axs = C.compose([_panel(k) for k in sel], ncols=ncols, width=width, panel_aspect=asp, label_style=lab, font_size=fsz,
+                         label_inside=inside, caption=cap if cap_on else None)
     if tpl != "custom":
         for lvl, msg in TP.check(fig, tpl, colw):
             (st.success if lvl == "ok" else st.warning)(f"{tpl} check: {msg}")
-    show(fig, f"composed_figure{'_' + tpl if tpl != 'custom' else ''}")
+    show(fig, f"combined_figure{'_' + tpl if tpl != 'custom' else ''}")
+    if st.button("Clear the combined figure", key="comp_clear"):
+        ss.composer = {}; ss.pop("comp_sel", None); st.rerun()
 
 
 def page_guide():
