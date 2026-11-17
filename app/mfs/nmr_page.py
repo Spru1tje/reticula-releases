@@ -158,6 +158,7 @@ def _characterisation(g):
                + " · ".join(f"{k}: {v}" for k, v in info.items() if k in ("instrument", "software", "pulse program", "scans", "date"))
                + f" · phase p0 {sp.p0:.1f}°, p1 {sp.p1:.1f}° · {sp.ref_note}")
     mults = [PK.Multiplet(**m.as_dict()) for m in _analyse(f"{skey}|{lb}|{p0}|{p1}|{reference}|{use_ts}|{solvent}", sp, kpk, solvent)]
+    n_sat = PK.tag_satellites(mults, mhz)              # v2.14: ¹³C satellites are not compound signals
     # ---------------- structure ------------------------------------------------------------------------------------------
     mk = "nmr1h_mol|" + skey
     if mk not in ss:
@@ -232,6 +233,9 @@ def _characterisation(g):
                         m.nH = round(m.integral / unit, 2)
             else:
                 PK.normalise(mults)
+    PK.add_integral_uncertainty(mults, sp)             # v2.14: nH ± u and a flag when the integral is not an integer
+    if n_sat:
+        st.caption(f"ℹ️ {n_sat} small line(s) were recognised as ¹³C satellites and are left out of the analysis.")
     # ---------------- assignment -----------------------------------------------------------------------------------------
     assignment, groups, imp = {}, [], {}
     fk = "nmr1h_fix|" + skey
@@ -250,6 +254,7 @@ def _characterisation(g):
             ss["_nmra_last|" + skey] = ev.get("t")
             ss[fk] = {str(k): v for k, v in UI.handle(fixed, ev).items()}
             st.rerun()
+        rep = A.assignment_report(groups, mults, assignment)
         rows = []
         for gr in groups:
             mi = assignment.get(gr["gid"])
@@ -258,8 +263,14 @@ def _characterisation(g):
                          "predicted δ": None if gr["shift"] is None else round(gr["shift"], 2), "confidence": gr["conf"],
                          "assigned δ": None if m is None else round(m.centre, 2), "multiplet": "" if m is None else m.mult,
                          "Δδ": None if (m is None or gr["shift"] is None) else round(m.centre - gr["shift"], 2),
-                         "set by": "you" if gr["gid"] in fixed else "auto"})
-        with st.expander("Assignment table", expanded=False):
+                         "set by": "you" if gr["gid"] in fixed else "auto",
+                         "reliability": {"ok": "✅ ok", "check": "🔎 check", "ambiguous": "↔️ ambiguous", "doubtful": "⚠️ doubtful"}[
+                             rep[gr["gid"]][0] if gr["gid"] not in fixed else "ok"],
+                         "why": rep[gr["gid"]][1] if gr["gid"] not in fixed else "set by you"})
+        bad = [(gr, rep[gr["gid"]]) for gr in groups if gr["gid"] not in fixed and rep[gr["gid"]][0] in ("doubtful", "ambiguous")]
+        for gr, (lvl, why) in bad:
+            (st.warning if lvl == "doubtful" else st.info)(f"{'⚠️' if lvl == 'doubtful' else '↔️'} **H{gr['tag']}** – {why}")
+        with st.expander("Assignment table", expanded=bool(bad)):
             st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
             st.caption("Prediction: HOSE-code environments from experimental ¹H data in nmrshiftdb2 (held-out test: mean error "
                        "0.22 ppm, 79 % within 0.3 ppm). Exchangeable OH/NH are often not observed — they may stay unassigned.")
@@ -321,8 +332,8 @@ def _characterisation(g):
     # ---------------- SI export ------------------------------------------------------------------------------------------
     with tabs[4]:
         mt = pd.DataFrame([{"delta_ppm": round(m.centre, 3), "from_ppm": round(m.hi, 3), "to_ppm": round(m.lo, 3), "mult": m.mult,
-                            "J_Hz": "; ".join(f"{j:.1f}" for j in m.J), "nH": m.nH, "integral_raw": m.integral,
-                            "assignment": m.label, "note": m.note or ("impurity: " + imp[i] if i in imp else
+                            "J_Hz": "; ".join(f"{j:.1f}" for j in m.J), "nH": m.nH, "nH_err": m.nH_err, "integral_raw": m.integral,
+                            "assignment": m.label, "flag": m.flag, "note": m.note or ("impurity: " + imp[i] if i in imp else
                                                                         ("unassigned" if i in un else ""))}
                            for i, m in enumerate(mults)])
         st.dataframe(mt, hide_index=True, width="stretch", height=220)

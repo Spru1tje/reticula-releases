@@ -103,6 +103,71 @@ def _n_large(m, jmin=5.0):
     return sum(per[ch] for ch, J in zip(name, m.J) if J >= jmin)
 
 
+def pair_cost(g, m, force=False):
+    """Cost of putting proton group g on multiplet m (None = not allowed). Same rule as in assign()."""
+    if g["shift"] is None:
+        d = 0.0 if g["exch"] else 9.0
+    else:
+        lo, hi = min(m.lo, m.hi), max(m.lo, m.hi)
+        d = 0.0 if lo <= g["shift"] <= hi and m.mult == "m" else abs(g["shift"] - m.centre)
+    s = g["sigma"]
+    if g["exch"] and m.mult == "br s":
+        d = min(d, 1.0)                                           # exchangeable H: any broad singlet is plausible
+    if not force and d > 5 * s + 0.5:
+        return None
+    c = min((d / s) ** 2, 6.0) + 0.3 * max(0.0, d / s - 3)
+    if m.note:                                                    # coupled lines on the solvent residual
+        c += 1.0
+    k = _MULT_NEIGH.get(m.mult)
+    if k is not None and not g["exch"]:
+        if (k == 0) != (g["vicinal"] == 0):
+            c += 0.8
+        elif k:
+            nl = _n_large(m)
+            c += 0.6 * min(abs((nl if nl is not None else k) - min(g["vicinal"], 6)), 2.5)
+    return c
+
+
+def assignment_report(G, mults, assignment, swap_margin=1.5):
+    """v2.14: how far can each automatic assignment be trusted? Returns {gid: (level, text)} with level
+    'ok' | 'check' | 'ambiguous' | 'doubtful':
+      doubtful  - the observed shift differs from the prediction by more than 2.5 σ (or an exchangeable H sits > 2 ppm off);
+      ambiguous - two groups with the same H count could swap their multiplets for a cost increase < swap_margin
+                  (the prediction error, 0.2 ppm, is as large as the spacing of the signals);
+      check     - the multiplet's integral is not an integer (overlap?) or the group is assigned with low confidence."""
+    out = {}
+    byid = {g["gid"]: g for g in G}
+    for g in G:
+        mi = assignment.get(g["gid"])
+        if mi is None:
+            out[g["gid"]] = ("check", "not observed / unassigned")
+            continue
+        m = mults[mi]
+        lvl, txt = "ok", ""
+        if g["shift"] is not None:
+            d = abs(m.centre - g["shift"])
+            if d > 2.5 * g["sigma"] or (g["exch"] and d > 2.0):
+                lvl, txt = "doubtful", f"observed {m.centre:.2f} ppm is {d:.1f} ppm from the predicted {g['shift']:.2f}"
+        if lvl == "ok" and m.flag:
+            lvl, txt = "check", m.flag
+        if lvl == "ok" and g["conf"] in ("low", "none"):
+            lvl, txt = "check", "low-confidence prediction"
+        out[g["gid"]] = (lvl, txt)
+    items = [(gid, assignment[gid]) for gid in byid if assignment.get(gid) is not None and not byid[gid]["exch"]]
+    for ai in range(len(items)):
+        for bi in range(ai + 1, len(items)):
+            (ga, ma), (gb, mb) = items[ai], items[bi]
+            if ma == mb or byid[ga]["nH"] != byid[gb]["nH"]:
+                continue
+            now = pair_cost(byid[ga], mults[ma], True) + pair_cost(byid[gb], mults[mb], True)
+            swp = pair_cost(byid[ga], mults[mb], True) + pair_cost(byid[gb], mults[ma], True)
+            if swp - now < swap_margin:
+                for x, other in ((ga, gb), (gb, ga)):
+                    if out[x][0] in ("ok", "check"):
+                        out[x] = ("ambiguous", f"could swap with H{byid[other]['tag']} (Δcost {swp - now:.1f}): confirm with COSY / known couplings")
+    return out
+
+
 def assign(mol_or_groups, mults, fixed=None, banned=None, lam=3.0, lam_over=6.0):
     """Assign proton groups to multiplets. fixed: {gid: mult index} (user drag), banned: {(gid, mi)}; returns
     {gid: mult index or None}. Sets m.label on the multiplets ('H-3, H-5')."""

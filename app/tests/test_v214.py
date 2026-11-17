@@ -6,6 +6,7 @@ import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -199,3 +200,55 @@ def test_integral_numbers_can_be_hidden():
     assert len(n1) >= 5 and n2 == []
     assert any(ln.get_color() == "#0072B2" for ln in a2.lines)            # the bars stay
     plt.close(f1); plt.close(f2)
+
+
+# ---------------------------------------------------------------- NMR: satellites, integral uncertainty, assignment report
+def test_13c_satellites_are_recognised_and_ordinary_peaks_are_not():
+    from mfs import nmrpeaks as PK
+    sf = 300.0
+    main = PK.Multiplet(lo=2.95, hi=3.05, centre=3.0, integral=100.0, mult="s")
+    sat1 = PK.Multiplet(lo=2.78, hi=2.80, centre=3.0 - 63 / sf, integral=0.55, mult="s")      # ±63 Hz = ¹J(CH 126 Hz)/2
+    sat2 = PK.Multiplet(lo=3.20, hi=3.22, centre=3.0 + 63 / sf, integral=0.55, mult="s")
+    other = PK.Multiplet(lo=1.0, hi=1.02, centre=1.01, integral=0.6, mult="s")               # an impurity, not symmetric
+    ms = [main, sat1, other, sat2]
+    assert PK.tag_satellites(ms, sf) == 2
+    assert ms[1].note.startswith("13C satellite") and ms[3].note.startswith("13C satellite") and not ms[2].note and not ms[0].note
+    lone = [PK.Multiplet(lo=2.95, hi=3.05, centre=3.0, integral=100.0, mult="s"),
+            PK.Multiplet(lo=2.78, hi=2.80, centre=3.0 - 63 / sf, integral=0.55, mult="s")]       # one-sided: could be an impurity
+    assert PK.tag_satellites(lone, sf) == 0
+
+
+def test_integral_uncertainty_and_integer_flag():
+    from mfs import nmrpeaks as PK
+    from types import SimpleNamespace
+    ppm = np.linspace(10, -1, 4000)
+    rng = np.random.default_rng(1)
+    y = rng.normal(0, 1.0, ppm.size)
+    sp = SimpleNamespace(ppm=ppm, y=y)
+    a = PK.Multiplet(lo=2.0, hi=2.5, centre=2.25, integral=300.0, nH=3.0, mult="s")
+    b = PK.Multiplet(lo=7.0, hi=7.4, centre=7.2, integral=166.0, nH=1.66, mult="br s")          # 1.66 H: not an integer
+    PK.add_integral_uncertainty([a, b], sp)
+    assert a.nH_err is not None and 0 < a.nH_err < 0.2 and not a.flag
+    assert "not an integer" in b.flag
+
+
+def test_assignment_report_flags_doubtful_and_ambiguous():
+    from mfs import nmrassign as A, nmrpeaks as PK, nmrpredict as HP
+    sp, ms = _aspirin_for_report()
+    mol = HP.mol_from_any("CC(=O)Oc1ccccc1C(=O)O"); G = A.groups(mol); asg = A.assign(G, ms)
+    rep = A.assignment_report(G, ms, asg)
+    assert set(rep) == {g["gid"] for g in G} and all(v[0] in ("ok", "check", "ambiguous", "doubtful") for v in rep.values())
+    cooh = next(g for g in G if g["exch"])
+    assert rep[cooh["gid"]][0] in ("doubtful", "check")                     # a 13 ppm prediction vs a signal at 8.2 ppm
+    levels = [v[0] for v in rep.values()]
+    assert "ok" in levels and ("ambiguous" in levels or "doubtful" in levels)
+
+
+def _aspirin_for_report():
+    import warnings
+    warnings.filterwarnings("ignore")
+    from mfs import nmrproc as NP, nmrpeaks as PK
+    fn = os.path.join(HERE, "example_data", "NMR_1H", "aspirin_300_XWIN35.zip")
+    sp = NP.process(NP.load(open(fn, "rb").read(), "a.zip")[0], lb=None, p0=None, p1=None, reference="auto", use_topspin=True)
+    ms = PK.analyse(sp, k=6.0, solvent="CDCl3"); PK.normalise(ms); PK.add_integral_uncertainty(ms, sp)
+    return sp, ms

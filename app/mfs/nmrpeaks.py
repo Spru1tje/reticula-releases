@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import itertools
+import math
 from dataclasses import dataclass, field, asdict
 
 import numpy as np
@@ -39,6 +40,8 @@ class Multiplet:
     manual: bool = False
     overlap: str = ""                           # compound multiplet overlapping a solvent/H2O line
     nH_assigned: float | None = None            # H count of the atoms assigned here (set by nmrassign)
+    nH_err: float | None = None                 # v2.14: 1 sigma uncertainty of nH (noise + 1 % systematic), set by add_integral_uncertainty
+    flag: str = ""                              # v2.14: 'integral not an integer: overlap?' ...
 
     def as_dict(self):
         return asdict(self)
@@ -452,6 +455,58 @@ def normalise(mults, total_h=None, ref_index=None, ref_n=1.0):
         if (m.note and m.note.split(" ")[0] in ("CDCl3", "C6D6", "D2O", "CD2Cl2") and "solvent" in m.note
                 and m.nH and m.nH >= 0.5 and m.mult not in ("s", "br s")):        # residual normally a singlet here
             m.overlap = "coupled lines at the solvent shift: a compound signal may be hidden here"
+    return mults
+
+
+def tag_satellites(mults, sf, tol_hz=0.9, ratio=(0.002, 0.012), j_half=(52.0, 135.0)):
+    """v2.14: mark ¹³C satellites. Every ¹H–¹³C coupled line pair sits symmetrically at ± ¹J(CH)/2 (≈ 55-130 Hz; CHCl3: ±104.5 Hz)
+    around its parent line with 2 × 0.55 % of the parent's area. A pair of small multiplets that is symmetric about a bigger one
+    (within tol_hz), with areas 0.2-1.2 % of the parent, becomes note = '13C satellite of δ x' (so it drops out of the
+    unassigned list and the characterisation string). Returns the number of multiplets marked."""
+    n = 0
+    order = sorted(range(len(mults)), key=lambda i: -mults[i].integral)
+    for b in order:
+        B = mults[b]
+        if B.integral <= 0:
+            continue
+        cand = [i for i, m in enumerate(mults) if i != b and not m.note and ratio[0] * B.integral <= m.integral <= ratio[1] * B.integral]
+        for ii, i in enumerate(cand):
+            if mults[i].note:
+                continue
+            for j in cand[ii + 1:]:
+                mi, mj = mults[i], mults[j]
+                if mj.note:
+                    continue
+                di, dj = (mi.centre - B.centre) * sf, (mj.centre - B.centre) * sf
+                if di * dj < 0 and abs(di + dj) <= 2 * tol_hz and j_half[0] <= abs(di) <= j_half[1] and j_half[0] <= abs(dj) <= j_half[1] \
+                        and 0.5 <= mi.integral / max(mj.integral, 1e-12) <= 2.0:
+                    for m in (mi, mj):
+                        m.note = f"13C satellite of δ {B.centre:.2f}"
+                    n += 2
+                    break
+    return n
+
+
+def add_integral_uncertainty(mults, sp, rel_sys=0.01):
+    """v2.14: 1σ uncertainty of every multiplet's H count: the noise of the integration window (MAD noise × √points × step)
+    plus a relative systematic part (phase / baseline, default 1 %). Also flags a multiplet whose H count is far from an integer
+    ('integral not an integer: overlap or exchange?') when the deviation is more than twice its uncertainty."""
+    ppm, y = np.asarray(sp.ppm), np.asarray(sp.y)
+    if len(ppm) < 3:
+        return mults
+    sig = mad_sigma(y)
+    step = abs(float(ppm[1] - ppm[0]))
+    for m in mults:
+        if not m.integral or not m.nH:
+            continue
+        n_pts = int(((ppm >= m.lo) & (ppm <= m.hi)).sum())
+        raw = float(np.hypot(sig * math.sqrt(max(n_pts, 1)) * step, rel_sys * m.integral))
+        unit = m.integral / m.nH
+        m.nH_err = round(raw / unit, 3)
+        if not m.note and m.nH >= 0.8:
+            dev = abs(m.nH - round(m.nH))
+            if dev > max(0.25, 2 * m.nH_err):
+                m.flag = f"integral {m.nH:.2f} H is not an integer: overlapping signal or exchange?"
     return mults
 
 
