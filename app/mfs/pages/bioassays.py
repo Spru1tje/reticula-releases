@@ -58,8 +58,8 @@ def page_zeta():
     st.header("Zeta potential / DLS – Malvern Zetasizer")
     st.caption("Zetasizer Ultra / Nano: export the records with Sample Name, Z-Average, PDI, Zeta Potential, Zeta Deviation and the size distribution "
                "(Sizes / Intensities) as **CSV or Excel (.xlsx / .xls)** and drop the file here. "
-               "ℹ️ `.dts` files (older Zetasizer software) are read for the sample names and the size distribution; Z-average, PDI and ζ "
-               "need the Excel / CSV export of the same records.")
+               "ℹ️ `.dts` files (Zetasizer software) are read for the sample names, the size distribution and Z-average / PDI "
+               "(calculated from the correlation function); ζ needs the Excel / CSV export.")
     files = files_input("Zetasizer export (CSV / Excel / .dts)", ["csv", "txt", "xlsx", "xls", "dts"], "Zeta-DLS/*.csv", "zeta", multiple=False)
     if not files:
         return

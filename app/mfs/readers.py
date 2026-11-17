@@ -726,11 +726,97 @@ def _zeta_excel_table(raw: bytes) -> pd.DataFrame:
                      "Zeta Potential). Export the records from ZS Xplorer (or the Zetasizer software) as Excel/CSV with those parameters.")
 
 
+DTS_VERIFIED_VERSION = "7.11"      # Zetasizer software version of the .dts files for which Z-average / PDI were checked against the instrument
+
+
+def _dts_cumulants(d: bytes):
+    """Z-average (nm) and PDI of ONE .dts record from its stored mean correlation function (cumulant analysis, ISO 22412):
+    ln g1 = a - G t + (mu2/2) t^2 with g1 = sqrt((g2 - 1)/beta), Z-average = kB T / (3 pi eta D), D = G / q^2, PDI = mu2 / G^2,
+    q = 4 pi n / lambda sin(theta/2). Angle and wavelength are two consecutive doubles in the record, n and eta are float32 values,
+    T a double (25 degrees C when it is not found). Confirmed against the values the Zetasizer software shows (Nano ZS, software 7.11).
+    Returns (z_avg, pdi) or (nan, nan)."""
+    nan = (float("nan"), float("nan"))
+    try:
+        a8 = [(al + 8 * int(i), float(v)) for al in range(8) for i, v in enumerate(np.frombuffer(d[al:al + ((len(d) - al) // 8) * 8], "<f8")) if 632.0 <= v <= 633.5]
+        lam = ang = None
+        for off, v in sorted(a8):
+            prev = np.frombuffer(d[off - 8:off], "<f8")[0] if off >= 8 else np.nan
+            if 1.0 <= prev <= 180.0:
+                ang, lam = float(prev), v
+                break
+        if lam is None:
+            return nan
+        f4 = np.frombuffer(d[:(len(d) // 4) * 4], "<f4")
+        ri = next((float(v) for v in f4[100:200] if 1.30 <= v <= 1.60), 1.33)                     # refractive index of the dispersant (offset 572 B)
+        eta = None                                                                                 # viscosity in mPa s: a float32 in the first bytes (not 4-aligned)
+        for al in range(4):
+            for v in np.frombuffer(d[al:al + 400], "<f4"):
+                if 0.2 <= v <= 3.5 and abs(v - round(float(v))) > 1e-3 and 4 * abs(v * 1e5 - round(float(v) * 1e5)) < 1.0:
+                    eta = float(v)
+                    break
+            if eta is not None:
+                break
+        if eta is None:
+            return nan
+        tc = next((float(v) for v in np.frombuffer(d[800:3000 - (3000 - 800) % 8], "<f8") if 4.0 <= v <= 95.0 and abs(v - round(v)) < 1e-9), 25.0)
+        # mean correlation function: the first long decaying float32 array; lag times: the long increasing array (microseconds)
+        corr = None
+        for al in range(4):
+            n = (len(d) - al) // 4
+            b = np.frombuffer(d[al:al + n * 4], "<f4")
+            for i in range(0, n - 150):
+                s = b[i:i + 150]
+                if np.all(np.isfinite(s)) and 0.3 < s[0] < 1.8 and s[0] > s[75] > s[149] and np.all(np.diff(s) < 0.03) and s[149] < 0.3 * s[0]:
+                    j = i
+                    while j + 1 < n and np.isfinite(b[j + 1]) and b[j + 1] <= b[j] + 0.03:
+                        j += 1
+                    corr = (al + 4 * i, j - i + 1)
+                    break
+            if corr:
+                break
+        lag = None
+        for al in range(4):
+            n = (len(d) - al) // 4
+            b = np.frombuffer(d[al:al + n * 4], "<f4")
+            i = 0
+            while i < n - 100:
+                j = i
+                while j + 1 < n and np.isfinite(b[j + 1]) and b[j + 1] > b[j] > 0:
+                    j += 1
+                if j - i + 1 >= 150 and b[j] > 1e6 and (corr is None or al + 4 * i > corr[0]):
+                    lag = (al + 4 * i, j - i + 1)
+                    break
+                i = max(j, i) + 1
+            if lag:
+                break
+        if corr is None or lag is None:
+            return nan
+        m = min(corr[1], lag[1])
+        g = np.frombuffer(d[corr[0]:corr[0] + m * 4], "<f4").astype(float)
+        t = np.frombuffer(d[lag[0]:lag[0] + m * 4], "<f4").astype(float) * 1e-6
+        beta = float(g[:3].mean())
+        sel = g > 0.15 * beta
+        if sel.sum() < 8 or beta <= 0:
+            return nan
+        y = 0.5 * np.log(np.clip(g / beta, 1e-9, None))
+        A = np.vstack([np.ones(int(sel.sum())), -t[sel], 0.5 * t[sel] ** 2]).T
+        c, *_ = np.linalg.lstsq(A, y[sel], rcond=None)
+        gam, mu2 = float(c[1]), float(c[2])
+        if gam <= 0:
+            return nan
+        q = 4 * np.pi * ri / (lam * 1e-9) * np.sin(np.radians(ang) / 2)
+        dh = 1.380649e-23 * (tc + 273.15) / (3 * np.pi * eta * 1e-3 * (gam / q ** 2)) * 1e9
+        return float(dh), float(mu2 / gam ** 2)
+    except Exception:
+        if os.environ.get("MFS_DEBUG"):
+            raise
+        return nan
+
+
 def _zeta_dts(raw: bytes):
     """v2.14: Zetasizer Nano / Classic software `.dts` file (an OLE container with one stream REC<n> per record). Verified on real files:
-    the sample name and the 70-bin size axis (0.4-10 000 nm) with the INTENSITY size distribution (sums to 100 %). Z-average, PDI and the zeta
-    potential are NOT decoded (their position in the record is not documented): they stay empty - export them to Excel / CSV from the
-    Zetasizer software for those. Returns the same dict as read_zetasizer or None when this is not a .dts (a .xls is an OLE file too)."""
+    the sample name and the 70-bin size axis (0.4-10 000 nm) with the INTENSITY size distribution (sums to 100 %). Z-average and PDI are CALCULATED from the stored
+    correlation function (see _dts_cumulants); the zeta potential is not decoded and stays empty. Returns the same dict as read_zetasizer or None when this is not a .dts (a .xls is an OLE file too)."""
     try:
         import olefile
     except ImportError:
@@ -756,13 +842,21 @@ def _zeta_dts(raw: bytes):
             continue
         strs = [x.decode("utf-16le") for x in re.findall(rb"(?:[\x20-\x7e]\x00){3,}", d)]
         nm = next((s_.strip() for s_ in strs if re.fullmatch(r".+ \d+\s*", s_) and not s_.startswith("C:")), f"record {int(n[3:])}")
-        summ.append({"sample": nm, "z_avg": np.nan, "pdi": np.nan, "zeta": np.nan, "zeta_sd": np.nan})
+        verified = bool(strs) and strs[0].strip().startswith(DTS_VERIFIED_VERSION)        # only the software version that was checked against the instrument
+        za, pd_ = _dts_cumulants(d) if verified else (float("nan"), float("nan"))
+        summ.append({"sample": nm, "z_avg": za, "pdi": pd_, "zeta": np.nan, "zeta_sd": np.nan})
         rows += [(nm, float(a), float(b), np.nan, np.nan) for a, b in zip(sizes, inten)]
     if not summ:
         return None
-    return {"summary": pd.DataFrame(summ), "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number"]),
-            "note": "This .dts file gives the sample names and the intensity size distribution. Z-average, PDI and ζ-potential are not read from .dts "
-                    "files – export them from the Zetasizer software (File → Export → Excel / CSV) and upload that file to get them."}
+    sm = pd.DataFrame(summ)
+    if sm["z_avg"].isna().all():
+        return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number"]),
+                "note": "From this .dts file: sample names and the intensity size distribution. Z-average and PDI are only calculated for files of Zetasizer software "
+                        f"version {DTS_VERIFIED_VERSION} (the version they were checked on); for other versions, and for ζ, use the Excel / CSV export."}
+    return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number"]),
+            "note": "From this .dts file: sample names, the intensity size distribution, and Z-average and PDI **calculated from the stored correlation "
+                    "function** (cumulant analysis, ISO 22412, with the angle, wavelength, refractive index, viscosity and temperature of the record). "
+                    "The ζ-potential is not in size records – export it from the Zetasizer software (File → Export → Excel / CSV)."}
 
 
 def read_zetasizer(src, name: str = ""):

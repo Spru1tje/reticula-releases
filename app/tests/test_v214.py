@@ -469,6 +469,11 @@ def test_zetasizer_dts_reads_names_and_intensity_distribution():
     sums = z["dist"].groupby("sample").intensity.sum()
     assert np.allclose(sums, 100.0, atol=0.5)
     assert z["dist"].size_nm.min() == pytest.approx(0.4, rel=1e-3) and z["dist"].size_nm.max() == pytest.approx(10000.0, rel=1e-3)
-    assert z["summary"][["z_avg", "pdi", "zeta"]].isna().all().all() and "Excel" in z["note"]
+    assert z["summary"]["zeta"].isna().all() and "ζ" in z["note"]
+    za, pdi = z["summary"]["z_avg"], z["summary"]["pdi"]                    # confirmed against the Zetasizer software for ZrO2-aliquot2 (≈ 32 nm, PDI ≈ 0.52)
+    if "ZrO2-2-Aliquot1" in path:
+        assert za.between(30, 34).all() and pdi.between(0.48, 0.56).all(), (za.tolist(), pdi.tolist())
+    else:
+        assert za.isna().all() or (za > 0).all()                                 # other software versions: empty or positive, never invented
     # an .xls (also an OLE file) must not be taken for a .dts
     assert R._zeta_dts(b"\xd0\xcf\x11\xe0" + b"\x00" * 600) is None
