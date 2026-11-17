@@ -710,19 +710,39 @@ def read_imagelab(src, name: str = ""):
 
 
 # --------------------------------------------------------------------------- Zetasizer
+def _zeta_excel_table(raw: bytes) -> pd.DataFrame:
+    """The sheet of a Zetasizer Excel export that holds the results table: the header row is the first row (within 40) that names
+    a sample column and at least one of Z-Average / PDI / Zeta potential."""
+    sheets = pd.read_excel(io.BytesIO(raw), sheet_name=None, header=None)
+    key = re.compile(r"z-?ave|pd?i\b|zeta|polydispersity", re.I)
+    for nm, raw_df in sheets.items():
+        for i in range(min(40, len(raw_df))):
+            cells = [str(c).strip() for c in raw_df.iloc[i].tolist() if str(c) != "nan"]
+            if any(re.search(r"sample|^name$", c, re.I) for c in cells) and sum(bool(key.search(c)) for c in cells) >= 1:
+                df = raw_df.iloc[i + 1:].copy()
+                df.columns = [str(c).strip() if str(c) != "nan" else f"col{j}" for j, c in enumerate(raw_df.iloc[i].tolist())]
+                return df.dropna(how="all").reset_index(drop=True)
+    raise ValueError("No Zetasizer results table found in this Excel file (needs a header row with 'Sample Name' and Z-Average / PDI / "
+                     "Zeta Potential). Export the records from ZS Xplorer (or the Zetasizer software) as Excel/CSV with those parameters.")
+
+
 def read_zetasizer(src, name: str = ""):
-    """Malvern Zetasizer software 'Export' (File > Export > CSV with selected parameters).
+    """Malvern Zetasizer software 'Export' (CSV or Excel with the selected parameters; Zetasizer Nano / Ultra).
     Returns dict(summary=DataFrame, dist=DataFrame|None) with columns sample, z_avg, pdi, zeta, zeta_sd."""
-    text = _to_text(src)
-    lines = text.replace("\r", "").split("\n")
-    d = _guess_delim(lines)
-    sep = "\t" if d == "\t" else (";" if d == ";" else ",")
-    df = pd.read_csv(io.StringIO(text), sep=sep, engine="python")
+    raw = _to_bytes(src)
+    if raw[:2] == b"PK" or raw[:4] == b"\xd0\xcf\x11\xe0":            # v2.14: Excel export (.xlsx / .xls) as well as CSV
+        df = _zeta_excel_table(raw)
+    else:
+        text = _to_text(raw)
+        lines = text.replace("\r", "").split("\n")
+        d = _guess_delim(lines)
+        sep = "\t" if d == "\t" else (";" if d == ";" else ",")
+        df = pd.read_csv(io.StringIO(text), sep=sep, engine="python")
     df.columns = [str(c).strip() for c in df.columns]
-    sn = find_col(df, r"sample\s*name|^sample")
-    za = find_col(df, r"z-?ave")
-    pdi = find_col(df, r"pdi")
-    zp = find_col(df, r"zeta\s*potential\s*\(mv\)$|zeta\s*potential(?!.*(sd|dev))")
+    sn = find_col(df, r"sample\s*name|^sample|^name$")
+    za = find_col(df, r"z-?ave|z-?average")
+    pdi = find_col(df, r"\bpd?i\b|polydispersity")
+    zp = find_col(df, r"zeta\s*potential\s*\(mv\)$|zeta\s*potential(?!.*(sd|dev))|^zeta\s*\(mv\)")
     zsd = find_col(df, r"zeta.*(sd|dev)")
     summ = pd.DataFrame({"sample": df[sn].astype(str) if sn else [f"S{i+1}" for i in range(len(df))]})
     for key, col in [("z_avg", za), ("pdi", pdi), ("zeta", zp), ("zeta_sd", zsd)]:

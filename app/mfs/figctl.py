@@ -36,14 +36,15 @@ def default_settings():
         "version": 2,
         "title": "", "title_size": 0.0,
         "mathify": True,                       # turn ^{..} / _{..} / ^-1 into super/subscripts
-        "font": {"label_size": 0.0, "tick_size": 0.0},   # 0 = keep
+        "font": {"label_size": 0.0, "tick_size": 0.0, "family": ""},   # 0 = keep; family "" = the figure style's font
         "ticks": {"preset": "All 4 sides", "sides": dict(bottom=True, top=True, left=True, right=True),
                   "labels": dict(bottom=True, top=False, left=True, right=False),
                   "direction": "in", "minor": True, "major_len": 3.5, "minor_len": 2.0, "width": 0.6,
                   "frame": "box"},     # box | match ticks (hide spines without ticks)
         "panels": {},   # "0": {xlabel, ylabel, xmin, xmax, ymin, ymax, x_unit, y_unit, xmajor, ymajor, xminor, yminor, xlog, ylog}
         "legend": {"custom": False, "show": True, "loc": "best", "ncol": 1, "fontsize": 0.0, "frame": False,
-                   "markerscale": 1.0, "title": "", "panel": 0, "entries": [], "handlelength": 1.5},
+                   "markerscale": 1.0, "title": "", "panel": 0, "entries": [], "handlelength": 1.5,
+                   "title_size": 0.0, "family": ""},
         "units_params": {"wavelength": 1.5406, "m0_mg": 10.0},
     }
 
@@ -60,7 +61,7 @@ def merge(base, over):
 
 
 HOUSE_KEYS = ("mathify", "font", "ticks", "title_size")
-HOUSE_LEGEND_KEYS = ("loc", "ncol", "fontsize", "frame", "markerscale", "handlelength", "custom", "show")
+HOUSE_LEGEND_KEYS = ("loc", "ncol", "fontsize", "frame", "markerscale", "handlelength", "custom", "show", "title_size", "family")
 
 
 def house_style(cfg):
@@ -401,7 +402,41 @@ def apply(fig, cfg, families=None):
             next(a for a in axes if a.axison or True).set_title(t, fontsize=size)
     _legend_apply(fig, cfg)
     _rename_direct(fig, cfg)
+    _family_apply(fig, cfg)
     return fig
+
+
+def _set_family(artists, fam):
+    for t in artists:
+        try:
+            t.set_fontfamily(fam)
+        except Exception:
+            pass
+
+
+def _family_apply(fig, cfg):
+    """v2.14: one font family for everything in the figure (axis titles, ticks, texts, legend), and an own one for the legend."""
+    from matplotlib.text import Text
+    fam = (cfg.get("font") or {}).get("family") or ""
+    if fam and fam != "auto":
+        from . import style as _S
+        fam = _S._font_family(fam)
+        serif = fam in _S.SERIF_FAMILIES
+        for ax in fig.axes:
+            ax.get_xticklabels(); ax.get_yticklabels()                      # make sure the tick labels exist
+            _set_family([t for t in ax.findobj(Text)], fam)
+        _set_family([t for t in fig.texts], fam)
+        for lg in list(fig.legends) + [l for ax in fig.axes for l in ax.get_children() if isinstance(l, Legend)]:
+            _set_family(lg.get_texts() + [lg.get_title()], fam)
+    L = cfg.get("legend") or {}
+    lfam = L.get("family") or ""
+    legs = list(fig.legends) + [l for ax in fig.axes for l in ax.get_children() if isinstance(l, Legend)]
+    for lg in legs:
+        if lfam and lfam != "auto":
+            from . import style as _S
+            _set_family(lg.get_texts() + [lg.get_title()], _S._font_family(lfam))
+        if L.get("title_size"):
+            lg.get_title().set_fontsize(float(L["title_size"]))
 
 
 def _rename_direct(fig, cfg):

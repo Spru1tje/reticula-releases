@@ -1,0 +1,19 @@
+{
+ "aspirin300xwin35": {
+  "name": "aspirin_300_XWIN35",
+  "sections": {
+   "nmr_1h": {
+    "values": {
+     "acs": "¹H NMR (300 MHz, CDCl3) δ 8.23 (br s, 1H), 8.02 (dd, J = 7.8, 1.7 Hz, 1H), 7.50 (td, J = 7.8, 1.7 Hz, 1H), 7.31 – 7.22 (m, 1H), 7.05 (dd, J = 8.1, 1.0 Hz, 1H), 2.27 (s, 3H).",
+     "solvent": "CDCl3",
+     "MHz": 300,
+     "purity_pct": 101.98,
+     "smiles": "Cc1ccccc1C(=O)O",
+     "impurities": "hexamethylbenzene"
+    },
+    "source": "¹H NMR characterisation",
+    "updated": "2026-11-17T16:43:36"
+   }
+  }
+ }
+}

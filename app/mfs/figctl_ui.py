@@ -78,7 +78,10 @@ def cfg_to_state(key, cfg):
         ss[_k(key, n)] = T.get(n)
     ss[_k(key, "label_size")] = float(cfg["font"].get("label_size") or 0.0)
     ss[_k(key, "tick_size")] = float(cfg["font"].get("tick_size") or 0.0)
+    ss[_k(key, "family")] = cfg["font"].get("family") or ""
     L = cfg["legend"]
+    ss[_k(key, "leg", "title_size")] = float(L.get("title_size") or 0.0)
+    ss[_k(key, "leg", "family")] = L.get("family") or ""
     for n in ("custom", "show", "loc", "ncol", "fontsize", "frame", "markerscale", "title", "panel"):
         ss[_k(key, "leg", n)] = L.get(n)
     if L.get("entries"):
@@ -153,9 +156,13 @@ def panel(fig, key, units=None, series=None, expanded=False):
             cfg["title_size"] = c2.number_input("Title size (pt, 0 = auto)", 0.0, 24.0, float(base.get("title_size") or 0.0), 0.5, key=_k(key, "title_size"))
             cfg["mathify"] = c3.checkbox("^ and _ → super/subscript", base.get("mathify", True), key=_k(key, "mathify"),
                                          help="cm^-1 → cm⁻¹, ZrO_2 → ZrO₂, x^{2+}. Text with $…$ is used as mathtext as is. Unicode (², ₂, ⁻¹, θ, µ) always works.")
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             cfg["font"]["label_size"] = c1.number_input("Axis-title size (pt, 0 = style)", 0.0, 24.0, float(base["font"].get("label_size") or 0.0), 0.5, key=_k(key, "label_size"))
             cfg["font"]["tick_size"] = c2.number_input("Tick-label size (pt, 0 = style)", 0.0, 24.0, float(base["font"].get("tick_size") or 0.0), 0.5, key=_k(key, "tick_size"))
+            _fam_opts = [""] + [f for f in S.available_fonts() if f != "auto"]
+            cfg["font"]["family"] = c3.selectbox("Font (this figure)", _fam_opts, index=_fam_opts.index(base["font"].get("family") or "") if (base["font"].get("family") or "") in _fam_opts else 0,
+                                                 format_func=lambda f: f or "(figure style)", key=_k(key, "family"),
+                                                 help="Overrides the font of the figure style for this figure only (axis titles, ticks, texts and legend).")
             if not data_panels:
                 st.caption("Image figure – no axes to customise (use the scale-bar controls above).")
             pidx = 0
@@ -263,6 +270,11 @@ def panel(fig, key, units=None, series=None, expanded=False):
             L["frame"] = c1.checkbox("Frame", bool(base["legend"].get("frame", False)), key=_k(key, "leg", "frame"))
             L["markerscale"] = c2.number_input("Marker size ×", 0.2, 5.0, float(base["legend"].get("markerscale", 1.0) or 1.0), 0.1, key=_k(key, "leg", "markerscale"))
             L["title"] = c3.text_input("Legend title", "", key=_k(key, "leg", "title"))
+            c1, c2, c3, c4 = st.columns(4)
+            L["title_size"] = c1.number_input("Legend-title size (pt, 0 = same as entries)", 0.0, 24.0, float(base["legend"].get("title_size") or 0.0), 0.5, key=_k(key, "leg", "title_size"))
+            _lfam = [""] + [f for f in S.available_fonts() if f != "auto"]
+            L["family"] = c2.selectbox("Legend font", _lfam, index=_lfam.index(base["legend"].get("family") or "") if (base["legend"].get("family") or "") in _lfam else 0,
+                                       format_func=lambda f: f or "(same as figure)", key=_k(key, "leg", "family"))
             if len(data_panels) > 1:
                 L["panel"] = c4.selectbox("Put legend on panel", list(range(len(data_panels))), format_func=lambda i: f"panel {i + 1}", key=_k(key, "leg", "panel"))
             labels = [l for l, _ in entries] + [t for t in direct if t not in dict(entries)]

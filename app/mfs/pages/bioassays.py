@@ -56,8 +56,11 @@ def page_sds():
 
 def page_zeta():
     st.header("Zeta potential / DLS – Malvern Zetasizer")
-    st.caption("Zetasizer software: File → Export (choose parameters Sample Name, Z-Ave, PdI, Zeta Potential, Zeta Deviation and Sizes[]/Intensities[]) → CSV.")
-    files = files_input("Zetasizer CSV", ["csv", "txt"], "Zeta-DLS/*.csv", "zeta", multiple=False)
+    st.caption("Zetasizer Ultra / Nano: export the records with Sample Name, Z-Average, PDI, Zeta Potential, Zeta Deviation and the size distribution "
+               "(Sizes / Intensities) as **CSV or Excel (.xlsx / .xls)** and drop the file here. "
+               "ℹ️ `.dts` files belong to the older *Classic* Zetasizer software (ZS Xplorer on the Ultra cannot open them either): "
+               "open them there and export to Excel/CSV, or send a sample `.dts` so a direct reader can be added.")
+    files = files_input("Zetasizer export (CSV / Excel)", ["csv", "txt", "xlsx", "xls"], "Zeta-DLS/*.csv", "zeta", multiple=False)
     if not files:
         return
     z = dict(R.read_zetasizer(files[0], files[0].name))
@@ -68,18 +71,61 @@ def page_zeta():
     zs = z["summary"].groupby("sample", sort=False).agg(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean")).reset_index()
     st.dataframe(zs, width="stretch")
     zs["label"] = zs["sample"].str.replace("ZrO2", "ZrO$_2$")
+    zs_sd = z["summary"].groupby("sample", sort=False).agg(z_avg_sd=("z_avg", "std"), pdi_sd=("pdi", "std")).reset_index()
+    zs = zs.merge(zs_sd, on="sample", how="left")
+    st.markdown("**Show in the figures** (each text can be dragged anywhere with *🏷️ Move / edit labels on the figure* under the figure)")
+    c1, c2, c3, c4 = st.columns(4)
+    show_z = c1.checkbox("Z-average", False, key="zeta_show_z", help="Z-average hydrodynamic diameter (d.nm) per sample")
+    show_p = c2.checkbox("PDI", False, key="zeta_show_pdi", help="Polydispersity index per sample")
+    show_zp = c3.checkbox("ζ-potential", False, key="zeta_show_zp", help="Zeta potential (mV) per sample in the DLS figure")
+    with_sd = c4.checkbox("± SD (records)", True, key="zeta_show_sd", help="Mean ± standard deviation over the records of a sample (needs ≥ 2)")
+    c1, c2 = st.columns(2)
+    show_leg_z = c1.checkbox("Legend in the zeta-potential figure", False, key="zeta_bar_leg")
+    _annot = show_z or show_p or show_zp
+    # with the coloured texts on, the legend is redundant (each line names its sample): off by default then, tick it to bring it back
+    show_leg_d = c2.checkbox("Legend in the DLS figure", not _annot, key="zeta_dls_leg_" + ("a" if _annot else "n"))
+
+    def _fmt(v, sd, nd, unit=""):
+        if not np.isfinite(v):
+            return "–"
+        s = f"{v:.{nd}f}" + (f" ± {sd:.{nd}f}" if with_sd and np.isfinite(sd) else "")
+        return s + (f" {unit}" if unit else "")
+
     def draw_zeta(ax, zs=zs):
         cols = S.colours_for(zs["label"]); xs = np.arange(len(zs))
         ax.bar(xs, zs.zeta, 0.65, yerr=zs.zeta_sd, color=cols, edgecolor="k", lw=0.6, error_kw=dict(lw=0.7, capsize=2.5))
         ax.axhline(0, color="k", lw=0.6); ax.set_xticks(xs, zs.label, rotation=30, ha="right")
         ax.tick_params(axis="x", which="minor", bottom=False, top=False); ax.set_ylabel(r"$\zeta$-potential (mV)")
+        if show_leg_z:
+            from matplotlib.patches import Patch
+            ax.legend([Patch(facecolor=c, edgecolor="k", lw=0.6) for c in cols], list(zs.label), loc="best")
     fig, ax = newfig(); draw_zeta(ax)
     show(fig, "zeta", zs, draw_zeta, "Zeta potential")
     if z["dist"] is not None:
         dd = z["dist"].groupby(["sample", "size_nm"], sort=False).intensity.mean().reset_index()
         tr = [(s_.replace("ZrO2", "ZrO$_2$"), g_.size_nm.values, g_.intensity.values) for s_, g_ in dd.groupby("sample", sort=False)]
+        info = {r_.label: r_ for r_ in zs.itertuples()}
+
         def draw_dls(ax, tr=tr):
-            P.draw_overlay(ax, tr, "Hydrodynamic diameter (nm)", "Intensity (%)", logx=True); ax.set_ylim(bottom=0)
+            P.draw_overlay(ax, tr, "Hydrodynamic diameter (nm)", "Intensity (%)", logx=True, legend=show_leg_d); ax.set_ylim(bottom=0)
+            if show_z or show_p or show_zp:           # v2.14: per-sample Z-average / PDI / ζ texts (movable like every label)
+                cols_ = S.colours_for([t[0] for t in tr]); k = 0
+                for c_, (nm_, _x, _y) in zip(cols_, tr):
+                    r_ = info.get(nm_)
+                    if r_ is None:
+                        continue
+                    parts = []
+                    if show_z:
+                        parts.append("$Z_{avg}$ = " + _fmt(r_.z_avg, r_.z_avg_sd, 0, "nm"))
+                    if show_p:
+                        parts.append("PDI = " + _fmt(r_.pdi, r_.pdi_sd, 2))
+                    if show_zp:
+                        parts.append(r"$\zeta$ = " + _fmt(r_.zeta, r_.zeta_sd, 1, "mV"))
+                    ax.text(0.98, 0.97 - 0.075 * k, f"{nm_}: " + ", ".join(parts), transform=ax.transAxes, ha="right", va="top", color=c_,
+                            fontsize=plt.rcParams["font.size"] - 2.5)
+                    k += 1
+                lo_, hi_ = ax.get_ylim()                    # head-room so the texts do not sit on the peaks
+                ax.set_ylim(0, hi_ * (1.0 + 0.11 * k + 0.04))
         fig, ax = newfig(); draw_dls(ax)
         show(fig, "DLS", dd, draw_dls, "DLS")
 

@@ -115,6 +115,10 @@ def colours_for(names) -> list[str]:
     return out
 
 
+SERIF_FAMILIES = ("Times New Roman", "Liberation Serif", "Nimbus Roman", "DejaVu Serif", "Cambria", "Caladea", "Georgia", "Palatino Linotype",
+                  "Book Antiqua", "Garamond", "Constantia")
+
+
 def _font_family(pref=None):
     avail = {f.name for f in font_manager.fontManager.ttflist}
     if pref and pref != "auto":
@@ -136,7 +140,19 @@ def _font_family(pref=None):
 GLOBAL_DEFAULTS = {"font_size": 8.0, "family": "auto", "line_width": 1.0, "axes_width": 0.75, "marker_size": 3.5,
                    "tick_dir": "in", "minor": True, "palette": "Okabe–Ito (sample families)", "legend_frame": False}
 GLOBAL: dict = dict(GLOBAL_DEFAULTS)
-FONT_FAMILIES = ["auto", "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans", "Times New Roman", "Calibri", "Cambria"]
+_FONT_BASE = ["auto", "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans", "Times New Roman", "Calibri", "Cambria"]
+_FONT_EXTRA = ["Arial Narrow", "Verdana", "Tahoma", "Segoe UI", "Trebuchet MS", "Century Gothic", "Candara", "Corbel", "Georgia", "Palatino Linotype",
+               "Book Antiqua", "Garamond", "Constantia", "Liberation Serif", "DejaVu Serif", "Nimbus Sans", "Nimbus Roman", "Carlito", "Caladea",
+               "Courier New", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Comic Sans MS"]
+
+
+def available_fonts(extra=True):
+    """Classic journal fonts always, plus any of the extra families that are installed on this computer."""
+    avail = {f.name for f in font_manager.fontManager.ttflist}
+    return _FONT_BASE + ([f for f in _FONT_EXTRA if f in avail and f not in _FONT_BASE] if extra else [])
+
+
+FONT_FAMILIES = available_fonts()
 PALETTES = {
     "Okabe–Ito (sample families)": None,       # v2.10 behaviour: fixed sample-family colours, then Okabe–Ito
     "Okabe–Ito": ["#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"],
@@ -180,7 +196,7 @@ def apply_style(font_size: float | None = None):
     fam = _font_family(G.get("family"))
     lw, aw, tdir = float(G["line_width"]), float(G["axes_width"]), G.get("tick_dir", "in")
     k = aw / 0.75                                            # tick sizes/widths scale with the axes line width
-    serif = fam in ("Times New Roman", "Liberation Serif", "Nimbus Roman", "DejaVu Serif", "Cambria", "Caladea")
+    serif = fam in SERIF_FAMILIES
     plt.rcParams.update({
         "font.family": "serif" if serif else "sans-serif",
         "font.sans-serif": [fam, "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"],
