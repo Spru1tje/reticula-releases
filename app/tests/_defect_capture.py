@@ -28,7 +28,7 @@ def capture(tmp, nav_guard="0"):
     res = {}
     for p in sorted(glob.glob(os.path.join(HERE, "example_data", "Defects", "defect_input_*.json"))):
         at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400); at.run()
-        at.session_state["def_in"] = json.load(open(p))
+        at.session_state["def_in"] = json.load(open(p, encoding="utf-8"))
         at.sidebar.radio[0].set_value("Defect calculator").run()
         assert not at.exception, [e.value for e in at.exception][:2]
         res[os.path.basename(p)] = _rows(_table(at))

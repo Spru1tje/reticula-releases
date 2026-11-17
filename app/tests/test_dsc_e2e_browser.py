@@ -34,7 +34,7 @@ def test_dsc_real_mettler_upload(url, tmp_path):
     from PIL import Image
     assert Image.open(path).size[0] > 500
     if os.environ.get("MFS_E2E_LOG"):
-        with open(os.environ["MFS_E2E_LOG"], "a") as fh:
+        with open(os.environ["MFS_E2E_LOG"], "a", encoding="utf-8") as fh:
             fh.write(f"DSC real Mettler: onset {on} peak {pk} dH {dh} J/g; PNG {Image.open(path).size}\n")
 
 
@@ -66,5 +66,5 @@ def test_dsc_full_cycle_example(url, tmp_path):
     assert all(w > 500 for w, h in sizes.values())
     assert sizes["Stacked: heating above cooling"][1] > sizes["Full cycle vs temperature"][1]    # two panels
     if os.environ.get("MFS_E2E_LOG"):
-        with open(os.environ["MFS_E2E_LOG"], "a") as fh:
+        with open(os.environ["MFS_E2E_LOG"], "a", encoding="utf-8") as fh:
             fh.write(f"DSC full cycle example: views OK {sizes}\n")

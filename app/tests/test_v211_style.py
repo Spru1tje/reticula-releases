@@ -43,7 +43,7 @@ def test_preset_applies_on_every_page_and_persists(tmp_path):
         at.sidebar.radio[0].set_value(pg).run()
         assert not at.exception, (pg, [e.value for e in at.exception][:1])
         assert S.GLOBAL["font_size"] == 7.0 and S.GLOBAL["palette"] == "Tol muted" and plt.rcParams["lines.linewidth"] == 0.8
-    saved = json.load(open(tmp_path / "figure_style.json"))
+    saved = json.load(open(tmp_path / "figure_style.json", encoding="utf-8"))
     assert saved["gs_font"] == 7.0 and saved["gs_palette"] == "Tol muted"
     b = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300); b.run()      # next start: same style
     assert b.selectbox(key="gs_palette").value == "Tol muted" and b.number_input(key="gs_font").value == 7.0

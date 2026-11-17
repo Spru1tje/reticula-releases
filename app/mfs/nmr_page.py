@@ -64,10 +64,21 @@ def _mol(text):
         return None
 
 
+def _canon(mol):
+    """Canonical SMILES (None for no / unreadable structure) - to tell a redrawn molecule from a new one."""
+    if mol is None:
+        return None
+    try:
+        from rdkit import Chem
+        return Chem.MolToSmiles(Chem.RemoveHs(mol))
+    except Exception:
+        return None
+
+
 def _example_structures(ex_dir):
     p = os.path.join(ex_dir, "NMR_1H", "structures.json")
     try:
-        with open(p) as f:
+        with open(p, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -149,10 +160,10 @@ def _characterisation(g):
     mults = [PK.Multiplet(**m.as_dict()) for m in _analyse(f"{skey}|{lb}|{p0}|{p1}|{reference}|{use_ts}|{solvent}", sp, kpk, solvent)]
     # ---------------- structure ------------------------------------------------------------------------------------------
     mk = "nmr1h_mol|" + skey
-    g["PS"].track(mk)
     if mk not in ss:
         stem = os.path.splitext(f.name)[0]
         ss[mk] = mols.get(stem) or exst.get(f.name, "")
+    g["PS"].track(mk)                    # after the default is in place: opening the page is not an "unsaved change"
     st.subheader("1 · Structure")
     t1, t2 = st.tabs(["✏️ Draw (editor)", "⌨️ SMILES / molfile"])
     with t1:
@@ -161,7 +172,8 @@ def _characterisation(g):
             drawn = st_ketcher(ss[mk], height=420, molecule_format="MOLFILE", key="ketch_" + skey)
             if drawn and drawn.strip() and drawn != ss[mk]:
                 m_ = _mol(drawn)
-                if m_ is not None and m_.GetNumAtoms():
+                # the editor echoes the structure back as a molfile: only a different molecule is a change
+                if m_ is not None and m_.GetNumAtoms() and _canon(m_) != _canon(_mol(ss[mk]) if ss[mk] else None):
                     ss[mk] = drawn
         except Exception as e:
             st.info(f"Structure editor unavailable ({e}); paste SMILES or a molfile in the other tab.")

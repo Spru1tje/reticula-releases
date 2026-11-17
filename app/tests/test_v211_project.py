@@ -36,7 +36,7 @@ def test_project_roundtrip_widgets_uploads_store(tmp_path):
     assert b.sidebar.radio[0].value == "Defect calculator" and b.selectbox(key="def_fw").value == "MOF-5"
     assert b.session_state["_ps_up"]["pxrd_up"][0][2] == b"5 10\n6 20\n"
     assert b.session_state["sample_store"]["x"]["name"] == "Sample X"
-    assert json.load(open(b_ / "s.json"))["x"]["name"] == "Sample X"
+    assert json.load(open(b_ / "s.json", encoding="utf-8"))["x"]["name"] == "Sample X"
     assert sorted(os.listdir(b_ / "workspace")) >= ["defect_calculator.json", "pxrd", "pxrd.json", "tga.json"]
     b.sidebar.radio[0].set_value("TGA").run()
     assert [c.value for c in b.checkbox if "Normalise to residue" in c.label] == [True]

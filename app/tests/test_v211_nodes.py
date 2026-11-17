@@ -91,7 +91,7 @@ def test_zr_hf_unchanged_against_v210_snapshot():
         pytest.skip("snapshot missing")
     sys.path.insert(0, os.path.join(ROOT, "tests", "data"))
     import defects_snapshot as G
-    assert G.cases() == json.load(open(snap))
+    assert G.cases() == json.load(open(snap, encoding="utf-8"))
 
 
 def test_node_library_table():

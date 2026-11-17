@@ -134,7 +134,7 @@ def page_defects():
         exn = st.selectbox("Example input (synthetic EXAMPLE data)", ["(none)"] + [os.path.basename(p) for p in exs])
         upj = st.file_uploader("…or load your own JSON", type=["json"], key="dj")
         if st.button("Load"):
-            src = json.load(upj) if upj else (json.load(open(os.path.join(EX, "Defects", exn))) if exn != "(none)" else None)
+            src = json.load(upj) if upj else (json.load(open(os.path.join(EX, "Defects", exn), encoding="utf-8")) if exn != "(none)" else None)
             if src:
                 st.session_state["def_in"] = src; st.rerun()
     base = st.session_state.get("def_in") or default_defect_input("my sample")

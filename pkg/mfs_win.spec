@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(SPECPATH)))
 import spec_common as SC
 
 APP = ROOT / "app"
-datas = [(str(APP), "app"), (str(ROOT / "icon" / "reticula.ico"), ".")]
+datas = SC.app_datas(APP) + [(str(ROOT / "icon" / "reticula.ico"), ".")]
 tess = ROOT / "tesseract"                                  # Tesseract OCR for scale-bar labels (copied there by the build workflow)
 if tess.is_dir():
     datas.append((str(tess), "tesseract"))

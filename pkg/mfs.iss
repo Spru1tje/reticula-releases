@@ -1,4 +1,4 @@
-#define AppName "Reticula"
+﻿#define AppName "Reticula"
 ; Build:  iscc /DAppVer=2.13.0 /DSourceDir=..\dist\Reticula pkg\mfs.iss     (the release workflow does this)
 #ifndef AppVer
   #define AppVer "0.0.0"

@@ -115,7 +115,7 @@ def test_auto_calibrate_to_exported_figure(url, fname, tmp_path):
     img_w, bar_px, row = measure_bar(str(path))
     expected = 200 / PIX[fname] * img_w / W
     if os.environ.get("MFS_E2E_LOG"):
-        with open(os.environ["MFS_E2E_LOG"], "a") as fh:
+        with open(os.environ["MFS_E2E_LOG"], "a", encoding="utf-8") as fh:
             fh.write(f"{fname}\tnm/px {nmpx}\tbar(orig) {px_orig:.1f}px\tcrop {crop}\tmag {magt}\tPNG image width {img_w}\t"
                      f"bar in PNG {bar_px}px\texpected {expected:.1f}px\n")
     assert abs(bar_px - expected) <= max(2.0, 0.015 * expected), (fname, img_w, bar_px, expected, row)

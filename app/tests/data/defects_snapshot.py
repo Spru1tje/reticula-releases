@@ -14,7 +14,7 @@ def snap(inp):
 def cases():
   cases = {}
   for p in sorted(glob.glob(os.path.join(ROOT, "example_data", "Defects", "defect_input_*.json"))):
-    d = json.load(open(p)); inp = REP.input_from_dict(d)
+    d = json.load(open(p, encoding="utf-8")); inp = REP.input_from_dict(d)
     if inp is None:
         raise SystemExit("no dict_to_input")
     for metal in ("Zr", "Hf", "mixed"):
@@ -26,4 +26,4 @@ def cases():
             cases[os.path.basename(p) + "|" + metal + "|" + fw] = snap(i3)
   return json.loads(json.dumps(cases, sort_keys=True, default=str))
 if __name__ == "__main__":
-    json.dump(cases(), open(sys.argv[1], "w"), indent=0, sort_keys=True, default=str)
+    json.dump(cases(), open(sys.argv[1], "w", encoding="utf-8"), indent=0, sort_keys=True, default=str)

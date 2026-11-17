@@ -36,7 +36,7 @@ _MULT_NEIGH = {"s": 0, "br s": 0, "d": 1, "t": 2, "q": 3, "p": 4, "dd": 2, "dt":
 def impurity_table():
     global _IMP
     if _IMP is None:
-        with open(IMP_PATH) as f:
+        with open(IMP_PATH, encoding="utf-8") as f:
             _IMP = json.load(f)
     return _IMP
 

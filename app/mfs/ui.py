@@ -24,7 +24,7 @@ ICON = {p: i for p, i, _ in NAV}
 GALLERY = [("01_PXRD_stacked", "PXRD", "Stacked patterns + simulated CIF reference"),
            ("04_N2_isotherms_PSD", "N2 sorption (BET/PSD)", "N₂ isotherms, BET (Rouquerol) and PSD"),
            ("02_FTIR_stacked", "FTIR / Raman", "Offset FTIR / Raman spectra"),
-           ("03_NMR_digest_stacked", "1H NMR (digest)", "¹H NMR of digested MOFs"),
+           ("03_NMR_digest_stacked", "1H NMR (digest)", "¹H NMR: assignment and digested MOFs"),
            ("06_TGA_DTG", "TGA", "TGA + DTG, ash-normalised"),
            ("16_DSC", "DSC", "DSC: onset / peak / ΔH, Tg, exo arrow"),
            ("14_defects_MOF801", "Defect calculator", "Every defect method side by side"),
@@ -166,4 +166,4 @@ plus a defect calculator for any MOF node (Zr₆, Hf₆, Ce₆, Cu paddlewheel, 
             if os.path.exists(p):
                 st.image(p, width="stretch")
             st.caption(cap)
-            st.button(f"{ICON.get(page, '')} Open {page}", key=f"gal_btn_{i}", on_click=_go, args=(page,), width="stretch")
+            st.button(f"{ICON.get(page, '')} Open {DISPLAY.get(page, page)}", key=f"gal_btn_{i}", on_click=_go, args=(page,), width="stretch")

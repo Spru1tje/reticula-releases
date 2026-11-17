@@ -13,7 +13,7 @@ ms = pd.DataFrame({"Temperature (°C)": T,
                    "m/z 28 (A)": 5e-10 + g(504, 22, 1.2e-10)})
 for c in ms.columns[1:]:
     ms[c] = ms[c] * (1 + rng.normal(0, 0.02, len(T)))
-with open(os.path.join(EX, "TGA", "MOF801_QMS_ion_currents_EXAMPLE.csv"), "w") as fh:
+with open(os.path.join(EX, "TGA", "MOF801_QMS_ion_currents_EXAMPLE.csv"), "w", encoding="utf-8") as fh:
     fh.write(HDR + "# QMS coupled to the TGA, ion currents vs sample temperature\n"); ms.to_csv(fh, index=False, float_format="%.4g")
 # --- DSC Cp: 10 K/min, 20 -> 300 °C, 1 °C steps; blank curvature + small offset
 os.makedirs(os.path.join(EX, "DSC", "Cp_sapphire"), exist_ok=True)
@@ -21,7 +21,7 @@ beta = 10.0; TT = np.arange(20, 300.01, 0.5); t = (TT - 20) / beta
 base = -0.15 - 4e-4 * (TT - 20) + 2e-6 * (TT - 150) ** 2
 sys.path.insert(0, ROOT); from mfs.dsc import cp_sapphire
 def write(name, q, mass, extra=""):
-    with open(os.path.join(EX, "DSC", "Cp_sapphire", name), "w") as fh:
+    with open(os.path.join(EX, "DSC", "Cp_sapphire", name), "w", encoding="utf-8") as fh:
         fh.write(HDR + f"# Sample mass: {mass} mg\n# 10 K/min, N2 50 mL/min, Al 40 uL pan{extra}\n")
         pd.DataFrame({"Time (min)": t, "Temperature (°C)": TT, "Heat Flow (mW)": q + rng.normal(0, 0.004, len(TT))}).to_csv(fh, index=False, float_format="%.5g")
 endo = lambda m_mg, cp: -(m_mg * 1e-3) * cp * (beta / 60) * 1e3       # mW, exo-up
@@ -41,7 +41,7 @@ def xps(name, x, comps, bg0, step_frac, noise=0.02):
     cum = np.cumsum(y[::-1])[::-1]; cum = cum[0] - cum          # step rises to higher BE
     bg = bg0 + step_frac * cum / (cum.max() or 1) * y.max()
     yy = y + bg; yy = yy + rng.normal(0, noise * np.sqrt(yy.max() * yy / yy.max()), len(x))
-    with open(os.path.join(EX, "XPS", name), "w") as fh:
+    with open(os.path.join(EX, "XPS", name), "w", encoding="utf-8") as fh:
         fh.write(HDR); pd.DataFrame({"Binding Energy (eV)": x[::-1], "Counts / s": np.round(yy[::-1], 1)}).to_csv(fh, index=False)
 xps("ZrO2@Sulfo-MOF801_S2p_CasaXPS.csv", np.arange(160, 174.01, 0.05), [("S 2p", 168.6, 1.4, 1500.0)], 900, 0.08)
 xps("ZrO2@Sulfo-MOF801_O1s_CasaXPS.csv", np.arange(526, 538.01, 0.05), [(None, 530.2, 1.3, 30000.0), (None, 531.8, 1.6, 26000.0)], 6000, 0.12)
@@ -63,7 +63,7 @@ q2 = bl(Th) + 0.93 * (np.interp(th + 0.8, th, qh) - bl(np.interp(th + 0.8, th, T
 t1 = th; t2 = t1[-1] + 1 + tc; t3 = t2[-1] + 1 + th
 df = pd.DataFrame({"Time (min)": np.concatenate([t1, t2, t3]), "Temperature (°C)": np.concatenate([Th, Tc, Th]),
                    f"Heat Flow ({h.get('unit')})": np.concatenate([qh, qc, q2 + rng.normal(0, 2e-4, len(q2))])})
-with open(os.path.join(FC, "SG_DSC_heat-cool-heat_EXAMPLE.csv"), "w") as fh:
+with open(os.path.join(FC, "SG_DSC_heat-cool-heat_EXAMPLE.csv"), "w", encoding="utf-8") as fh:
     fh.write(HDR + "# Heating 1 = REAL SG_DSC_1.1 data; cooling and heating 2 SIMULATED (heating 2: peak -0.8 K, dH x 0.93)\n"
              f"# Sample mass: {_dsc.read_dsc(os.path.join(FC, 'SG_DSC_heating_Mettler_REAL.txt'))['meta'].get('mass_mg')} mg\n")
     df.to_csv(fh, index=False, float_format="%.6g")

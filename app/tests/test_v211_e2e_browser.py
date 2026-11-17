@@ -202,7 +202,7 @@ def test_v211_node_library_undo_style_project(gurl, tmp_path):
         try:
             c5 = _order_caption(pg)
         except Exception:
-            pg.screenshot(path="/tmp/p11/open_fail.png", full_page=True); open("/tmp/p11/open_fail.txt","w").write(pg.locator("body").inner_text()); raise
+            pg.screenshot(path="/tmp/p11/open_fail.png", full_page=True); open("/tmp/p11/open_fail.txt","w", encoding="utf-8").write(pg.locator("body").inner_text()); raise
         assert c5 == c3, (c3, c5)
         assert "Opened" in pg.locator("[data-testid='stSidebar']").inner_text()
         _shot(pg, "v211_project_open.png")
@@ -247,7 +247,7 @@ def test_v211_update_banner_mock(tmp_path):
             _shot(pg, "v211_update_banner.png")
             pg.get_by_role("button", name="Skip this version").click(); pg.wait_for_timeout(2500)
             assert not pg.get_by_text("is available").count()
-            assert json.load(open(tmp_path / "update.json"))["skip"] == "9.9.0"
+            assert json.load(open(tmp_path / "update.json", encoding="utf-8"))["skip"] == "9.9.0"
             b.close()
     finally:
         proc.terminate(); srv.shutdown()

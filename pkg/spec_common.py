@@ -10,6 +10,11 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dyn
 
 STDLIB = set(sys.stdlib_module_names)
 
+# Python 3.12.0 miscompiles module-level comprehensions once PyInstaller rewrites the code objects: the frozen app then fails with
+# "NameError: name 'obj' is not defined" in scipy.stats (15 of 40 self-tests fail). Fixed in Python 3.12.1.
+if sys.version_info[:3] == (3, 12, 0):
+    raise SystemExit("Do not build Reticula with Python 3.12.0 (the frozen scipy.stats is broken). Use Python 3.12.1 or newer, or 3.13.")
+
 
 def app_imports(app_dir: Path) -> list[str]:
     """Every absolute module the app's own code imports (also inside functions). PyInstaller only analyses the launcher, and
@@ -65,6 +70,26 @@ DROP = re.compile(r"(pyarrow[\\/](include|tests|.*(flight|s3|substrait|dataset|a
 def keep(toc):
     out = [e for e in toc if not DROP.search(e[0].replace("/", "\\")) and not DROP.search(e[0])]
     print("size filter dropped", len(toc) - len(out), "entries")
+    return out
+
+
+APP_PARTS = ("app.py", "mfs", "references", "example_data", "docs", "assets", ".streamlit", "README.md", "CHANGELOG.md")
+
+
+def app_datas(app_dir: Path):
+    """The program files that go into the build as data: only APP_PARTS, without caches. (Bundling the whole app/ folder would
+    also take tests, tools and - on a developer machine - .venv, exports and private test data.)"""
+    out = []
+    for part in APP_PARTS:
+        src = app_dir / part
+        if src.is_file():
+            out.append((str(src), "app"))
+        elif src.is_dir():
+            for f in sorted(src.rglob("*")):
+                if f.is_file() and "__pycache__" not in f.parts and f.suffix not in (".pyc", ".pyo"):
+                    out.append((str(f), str(Path("app") / f.relative_to(app_dir).parent)))
+        else:
+            raise FileNotFoundError(f"app part missing: {src}")
     return out
 
 

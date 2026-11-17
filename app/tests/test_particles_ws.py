@@ -83,4 +83,4 @@ def test_default_polarity_is_dark():
     assert 'PARTICLE_POLARITY = ["dark", "bright"]' in src and "auto" not in re.search(r'PARTICLE_POLARITY = \[.*\]', src).group(0)
     fix = "/workspace/upgrades/batchC/particles_user_fix.py"
     if os.path.exists(fix):
-        assert 'DARK = "--bright" not in sys.argv' in open(fix).read()
+        assert 'DARK = "--bright" not in sys.argv' in open(fix, encoding="utf-8").read()

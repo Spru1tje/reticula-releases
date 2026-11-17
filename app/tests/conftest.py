@@ -37,7 +37,7 @@ _PRIVATE_MODULES = {"test_real_tristar_n2": "MOF801SGA2_TriStar_full_report_REAL
 def _private_missing(token):
     import glob
     d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-    return not glob.glob(os.path.join(d, token + "*"))
+    return not glob.glob(os.path.join(d, "*" + token + "*"))
 
 
 def pytest_collection_modifyitems(config, items):

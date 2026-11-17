@@ -543,8 +543,13 @@ def _dialog(cur, target):
     if not _ss().get("_ps_dlg"):          # a button callback already decided (dialog-only rerun) → redraw the app
         st.rerun()
     ch = changes(cur)
+    try:
+        from mfs.ui import DISPLAY as _DSP
+        cur_l, target_l = _DSP.get(cur, cur), _DSP.get(target, target)
+    except Exception:
+        cur_l, target_l = cur, target
     st.markdown(f"**Do you want to save your current work?**  \nYou changed **{len(ch)}** setting(s)/file(s) on "
-                f"*{cur}* and are switching to *{target}*.")
+                f"*{cur_l}* and are switching to *{target_l}*.")
     if ch:
         st.caption("Changed: " + ", ".join(f"`{c.split('|')[3] if c.startswith(AUTO_PREFIX) and c.count('|') >= 4 else c}`"
                                            for c in ch[:12]) + (" …" if len(ch) > 12 else ""))

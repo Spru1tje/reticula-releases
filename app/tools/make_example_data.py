@@ -46,7 +46,7 @@ def pxrd():
             if s in ("PM", "ZrO2@Sulfo-MOF-801(Hf)"):
                 y += 300 * zro2
         y = rng.poisson(np.clip(y, 1, None)).astype(float)
-        with open(d("PXRD", f"{FILE[s]}_STOE.xy"), "w") as f:
+        with open(d("PXRD", f"{FILE[s]}_STOE.xy"), "w", encoding="utf-8") as f:
             f.write(f"# {BANNER}\n# STOE STADI P Combi, Cu Ka1 (1.540598 A), Debye-Scherrer, IP-PSD; WinXPOW 'Export ASCII .xy'\n")
             for a, b in zip(x, y):
                 f.write(f"{a:9.3f} {b:10.1f}\n")
@@ -69,10 +69,10 @@ def ftir():
         T = 100 * 10 ** (-(a * 0.45 + 0.02 + 0.00002 * (4000 - x)))
         T += rng.normal(0, 0.08, len(x))
         fn = FILE.get(s, "Sulfosuccinic_acid")
-        with open(d("FTIR", f"{fn}_ATR.dpt"), "w") as f:
+        with open(d("FTIR", f"{fn}_ATR.dpt"), "w", encoding="utf-8") as f:
             for xx, tt in zip(x, T):
                 f.write(f"{xx:.5f},{tt:.6f}\n")
-    with open(d("FTIR", "README_EXAMPLE.txt"), "w") as f:
+    with open(d("FTIR", "README_EXAMPLE.txt"), "w", encoding="utf-8") as f:
         f.write(BANNER + "\nOPUS 'Save as Data Point Table' (.dpt): wavenumber,transmittance(%) - comma separated, no header.\n")
     # Raman (RAM II, 1064 nm)
     xr = np.arange(100, 3500, 1.0)
@@ -80,7 +80,7 @@ def ftir():
     for s in ["MOF-801(Hf)", "Sulfo-MOF-801(Hf)", "ZrO2@Sulfo-MOF-801(Hf)"]:
         extra = [(1060, 14, 0.45)] if "Sulfo" in s else []
         y = sum(a * pv(xr, c, w, 0.7) for c, w, a in rb + extra) * 1000 + 300 * np.exp(-xr / 1500) + rng.normal(0, 8, len(xr))
-        with open(d("Raman", f"{FILE[s]}_RAMII.dpt"), "w") as f:
+        with open(d("Raman", f"{FILE[s]}_RAMII.dpt"), "w", encoding="utf-8") as f:
             for xx, yy in zip(xr, y):
                 f.write(f"{xx:.2f}\t{yy:.3f}\n")
 
@@ -103,7 +103,7 @@ def nmr():
         if c["ss"]:
             peaks += [(3.64, 0.5 * c["ss"]), (3.60, 0.5 * c["ss"]), (2.75, 1.0 * c["ss"]), (2.62, 1.0 * c["ss"])]
         y = nmr_spectrum(ppm, peaks) * 1e5 + rng.normal(0, 60, len(ppm))
-        with open(d("NMR", f"{FILE[s]}_digest_totxt.txt"), "w") as f:
+        with open(d("NMR", f"{FILE[s]}_digest_totxt.txt"), "w", encoding="utf-8") as f:
             f.write(f"# {BANNER}\n# File created = Thursday, November 12, 2026\n# Data set = {FILE[s]}_digest 1 1 /opt/topspin/data\n"
                     f"# Spectral Region:\n# LEFT = {ppm[0]:.6f} ppm. RIGHT = {ppm[-1]:.6f} ppm.\n#\n# SIZE = {len(ppm)} ( = number of points)\n#\n"
                     "# In the following lines, the intensities of the data points are listed (in arbitrary units).\n")
@@ -121,7 +121,7 @@ def nmr():
     procs = {"SI": n, "SF": sf, "SW_p": sw_ppm * sf, "OFFSET": ppm[0], "BYTORDP": 0, "DTYPP": 0, "NC_proc": 0, "FTSIZE": n, "XDIM": n}
     os.makedirs(os.path.join(expdir, "pdata", "1"), exist_ok=True)
     def jcamp(path, pars):
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write("##TITLE= Parameter file, TOPSPIN  EXAMPLE DATA\n##JCAMPDX= 5.0\n##DATATYPE= Parameter Values\n##ORIGIN= Bruker BioSpin GmbH\n")
             for k, v in pars.items():
                 if isinstance(v, list):
@@ -153,12 +153,12 @@ def nmr():
                 c = 2.0 * math.exp(-kk * tt) * (1 + rng.normal(0, 0.025))
                 rows.append((s, rep + 1, tt, round(c, 4)))
     df = pd.DataFrame(rows, columns=["sample", "replicate", "time_h", "GlyGly_mM"])
-    with open(d("Kinetics", "GlyGly_hydrolysis_60C_pD7.4.csv"), "w") as f:
+    with open(d("Kinetics", "GlyGly_hydrolysis_60C_pD7.4.csv"), "w", encoding="utf-8") as f:
         f.write(f"# {BANNER}\n# [Gly-Gly] from 1H NMR integrals (3.80 + 3.88 ppm, 4H total) vs TMSP-d4 (9H, 0.00 ppm); 60 C, pD 7.4\n")
         df.to_csv(f, index=False)
     # integrals version (what TopSpin integration gives)
     di = df.copy(); di["I_GlyGly_4H"] = (di["GlyGly_mM"] * 4 / 1.0).round(4); di["I_TMSP_9H"] = 9.0
-    with open(d("Kinetics", "GlyGly_integrals_TopSpin.csv"), "w") as f:
+    with open(d("Kinetics", "GlyGly_integrals_TopSpin.csv"), "w", encoding="utf-8") as f:
         f.write(f"# {BANNER}\n# TMSP-d4 = 1.00 mM, integral calibrated to 9.000\n")
         di.drop(columns=["GlyGly_mM"]).to_csv(f, index=False)
     # adsorption isotherms (Langmuir)
@@ -167,7 +167,7 @@ def nmr():
         for ce in [0.5, 1, 2.5, 5, 10, 20, 30, 45]:
             q = qm * K * ce / (1 + K * ce) * (1 + rng.normal(0, 0.03))
             rows.append((s, ce, round(q, 4)))
-    with open(d("Kinetics", "GlyGly_adsorption_RT.csv"), "w") as f:
+    with open(d("Kinetics", "GlyGly_adsorption_RT.csv"), "w", encoding="utf-8") as f:
         f.write(f"# {BANNER}\n# Ce (mM) and qe (umol Gly-Gly per umol MOF)\n")
         pd.DataFrame(rows, columns=["sample", "Ce_mM", "qe_umol_per_umol"]).to_csv(f, index=False)
     # Eyring temperatures
@@ -221,7 +221,7 @@ def sorption():
     # also a CSV version of the parent isotherm
     nm, C, ve, mes = pars["MOF-801(Hf)"]
     qa = iso_model(p_ads, nm, C)
-    with open(d("Sorption", "MOF801_isotherm_plain.csv"), "w") as f:
+    with open(d("Sorption", "MOF801_isotherm_plain.csv"), "w", encoding="utf-8") as f:
         f.write(f"# {BANNER}\nRelative Pressure (P/Po);Quantity Adsorbed (cm³/g STP)\n")
         for a, b in zip(p_ads, qa):
             f.write(f"{a:.6e};{b:.4f}\n".replace(".", ","))  # decimal comma + semicolon (Belgian Excel)
@@ -272,19 +272,19 @@ def tga():
                     f.write(f"{TT:.2f};{(TT-30)/6:.4f};{ww:.5f}\n".replace(".", ","))
         elif s == "Sulfo-MOF-801(Hf)":
             # TA Instruments Universal Analysis text export
-            with open(d("TGA", f"{FILE[s]}_TA_UniversalAnalysis.txt"), "w") as f:
+            with open(d("TGA", f"{FILE[s]}_TA_UniversalAnalysis.txt"), "w", encoding="utf-8") as f:
                 f.write(f"{BANNER}\nInstrument\tTGA Q500 V20.13 Build 39\nSample\t{s}\nSize\t{mass_mg} mg\nRamp 6.00 °C/min to 800.00 °C\n"
                         "Nsig\t3\nSig1\tTime (min)\nSig2\tTemperature (°C)\nSig3\tWeight (mg)\nStartOfData\n")
                 for TT, ww in zip(T, w):
                     f.write(f"{(TT-30)/6:.4f}\t{TT:.3f}\t{ww/100*mass_mg:.5f}\n")
         else:
             # Mettler-Toledo STARe export
-            with open(d("TGA", f"{FILE[s]}_Mettler_STARe.txt"), "w") as f:
+            with open(d("TGA", f"{FILE[s]}_Mettler_STARe.txt"), "w", encoding="utf-8") as f:
                 f.write(f"{BANNER}\nCurve Name:\n  {s} TGA 30-800 6K/min air\nCurve Values:\n   Index             t            Ts            Tr         Value\n"
                         "                   [s]          [°C]          [°C]          [mg]\n")
                 for i, (TT, ww) in enumerate(zip(T, w)):
                     f.write(f"{i:8d}{(TT-30)/6*60:14.2f}{TT:14.3f}{TT+0.5:14.3f}{ww/100*mass_mg:14.6f}\n")
-    with open(d("TGA", "example_design_truth.json"), "w") as f:
+    with open(d("TGA", "example_design_truth.json"), "w", encoding="utf-8") as f:
         json.dump({"note": BANNER + " - the compositions used to generate the TGA curves (for checking the defect calculator)", **meta}, f, indent=1)
     return meta
 
@@ -311,7 +311,7 @@ def icp(meta):
             rows.append({"Sample ID": s, "Analyte Name": f"{el} {line}", "Int (Corr)": round(reps.mean() * 5200, 1),
                          "Conc (Calib)": round(reps.mean(), 4), "Units": "mg/L", "SD": round(reps.std(ddof=1), 4),
                          "%RSD": round(100 * reps.std(ddof=1) / max(reps.mean(), 1e-9), 2), "Date": "11/12/2026"})
-    with open(d("ICP", "ICP-OES_Syngistix_export.csv"), "w") as f:
+    with open(d("ICP", "ICP-OES_Syngistix_export.csv"), "w", encoding="utf-8") as f:
         f.write(f"{BANNER}\nMethod: Zr_Hf_S_digest.mth,Digest 10.0 mg / 50.0 mL\n")
         pd.DataFrame(rows).to_csv(f, index=False)
     # XRF (quantitative report)
@@ -322,7 +322,7 @@ def icp(meta):
                 r = [x for x in pd.read_csv(d("ICP", "ICP-OES_Syngistix_export.csv"), skiprows=2).itertuples() if x[1] == s and x[2].startswith(el)][0]
                 val = r[4] / 2 * (1 + rng.normal(0, 0.04))
             rows.append((s, el, round(val, 3), round(abs(val) * 0.05 + 0.02, 3)))
-    with open(d("XRF", "XRF_quant_report.csv"), "w") as f:
+    with open(d("XRF", "XRF_quant_report.csv"), "w", encoding="utf-8") as f:
         f.write(f"# {BANNER}\n")
         pd.DataFrame(rows, columns=["Sample", "Element", "wt%", "Std. Err."]).to_csv(f, index=False)
     # titration curve (V, pH) for parent MOF (Klet protocol, 50 mg, 0.1 M NaOH)
@@ -333,7 +333,7 @@ def icp(meta):
     def ph(v):
         # three sigmoids
         return 3.0 + 2.4 / (1 + np.exp(-(v - eq[0]) / 0.03)) + 1.6 / (1 + np.exp(-(v - eq[1]) / 0.04)) + 1.5 / (1 + np.exp(-(v - eq[2]) / 0.04)) + 1.8 / (1 + np.exp(-(v - eq[2] - 0.5) / 0.15))
-    with open(d("Titration", "MOF801_titration_NaOH.csv"), "w") as f:
+    with open(d("Titration", "MOF801_titration_NaOH.csv"), "w", encoding="utf-8") as f:
         f.write(f"# {BANNER}\n# 50.0 mg MOF in 60 mL 0.01 M NaNO3, pH 3 with 0.1 M HCl (0.050 mmol HCl added), titrated with 0.1 M NaOH\nV_mL,pH\n")
         for v in V:
             f.write(f"{v:.3f},{ph(v) + rng.normal(0, 0.01):.3f}\n")
@@ -374,10 +374,8 @@ def sem():
         # XL30-style databar (burned in, 64 px)
         bar = Image.new("L", (1280, 64), 0)
         dr = ImageDraw.Draw(bar)
-        try:
-            ft = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 22)
-        except Exception:
-            ft = ImageFont.load_default()
+        from tools.fonts import sans
+        ft = sans(22)
         dr.text((10, 18), f"AccV 5.0 kV  Spot 3.0  Magn {mag}x  Det SE  WD 10.1   EXAMPLE DATA", fill=255, font=ft)
         L_um = 1 if pix_nm < 5 else 5
         px = int(L_um * 1000 / pix_nm)
@@ -397,7 +395,7 @@ def sem():
         counts = rng.poisson(np.where(mask, 6 * frac, 0.4) + (gaussian_filter(rng.random(base.shape), 3) * 3 * (el == "Zr")))
         Image.fromarray(np.clip(counts * 30, 0, 255).astype(np.uint8)).save(d("EDX", f"ZrO2_at_Sulfo-MOF801_EDXmap_{el}.png"))
     Image.fromarray(np.clip(base, 0, 255).astype(np.uint8)).save(d("EDX", "ZrO2_at_Sulfo-MOF801_EDX_SE.png"))
-    with open(d("EDX", "README_EXAMPLE.txt"), "w") as f:
+    with open(d("EDX", "README_EXAMPLE.txt"), "w", encoding="utf-8") as f:
         f.write(BANNER + "\nEDX element maps exported as greyscale PNG (counts), 320 x 256 px, pixel size 25 nm.\n")
 
 
@@ -414,7 +412,7 @@ def sds():
             rows.append({"Lane": lane, "Band No.": b, "Band Label": lab, "Mol. Wt. (KDa)": mw, "Relative Front": round(0.2 + 0.12 * b, 3),
                          "Adj. Volume (Int)": int(pct * 41000), "Volume (Int)": int(pct * 43000), "Band %": round(pct, 2), "Lane %": round(pct * 0.93, 2),
                          "Time (h)": t})
-    with open(d("SDS-PAGE", "ImageLab_LanesAndBands_ZrO2@Sulfo_HEWL_60C.csv"), "w") as f:
+    with open(d("SDS-PAGE", "ImageLab_LanesAndBands_ZrO2@Sulfo_HEWL_60C.csv"), "w", encoding="utf-8") as f:
         f.write(f"{BANNER}\n")
         pd.DataFrame(rows).to_csv(f, index=False)
 
@@ -432,9 +430,9 @@ def zeta():
             for i, (sz, it) in enumerate(zip(sizes, dist), start=1):
                 r[f"Sizes[{i}] (d.nm)"] = round(sz, 3); r[f"Intensities[{i}] (Percent)"] = round(it, 3)
             rows.append(r)
-    with open(d("Zeta-DLS", "Zetasizer_export_pD7.4_D2O.csv"), "w") as f:
+    with open(d("Zeta-DLS", "Zetasizer_export_pD7.4_D2O.csv"), "w", encoding="utf-8") as f:
         pd.DataFrame(rows).to_csv(f, index=False)
-    with open(d("Zeta-DLS", "README_EXAMPLE.txt"), "w") as f:
+    with open(d("Zeta-DLS", "README_EXAMPLE.txt"), "w", encoding="utf-8") as f:
         f.write(BANNER + "\n")
 
 
@@ -446,7 +444,7 @@ def xps():
         hf = (pv(be4f, 17.4 + sh, 1.2, 0.3) + 0.78 * pv(be4f, 19.1 + sh, 1.2, 0.3)) * 5200
         bg = 800 + 20 * (be4f - 10) + 900 / (1 + np.exp(-(be4f - 18) / 0.8))
         y = rng.poisson(hf + bg).astype(float)
-        with open(d("XPS", f"{FILE[s]}_Hf4f_CasaXPS.csv"), "w") as f:
+        with open(d("XPS", f"{FILE[s]}_Hf4f_CasaXPS.csv"), "w", encoding="utf-8") as f:
             f.write(f"# {BANNER}\nBinding Energy (eV),Counts / s\n")
             for a_, b_ in zip(be4f[::-1], y[::-1]):
                 f.write(f"{a_:.2f},{b_:.1f}\n")
@@ -455,7 +453,7 @@ def xps():
             z = (pv(be, 182.5, 1.3, 0.3) + 0.68 * pv(be, 184.9, 1.3, 0.3)) * 2600
             bg = 1500 + 25 * (be - 176) + 700 / (1 + np.exp(-(be - 183) / 1.0))
             y = rng.poisson(z + bg).astype(float)
-            with open(d("XPS", f"{FILE[s]}_Zr3d_CasaXPS.csv"), "w") as f:
+            with open(d("XPS", f"{FILE[s]}_Zr3d_CasaXPS.csv"), "w", encoding="utf-8") as f:
                 f.write(f"# {BANNER}\nBinding Energy (eV),Counts / s\n")
                 for a_, b_ in zip(be[::-1], y[::-1]):
                     f.write(f"{a_:.2f},{b_:.1f}\n")
@@ -467,7 +465,7 @@ def defect_inputs(meta):
     for s, m in meta.items():
         Mrt, M200, Mpl, Mend = composition_masses(m["L"], m["formate"], m["sulfosuccinate"], m["Cl"], m["water"])
         out[s] = m
-    with open(d("Defects", "README_EXAMPLE.txt"), "w") as f:
+    with open(d("Defects", "README_EXAMPLE.txt"), "w", encoding="utf-8") as f:
         f.write(BANNER + "\nLoad 'defect_input_*.json' in the Defect calculator tab (Load JSON).\n")
 
 

@@ -11,7 +11,7 @@
 
 Used by CI for: the run_* scripts (from a folder with a space in its name), `python mfs_launcher.py`, and the built
 Windows / macOS apps. The orchestration needs only the standard library; step 4 runs in --client-python (default: this
-interpreter), which needs streamlit (for its protobuf messages and tornado)."""
+interpreter), which needs streamlit (for its protobuf messages and the websockets client)."""
 from __future__ import annotations
 
 import argparse, json, os, re, signal, subprocess, sys, tempfile, time, urllib.request
@@ -54,25 +54,32 @@ def frontend(port):
 # ----------------------------------------------------------------------------- step 4: one browser-like session
 def session(port, timeout):
     """Connect like the Streamlit frontend, request one script run, collect what the script sent."""
+    # Streamlit >= 1.5x serves through uvicorn/starlette and no longer installs tornado; the `websockets` package is a
+    # Streamlit dependency, so the client uses that.
     import asyncio
-    from tornado.httpclient import HTTPRequest
-    from tornado.websocket import websocket_connect
+    from websockets.asyncio.client import connect
+    from websockets.exceptions import ConnectionClosed
     from streamlit.proto.BackMsg_pb2 import BackMsg
     from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 
     async def go():
-        req = HTTPRequest(f"ws://{HOST}:{port}/_stcore/stream", headers={"Origin": f"http://{HOST}:{port}"})
-        conn = await websocket_connect(req, subprotocols=["streamlit"], max_message_size=1 << 28)
+        conn = await connect(f"ws://{HOST}:{port}/_stcore/stream", origin=f"http://{HOST}:{port}", subprotocols=["streamlit"],
+                             max_size=1 << 28, open_timeout=30)
         back = BackMsg()
         back.rerun_script.SetInParent()
-        await conn.write_message(back.SerializeToString(), binary=True)
+        await conn.send(back.SerializeToString())
         out = {"elements": 0, "kinds": {}, "exceptions": [], "texts": [], "finished": None, "runs": 0}
         t_end = time.time() + timeout
         while time.time() < t_end:
-            raw = await asyncio.wait_for(conn.read_message(), max(1.0, t_end - time.time()))
+            try:
+                raw = await asyncio.wait_for(conn.recv(), max(1.0, t_end - time.time()))
+            except ConnectionClosed:
+                raw = None
             if raw is None:
                 out["finished"] = out["finished"] or "connection closed by the server"
                 break
+            if isinstance(raw, str):
+                continue
             fm = ForwardMsg()
             fm.ParseFromString(raw)
             kind = fm.WhichOneof("type")
@@ -92,7 +99,7 @@ def session(port, timeout):
                 if name != "FINISHED_EARLY_FOR_RERUN":
                     out["finished"] = name
                     break
-        conn.close()
+        await conn.close()
         return out
 
     return asyncio.run(go())

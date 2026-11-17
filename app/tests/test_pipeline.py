@@ -109,7 +109,7 @@ def test_bet_type_ii_reference():
 
 
 def test_tga_plateau_matches_design():
-    truth = json.load(open(ex("TGA/example_design_truth.json")))
+    truth = json.load(open(ex("TGA/example_design_truth.json"), encoding="utf-8"))
     df = R.read_tga(open(ex("TGA/MOF801_Netzsch.txt"), "rb"))
     t = A.tga_analysis(df["T"].values, df.w.values)
     assert 250 < t["T_plateau"] < 480 and t["W_plateau"] > t["W_end"]
@@ -177,7 +177,7 @@ def test_composer_labels():
 # ------------------------------------------------------------------ defect report
 @pytest.mark.parametrize("f", sorted(glob.glob(os.path.join(EX, "Defects", "defect_input_*.json"))))
 def test_defect_report_and_design_recovery(f, tmp_path):
-    inp = REP.input_from_dict(json.load(open(f)))
+    inp = REP.input_from_dict(json.load(open(f, encoding="utf-8")))
     res = D.run_all(inp)
     c = res["consensus"]
     design = {"MOF801": 5.2, "Sulfo-MOF801": 4.7, "ZrO2@Sulfo-MOF801": 4.7}[os.path.basename(f)[13:-5]]
@@ -190,7 +190,7 @@ def test_defect_report_and_design_recovery(f, tmp_path):
 
 def test_every_equation_renders():
     """Every LaTeX equation of every method is converted to matplotlib mathtext for the PDF report."""
-    inp = REP.input_from_dict(json.load(open(ex("Defects", "defect_input_MOF801.json"))))
+    inp = REP.input_from_dict(json.load(open(ex("Defects", "defect_input_MOF801.json"), encoding="utf-8")))
     res = D.run_all(inp)
     eqs = [e for m in res["methods"] for e in m.equations] + list(res["h"]["equations"])
     bad = [e for e in eqs if not REP._render_ok(REP.tex_to_mathtext(e))]

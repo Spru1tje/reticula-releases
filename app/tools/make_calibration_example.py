@@ -14,7 +14,8 @@ body = np.array(Image.fromarray(img).resize((W, H - STRIP), Image.BICUBIC))
 canvas = Image.new("L", (W, H), 0)
 canvas.paste(Image.fromarray(body), (0, 0))
 d = ImageDraw.Draw(canvas)
-font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 24)
+from tools.fonts import sans
+font = sans(24)
 y = H - STRIP + 18
 d.text((14, y), "SEI", fill=255, font=font)
 d.text((90, y), "5.0kV", fill=255, font=font)

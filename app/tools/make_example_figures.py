@@ -217,7 +217,7 @@ def main():
     res_list = []
     for key in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]:
         inp = example_defect_input(key)
-        with open(os.path.join(ED, "Defects", f"defect_input_{key}.json"), "w") as f:
+        with open(os.path.join(ED, "Defects", f"defect_input_{key}.json"), "w", encoding="utf-8") as f:
             json.dump(report.input_to_dict(inp), f, indent=1)
         res = D.run_all(inp)
         res_list.append(res)
@@ -235,7 +235,7 @@ def main():
 
 def example_defect_input(key):
     """Build calculator inputs FROM THE EXAMPLE FILES (TGA trace, NMR digest, ICP), like a user would."""
-    truth = json.load(open(os.path.join(ED, "TGA", "example_design_truth.json")))
+    truth = json.load(open(os.path.join(ED, "TGA", "example_design_truth.json"), encoding="utf-8"))
     nm = {"MOF801": "MOF-801(Hf)", "Sulfo-MOF801": "Sulfo-MOF-801(Hf)", "ZrO2@Sulfo-MOF801": "ZrO2@Sulfo-MOF-801(Hf)"}[key]
     tfile = {"MOF801": "MOF801_Netzsch.txt", "Sulfo-MOF801": "Sulfo-MOF801_TA_UniversalAnalysis.txt", "ZrO2@Sulfo-MOF801": "ZrO2@Sulfo-MOF801_Mettler_STARe.txt"}[key]
     t = R.read_tga(os.path.join(ED, "TGA", tfile)); ta = A.tga_analysis(t["T"], t["w"])
@@ -309,20 +309,18 @@ def v2_demos():
                                   {"label": "desorption", "text": "des. (open)", "show": True}])
     F.apply(f2, cfg)
     p1 = save(f1, "17a_default", ("png",))[0]; p2 = save(f2, "17b_custom", ("png",))[0]
-    with open(os.path.join(OUT, "17_custom_settings.json"), "w") as fh:
+    with open(os.path.join(OUT, "17_custom_settings.json"), "w", encoding="utf-8") as fh:
         fh.write(F.to_json(cfg))
     A_, B_ = Image.open(p1).convert("RGB"), Image.open(p2).convert("RGB")
     h = max(A_.height, B_.height) + 90
     G = Image.new("RGB", (A_.width + B_.width + 80, h), "white")
     G.paste(A_, (20, 90 + (h - 90 - A_.height) // 2)); G.paste(B_, (A_.width + 60, 90 + (h - 90 - B_.height) // 2))
     dr = ImageDraw.Draw(G)
-    try:
-        fnt = ImageFont.truetype("LiberationSans-Bold.ttf", 44)
-    except Exception:
-        fnt = ImageFont.load_default()
+    from tools.fonts import sans                  # Liberation on Linux, Arial on Windows, Helvetica on macOS
+    fnt = sans(44, bold=True)
     dr.text((30, 20), "default (v2)", fill="black", font=fnt)
     dr.text((A_.width + 70, 20), "customised: title, mmol/g, ticks out (2 sides), increments, legend outside top",
-            fill="black", font=ImageFont.truetype("LiberationSans-Regular.ttf", 40) if fnt is not None else None)
+            fill="black", font=sans(40))
     G.save(os.path.join(OUT, "17_custom_ticks_legend.png"), dpi=(600, 600))
     os.remove(p1); os.remove(p2); written.remove(p1); written.remove(p2)
     written.append(os.path.join(OUT, "17_custom_ticks_legend.png"))

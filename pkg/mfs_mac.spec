@@ -12,7 +12,7 @@ VERSION = re.search(r'__version__\s*=\s*"([^"]+)"', (APP / "mfs" / "__init__.py"
 ICON = ROOT / "reticula.icns"                              # made by pkg/make_icns.sh
 TESS = ROOT / "tesseract"                                  # made by pkg/bundle_tesseract.sh
 
-datas = [(str(APP), "app")]
+datas = SC.app_datas(APP)
 if ICON.is_file():
     datas.append((str(ICON), "."))
 if TESS.is_dir():

@@ -31,6 +31,18 @@ Built by Stijn Germonpré.
 - One cross-platform launcher; Windows installer and macOS dmg are built by GitHub Actions on a tag (tests → build → self-test of the built app → release).
 - The scheduled 30-minute macOS retry workflow is gone.
 
+### Fixes before release
+- ¹H NMR page: just opening it no longer counts as an "unsaved change" (the structure editor echoed the structure back as a
+  molfile), so switching to another page no longer stops at the *Unsaved work* dialog. Home tile and dialog use the label "¹H NMR".
+- Windows: text files (impurity table, example structures, defect inputs, tool scripts) are read and written as UTF-8 instead of
+  the system code page (cp1252 broke on characters such as ⁻).
+- Windows build: PyInstaller with Python 3.12.0 breaks scipy.stats in the frozen app (15 of 40 self-tests failed); the spec now
+  refuses 3.12.0. Inno Setup script saved with a UTF-8 BOM again (author name). Only the program files go into the build
+  (no tests, tools, .venv or exports from a developer folder).
+- Example-figure scripts find a sans-serif font on Windows and macOS too (were Linux-only paths).
+- Tests: private-data skip also matches `MOF801SGA2_TriStar_full_report_REAL.xls`; start-up smoke test talks to Streamlit 1.67
+  with `websockets` (tornado is no longer installed by Streamlit).
+
 ## 2.12.0 — 2026-11-16
 
 Built by Stijn Germonpré.

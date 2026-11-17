@@ -110,7 +110,7 @@ def test_defect_methods_pure_regression():
     import glob, numpy as np
     base = json.load(open(os.path.join(HERE, "tests", "data", "defect_baseline_v28.json"), encoding="utf-8"))
     for p in sorted(glob.glob(os.path.join(HERE, "example_data", "Defects", "defect_input_*.json"))):
-        t = D.results_table(D.run_all(REP.input_from_dict(json.load(open(p)))))
+        t = D.results_table(D.run_all(REP.input_from_dict(json.load(open(p, encoding="utf-8")))))
         ref = base[os.path.basename(p)]
         assert len(t) == len(ref)
         for (_, r), rr in zip(t.iterrows(), ref):

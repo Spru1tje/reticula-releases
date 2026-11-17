@@ -125,8 +125,8 @@ def _real():
 
 
 def _eval(lab, info, f=1):
-    ref = json.load(open(os.path.join(D, "TEM_MOF801_user5_reference.json")))
-    boxes = json.load(open(os.path.join(D, "TEM_MOF801_user5_dense_boxes.json")))
+    ref = json.load(open(os.path.join(D, "TEM_MOF801_user5_reference.json"), encoding="utf-8"))
+    boxes = json.load(open(os.path.join(D, "TEM_MOF801_user5_dense_boxes.json"), encoding="utf-8"))
     inb = lambda x, y: any(a <= x <= c and b <= y <= d for a, b, c, d in boxes)
     ref = [p for p in ref if not inb(*p)]
     inc = {k for k, v in info.items() if isinstance(k, int) and v.get("kind") != "aggregate"}

@@ -135,7 +135,7 @@ def stop_old_instances(log=print):
     listening on 8501-8510: stop it, so the browser never talks to an old frontend. Other programs are left alone."""
     try:
         if os.path.exists(PIDFILE):
-            pid = int(open(PIDFILE).read().split()[0])
+            pid = int(open(PIDFILE, encoding="utf-8").read().split()[0])
             if pid != os.getpid() and _kill_pid(pid):
                 log(f"stopped a previous Reticula server (PID {pid})")
             os.remove(PIDFILE)
@@ -351,7 +351,7 @@ def serve(port, ppid):
         threading.Thread(target=watch_parent, args=(ppid,), daemon=True).start()
     fix_mimetypes()
     try:
-        open(PIDFILE, "w").write(f"{os.getpid()} {port} {app_version()}")
+        open(PIDFILE, "w", encoding="utf-8").write(f"{os.getpid()} {port} {app_version()}")
     except Exception:
         pass
     for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
@@ -406,7 +406,7 @@ def main():
           [sys.executable, os.path.abspath(__file__), "--serve", str(port), str(os.getpid())]
     flags = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
     try:                      # the loading screen reads this log: never show the previous start's lines
-        open(LOG, "w").close()
+        open(LOG, "w", encoding="utf-8").close()
     except Exception:
         pass
     child = subprocess.Popen(cmd, creationflags=flags, stdin=subprocess.DEVNULL,
@@ -416,7 +416,7 @@ def main():
     splash = Splash(ver, LOG)
     if os.environ.get("MFS_SPLASH_FILE"):          # tests: where the loading page is
         try:
-            open(os.environ["MFS_SPLASH_FILE"], "w").write(f"{splash.url}\n{base_url}\n")
+            open(os.environ["MFS_SPLASH_FILE"], "w", encoding="utf-8").write(f"{splash.url}\n{base_url}\n")
         except Exception:
             pass
     no_gui = os.environ.get("MFS_NO_GUI") == "1"

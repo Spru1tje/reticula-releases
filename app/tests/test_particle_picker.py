@@ -46,7 +46,7 @@ def test_exclusions_drive_stats_store_and_survive_navigation(tmp_path, monkeypat
     assert xk in at.session_state, "exclusion key"
     ex0 = list(at.session_state[xk])
     # exclude two more particles (what two clicks in the picker send back)
-    sem = json.load(open(tmp_path / "store.json"))
+    sem = json.load(open(tmp_path / "store.json", encoding="utf-8"))
     ids = list(at.session_state["_ps_ids"].values())[0]
     inc = [i for i in ids if i not in ex0]
     at.session_state[xk] = sorted(set(ex0) | set(inc[:2]))
@@ -55,7 +55,7 @@ def test_exclusions_drive_stats_store_and_survive_navigation(tmp_path, monkeypat
     assert n1 == n0 - 2, (n0, n1)
     df = next(d.value for d in at.dataframe if "n" in d.value.columns)
     assert int(df["n"].iloc[0]) == n1                       # the summary table (and every export built from df) uses only included
-    store = json.load(open(tmp_path / "store.json"))
+    store = json.load(open(tmp_path / "store.json", encoding="utf-8"))
     sem = next(v for v in store.values() if "sem" in v.get("sections", v))
     sec = sem.get("sections", sem)["sem"]
     vals = sec.get("values", sec)

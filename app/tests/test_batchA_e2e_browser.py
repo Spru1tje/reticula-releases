@@ -19,7 +19,7 @@ def _shot(pg, name):
 
 def _log(s):
     if os.environ.get("MFS_E2E_LOG"):
-        with open(os.environ["MFS_E2E_LOG"], "a") as fh:
+        with open(os.environ["MFS_E2E_LOG"], "a", encoding="utf-8") as fh:
             fh.write(s + "\n")
 
 
