@@ -1,4 +1,6 @@
 name: tests
+# Blocking tests (Linux + Windows). macOS and the real-browser tests are in ci-extra.yml: they must not hold up a release when
+# GitHub has no macOS runner free.
 
 on:
   push:
@@ -25,7 +27,6 @@ jobs:
           - {os: ubuntu-latest, python: "3.11"}
           - {os: ubuntu-latest, python: "3.13"}
           - {os: windows-latest, python: "3.12"}
-          - {os: macos-latest, python: "3.12"}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -76,7 +77,6 @@ jobs:
           - {os: windows-latest, python: "3.12"}
           - {os: windows-latest, python: "3.13"}
           - {os: windows-latest, python: "3.14", experimental: true}
-          - {os: macos-latest, python: "3.12"}
           - {os: ubuntu-latest, python: "3.12"}
     steps:
       - uses: actions/checkout@v4
@@ -124,25 +124,3 @@ jobs:
       - name: Desktop launcher from source (python mfs_launcher.py)
         shell: bash
         run: python pkg/smoke_server.py --timeout 300 --client-python "$RT_VPY" --cwd "$RT_DIR" -- "$RT_VPY" mfs_launcher.py
-
-  browser:
-    name: real-browser tests (Playwright)
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    continue-on-error: true       # slower and more sensitive to the runner; does not block a release
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: |
-            app/requirements.txt
-            requirements-dev.txt
-      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
-      - run: pip install -r requirements-dev.txt && python -m playwright install --with-deps chromium
-      - name: Test
-        working-directory: app
-        env:
-          MFS_NO_UPDATE_CHECK: "1"
-        run: python -m pytest -q -p no:cacheprovider tests/test_downloads_browser.py $(ls tests/*_e2e_browser.py)

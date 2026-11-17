@@ -2,8 +2,10 @@ name: release
 
 # Publish a release:   git tag v2.13.0 && git push origin v2.13.0
 # (or Actions -> release -> Run workflow, with the tag). The tag must match __version__ in app/mfs/__init__.py.
-# 1. the tests run   2. Windows installer + macOS (Apple Silicon) dmg are built and self-tested   3. a GitHub release is created.
-# A job that waits for a runner simply queues; there is nothing to schedule or retry.
+# 1. the tests run (Linux + Windows)   2. the Windows installer is built and self-tested   3. the release is created with the Windows installer,
+#    SHA256SUMS and the Mac build kit (source + build_mac.command, see BUILD_ON_MAC.txt).
+# The macOS (Apple Silicon) dmg is built in parallel and attached to the SAME release as soon as GitHub gives the job a runner - the release
+# does not wait for it (runners were often unavailable). Without a runner: build it on any Mac with the kit.
 
 on:
   push:
@@ -153,7 +155,7 @@ jobs:
             selftest_pretty.txt
 
   publish:
-    needs: [prepare, windows, macos]
+    needs: [prepare, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -170,13 +172,39 @@ jobs:
         run: |
           set -euo pipefail
           cd assets
-          cat windows/Reticula_Setup_SHA256.txt macos/*.sha256 > SHA256SUMS.txt
+          cat windows/Reticula_Setup_SHA256.txt > SHA256SUMS.txt
           cp ../pkg/README_macOS.txt README_macOS.txt
           cd ..
-          FILES=(assets/windows/Reticula_Setup_${VER}.exe assets/macos/Reticula_${VER}_macOS_*.dmg assets/SHA256SUMS.txt assets/README_macOS.txt)
+          KIT="Reticula_${VER}_mac_build_kit.zip"
+          git archive --format=zip --prefix="Reticula_${VER}_mac_build_kit/" -o "assets/$KIT" HEAD
+          (cd assets && sha256sum "$KIT" >> SHA256SUMS.txt)
+          FILES=(assets/windows/Reticula_Setup_${VER}.exe assets/SHA256SUMS.txt assets/README_macOS.txt "assets/$KIT")
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${FILES[@]}" --clobber
             gh release edit "$TAG" --title "Reticula ${VER}" --notes-file "RELEASE_NOTES_v${VER}.md"
           else
             gh release create "$TAG" "${FILES[@]}" --title "Reticula ${VER}" --notes-file "RELEASE_NOTES_v${VER}.md"
           fi
+
+  publish-macos:
+    # Attaches the Apple-Silicon dmg to the release when (and if) the macOS job gets a runner and succeeds.
+    needs: [prepare, publish, macos]
+    if: ${{ always() && needs.publish.result == 'success' && needs.macos.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: assets-mac
+      - name: Attach the dmg and update SHA256SUMS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VER: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir . --clobber
+          grep -v "_macOS_" SHA256SUMS.txt > SHA256SUMS.new || true
+          cat assets-mac/*.sha256 >> SHA256SUMS.new
+          mv SHA256SUMS.new SHA256SUMS.txt
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" assets-mac/Reticula_${VER}_macOS_*.dmg SHA256SUMS.txt --clobber

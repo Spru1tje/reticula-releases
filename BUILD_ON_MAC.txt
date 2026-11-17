@@ -1,0 +1,50 @@
+Build Reticula on your Mac  (about 30 minutes, almost nothing to type)
+=====================================================================
+
+You get:  Reticula_<version>_macOS_arm64.dmg  - the installer for Apple-Silicon Macs (M1, M2, M3, M4).
+Use this when the .dmg is not on the GitHub release (yet). Nederlandse versie: BUILD_ON_MAC_NL.txt
+
+WHAT YOU NEED
+  - A Mac with Apple Silicon (M1 or newer), macOS 13 or newer.   (Intel Macs: the build should work but is untested.)
+  - Internet (the first time), about 6 GB free disk space, 20-40 minutes.
+  - Python 3.12 with Tcl/Tk. If it is missing the script offers to install it from python.org (asks for your Mac password).
+  - Optional: Homebrew (https://brew.sh). With it the script also installs Tesseract, which reads the scale bars of SEM images.
+    Without Homebrew the build works, only that one feature is missing.
+
+STEPS
+ 1. Download the kit: on https://github.com/Spru1tje/reticula-releases/releases  take  Reticula_<version>_mac_build_kit.zip
+    (or the "Source code (zip)" of the release). Double-click the zip to unpack it.
+ 2. Open the unpacked folder in Finder.
+ 3. Double-click  build_mac.command.
+      - macOS may say it cannot open it ("unidentified developer"): right-click build_mac.command -> Open -> Open.
+      - Still blocked?  Open Terminal and run:   xattr -dr com.apple.quarantine "<drag the folder here>"
+        then:   bash "<folder>/build_mac.command"
+ 4. A Terminal window opens and works through everything by itself. Do not close it. The steps:
+      Python check -> packages -> icon -> PyInstaller (10-20 min) -> self-test of the built app -> disk image.
+    It may ask  "Install Python 3.12 from python.org now? [y/N]"  (answer y if you do not have Python 3.12) and your Mac password.
+ 5. At the end it prints  DONE.  and the path of the .dmg (in the same folder), e.g.
+      Reticula_2.13.0_macOS_arm64.dmg
+    plus "Self-test: all checks ok".
+ 6. Install: open the .dmg and drag Reticula to Applications.
+    First start: right-click Reticula -> Open -> Open (the app is unsigned). If macOS says it is "damaged":
+      xattr -cr /Applications/Reticula.app
+
+SHARING THE RESULT
+  Send the .dmg (and the .dmg.sha256 file next to it) to the developer, or attach it to the GitHub release (Releases -> the version ->
+  Edit -> drag the .dmg in).  The sha256 file lets others check that the download is intact:   shasum -a 256 -c Reticula_*.dmg.sha256
+
+IF SOMETHING GOES WRONG
+  - The whole output is saved in build_mac.log in the same folder. Send that file; the last 50 lines are usually enough.
+  - "Self-test: SOME CHECKS FAILED": the .dmg is still made. A failing "sem_ocr" check only means Tesseract was not installed.
+  - Run it again: the script continues quickly (the .venv-build folder is reused). To start completely clean, delete the folders
+    .venv-build, build and dist first.
+  - The folder name may contain spaces - that is fine.
+  - Where the app keeps your data:   ~/Library/Application Support/Reticula/
+  - Removing the build tools afterwards:  delete the unpacked folder (everything the build made is inside it, except Python/Homebrew).
+
+WHAT THE SCRIPT DOES (pkg/build_mac.sh)
+  Looks for Python 3.11-3.13 with Tcl/Tk (3.12.0 itself is refused: it breaks the packaged scipy), makes a virtual environment .venv-build,
+  installs requirements-build.txt, converts the icon, bundles Tesseract if present, runs PyInstaller (pkg/mfs_mac.spec) to make
+  dist/Reticula.app, signs it ad hoc, runs the app's own self-test (reticula --selftest), and packs the .dmg with README_macOS.txt.
+
+Built by Stijn Germonpre   -   https://github.com/Spru1tje/reticula-releases

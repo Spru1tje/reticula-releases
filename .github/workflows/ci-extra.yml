@@ -1,0 +1,139 @@
+name: tests-extra
+# macOS tests + real-browser tests. Informational: the release does not wait for these (ci.yml is the blocking set).
+
+on:
+  push:
+    branches: [main, "fix/**"]
+    paths-ignore: ["**.md", "LICENSE"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-extra-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-and-app:
+    name: pytest (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-latest, python: "3.12"}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            app/requirements.txt
+            requirements-dev.txt
+      - name: Tesseract (scale-bar OCR tests)
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Linux)   sudo apt-get update && sudo apt-get install -y tesseract-ocr ;;
+            macOS)   brew install tesseract ;;
+            Windows) choco install tesseract --no-progress -y ;;
+          esac
+      - name: Install
+        run: pip install -r requirements-dev.txt
+      - name: Test
+        working-directory: app
+        shell: bash
+        env:
+          MFS_NO_UPDATE_CHECK: "1"
+          PYTHONUTF8: "0"          # keep the Windows default (cp1252) so encoding mistakes show up here, not at a user's PC
+        run: |
+          python -m pytest -q -p no:cacheprovider \
+            --ignore-glob='tests/*_e2e_browser.py' --ignore=tests/test_downloads_browser.py \
+            --junitxml=../test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}-py${{ matrix.python }}
+          path: test-results.xml
+
+  start:
+    # Starts Reticula exactly like a user does (run script -> own .venv -> server), from a folder with a space in its
+    # name, then opens a browser-like session and fails if the app script raises. See pkg/smoke_server.py.
+    name: start from source (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    continue-on-error: ${{ matrix.experimental || false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-latest, python: "3.12"}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Copy to a folder with a space in its name
+        shell: bash
+        run: |
+          python - <<'EOF'
+          import os, shutil
+          dst = os.path.join(os.environ["RUNNER_TEMP"], "my data", "Reticula v2.13")
+          shutil.copytree(os.environ["GITHUB_WORKSPACE"], dst, ignore=shutil.ignore_patterns(".git"))
+          sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
+          with open(os.environ["GITHUB_ENV"], "a") as fh:
+              fh.write(f"RT_DIR={dst}\nRT_VPY={os.path.join(dst, 'app', '.venv', *sub)}\n")
+          EOF
+      - name: First start with the run script (creates .venv, installs, starts)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RETICULA_PY: ${{ matrix.python }}
+        run: python pkg/smoke_server.py --timeout 1500 --client-python "$env:RT_VPY" -- cmd /c "$env:RT_DIR\app\run_windows.bat"
+      - name: First start with the run script (creates .venv, installs, starts)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          PYTHON: python
+        run: |
+          s=run_linux.sh; [ "$RUNNER_OS" = macOS ] && s=run_mac.command
+          python pkg/smoke_server.py --timeout 1500 --client-python "$RT_VPY" -- bash "$RT_DIR/app/$s"
+      - name: Second start with the run script
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: python pkg/smoke_server.py --timeout 300 --client-python "$env:RT_VPY" -- cmd /c "$env:RT_DIR\app\run_windows.bat"
+      - name: Second start with the run script
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          s=run_linux.sh; [ "$RUNNER_OS" = macOS ] && s=run_mac.command
+          python pkg/smoke_server.py --timeout 300 --client-python "$RT_VPY" -- bash "$RT_DIR/app/$s"
+      - name: Plain "streamlit run app.py"
+        shell: bash
+        run: python pkg/smoke_server.py --timeout 300 --client-python "$RT_VPY" --cwd "$RT_DIR/app" -- "$RT_VPY" -m streamlit run app.py --server.headless true
+      - name: Desktop launcher from source (python mfs_launcher.py)
+        shell: bash
+        run: python pkg/smoke_server.py --timeout 300 --client-python "$RT_VPY" --cwd "$RT_DIR" -- "$RT_VPY" mfs_launcher.py
+
+  browser:
+    name: real-browser tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true       # slower and more sensitive to the runner; does not block a release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            app/requirements.txt
+            requirements-dev.txt
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - run: pip install -r requirements-dev.txt && python -m playwright install --with-deps chromium
+      - name: Test
+        working-directory: app
+        env:
+          MFS_NO_UPDATE_CHECK: "1"
+        run: python -m pytest -q -p no:cacheprovider tests/test_downloads_browser.py $(ls tests/*_e2e_browser.py)

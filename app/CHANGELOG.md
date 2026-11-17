@@ -29,7 +29,7 @@ Built by Stijn Germonpré.
 ### Code and build
 - `app.py` (3,800 lines) split: the page code now lives in `mfs/pages/*.py`, moved verbatim; tests check that every name a page takes from the app is declared.
 - One cross-platform launcher; Windows installer and macOS dmg are built by GitHub Actions on a tag (tests → build → self-test of the built app → release).
-- The scheduled 30-minute macOS retry workflow is gone.
+- The scheduled 30-minute macOS retry workflow is gone. The release no longer waits for a macOS runner: the Windows installer is published first and the macOS `.dmg` is attached later; a Mac build kit (`build_mac.command`, `BUILD_ON_MAC.txt`) is part of every release.
 
 ### Fixes before release
 - ¹H NMR page: just opening it no longer counts as an "unsaved change" (the structure editor echoed the structure back as a
