@@ -2,7 +2,7 @@
 
 **Downloads**
 - Windows 10/11: `Reticula_Setup_2.13.0.exe` (not code-signed - SmartScreen: *More info* → *Run anyway*)
-- macOS, Apple Silicon: `Reticula_2.13.0_macOS_arm64.dmg` (not notarised - first start: right-click → *Open*; see `README_macOS.txt`)
+- macOS, Apple Silicon: `Reticula_2.13.0_macOS_arm64.dmg` (not notarised - first start: right-click → *Open*; see `README_macOS.txt`). GitHub often has no free macOS runner: the `.dmg` is attached to this release as soon as one is available. **Not there yet? Build it yourself in ± 30 minutes:** download `Reticula_2.13.0_mac_build_kit.zip`, double-click `build_mac.command` (instructions: `BUILD_ON_MAC.txt`, Nederlands: `BUILD_ON_MAC_NL.txt`).
 - `SHA256SUMS.txt` to verify the downloads. Everything else: run from source (see the README).
 
 **New**
