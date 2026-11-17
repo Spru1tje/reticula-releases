@@ -101,7 +101,11 @@ def test_v211_sample_list_toggle_reorder_rename(gurl):
         # shift-click range: hide 1st..3rd (click 1st unchecks it, shift-click 3rd unchecks range)
         fr.locator("input[type=checkbox]").nth(0).click(); pg.wait_for_timeout(150)
         fr.locator("input[type=checkbox]").nth(2).click(modifiers=["Shift"])
-        c2 = _wait_caption_change(pg, c1)
+        for _ in range(60):                                   # wait for the FINAL state (the first click already changes the caption)
+            c2 = _order_caption(pg)
+            if f"{n_all - 3} of {n_all} shown" in c2:
+                break
+            pg.wait_for_timeout(250)
         assert f"{n_all - 3} of {n_all} shown" in c2, c2
         fr.get_by_role("button", name="All").click()
         c3 = _wait_caption_change(pg, c2)

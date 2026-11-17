@@ -32,7 +32,7 @@
      "S_ext": 25.236259861125152
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T23:32:00"
+    "updated": "2026-11-18T00:28:47"
    }
   }
  },
@@ -52,7 +52,7 @@
      "S_ext": 41.087791611216176
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T23:32:00"
+    "updated": "2026-11-18T00:28:47"
    },
    "tga": {
     "values": {
@@ -68,7 +68,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T23:32:19"
+    "updated": "2026-11-18T00:31:10"
    },
    "dsc": {
     "values": {
@@ -89,7 +89,7 @@
      "label": "MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T23:34:02"
+    "updated": "2026-11-18T00:30:08"
    },
    "icp": {
     "values": {
@@ -144,7 +144,7 @@
      "S_ext": 36.51588069459394
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T23:32:00"
+    "updated": "2026-11-18T00:28:47"
    },
    "kinetics": {
     "values": {
@@ -157,7 +157,7 @@
      "label": "PM"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T23:34:02"
+    "updated": "2026-11-18T00:30:08"
    },
    "icp": {
     "values": {
@@ -204,7 +204,7 @@
      "S_ext": 38.483724927891984
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T23:32:00"
+    "updated": "2026-11-18T00:28:47"
    },
    "tga": {
     "values": {
@@ -220,7 +220,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T23:32:19"
+    "updated": "2026-11-18T00:31:10"
    },
    "kinetics": {
     "values": {
@@ -233,7 +233,7 @@
      "label": "Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T23:34:02"
+    "updated": "2026-11-18T00:30:08"
    },
    "icp": {
     "values": {
@@ -288,7 +288,7 @@
      "S_ext": 45.5987139873979
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T23:32:00"
+    "updated": "2026-11-18T00:28:47"
    },
    "tga": {
     "values": {
@@ -304,7 +304,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T23:32:19"
+    "updated": "2026-11-18T00:31:10"
    },
    "kinetics": {
     "values": {
@@ -317,7 +317,7 @@
      "label": "ZrO2@Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T23:34:02"
+    "updated": "2026-11-18T00:30:08"
    },
    "icp": {
     "values": {
@@ -372,7 +372,7 @@
      "S_ext": 74.37863399132486
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T23:32:00"
+    "updated": "2026-11-18T00:28:47"
    },
    "kinetics": {
     "values": {
@@ -385,7 +385,7 @@
      "label": "ZrO2"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T23:34:02"
+    "updated": "2026-11-18T00:30:08"
    },
    "icp": {
     "values": {
@@ -430,7 +430,7 @@
      "label": "Blank (no catalyst)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-17T23:34:02"
+    "updated": "2026-11-18T00:30:08"
    }
   }
  },

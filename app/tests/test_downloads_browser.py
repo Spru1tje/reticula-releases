@@ -95,10 +95,10 @@ def test_composer_and_save_to_folder(server, tmp_path):
         pg.get_by_role("button", name="💾 Save to folder").first.click(); pg.wait_for_timeout(8000)
         assert os.path.exists(os.path.join(exp, "PXRD.png")) and os.path.exists(os.path.join(exp, "PXRD.pdf"))
         assert pg.get_by_text("Saved:", exact=False).count() >= 1
-        pg.get_by_role("button", name="➕ Add this panel to the figure composer").first.click(); pg.wait_for_timeout(5000)
+        pg.get_by_role("button", name="🧩 Add to combined figure").first.click(); pg.wait_for_timeout(5000)
         _nav(pg, "TGA"); pg.wait_for_timeout(8000)
-        pg.get_by_role("button", name="➕ Add this panel to the figure composer").first.click(); pg.wait_for_timeout(5000)
-        _nav(pg, "Figure composer"); pg.wait_for_timeout(9000)
+        pg.get_by_role("button", name="🧩 Add to combined figure").first.click(); pg.wait_for_timeout(5000)
+        _nav(pg, "Combined figure"); pg.wait_for_timeout(9000)
         btns = pg.locator("[data-testid='stDownloadButton'] button:visible")
         assert btns.count() >= 5
         for i in range(btns.count()):

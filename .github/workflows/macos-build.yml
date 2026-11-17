@@ -79,6 +79,6 @@ jobs:
           set -euo pipefail
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt --dir . --clobber
           grep -v "_macOS_" SHA256SUMS.txt > SHA256SUMS.new || true
-          cat Reticula_*_macOS_*.dmg.sha256 >> SHA256SUMS.new
+          cat Reticula_*_macOS_*.dmg.sha256 | sed -E "s#  .*/#  #" >> SHA256SUMS.new
           mv SHA256SUMS.new SHA256SUMS.txt
           gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" Reticula_*_macOS_*.dmg SHA256SUMS.txt --clobber
