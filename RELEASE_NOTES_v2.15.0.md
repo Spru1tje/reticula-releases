@@ -15,4 +15,8 @@
 - **Photoluminescence thermometry**: robust automatic global fit of the band ratio (overlapping, dirty or doubled bands), errors and quality flags, ranges selectable on the graph.
 - **FTIR / Raman**: band assignment from an editable list, multi-band fit. **XPS**: batch fit of all spectra. **Particle sizer**: sizing templates per sample type and a confidence bar. **¹H NMR**: linker / modulator library with molar ratios.
 
+**New and not yet seen on many real files** – please report anything that looks wrong: nmrML import, the proton chips next to the structure in the ¹H NMR assignment, range selection on the PL graph, the automatic spacing of the combined figure.
+
+**Next version (2.16)**: one project per material, more photoluminescence tools (calibration, repeat-based σT, power dependence, CIE colour), Rietveld preferred orientation.
+
 Full list: `app/CHANGELOG.md`.
