@@ -844,19 +844,32 @@ def _zeta_dts(raw: bytes):
         nm = next((s_.strip() for s_ in strs if re.fullmatch(r".+ \d+\s*", s_) and not s_.startswith("C:")), f"record {int(n[3:])}")
         verified = bool(strs) and strs[0].strip().startswith(DTS_VERIFIED_VERSION)        # only the software version that was checked against the instrument
         za, pd_ = _dts_cumulants(d) if verified else (float("nan"), float("nan"))
-        summ.append({"sample": nm, "z_avg": za, "pdi": pd_, "zeta": np.nan, "zeta_sd": np.nan})
-        rows += [(nm, float(a), float(b), np.nan, np.nan) for a, b in zip(sizes, inten)]
+        mm = re.fullmatch(r"(.*\S)\s+(\d+)", nm)                      # 'ZrO2-aliquot2 3' = sample 'ZrO2-aliquot2', run 3
+        base, run = (mm.group(1), int(mm.group(2))) if mm else (nm, len(summ) + 1)
+        k_rec = len(summ)
+        summ.append({"sample": base, "run": run, "rec": k_rec, "z_avg": za, "pdi": pd_, "zeta": np.nan, "zeta_sd": np.nan})
+        rows += [(base, float(a), float(b), np.nan, np.nan, k_rec) for a, b in zip(sizes, inten)]
     if not summ:
         return None
     sm = pd.DataFrame(summ)
     if sm["z_avg"].isna().all():
-        return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number"]),
+        return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number", "rec"]),
                 "note": "From this .dts file: sample names and the intensity size distribution. Z-average and PDI are only calculated for files of Zetasizer software "
                         f"version {DTS_VERIFIED_VERSION} (the version they were checked on); for other versions, and for ζ, use the Excel / CSV export."}
-    return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number"]),
+    return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number", "rec"]),
             "note": "From this .dts file: sample names, the intensity size distribution, and Z-average and PDI **calculated from the stored correlation "
                     "function** (cumulant analysis, ISO 22412, with the angle, wavelength, refractive index, viscosity and temperature of the record). "
                     "The ζ-potential is not in size records – export it from the Zetasizer software (File → Export → Excel / CSV)."}
+
+
+def select_records(z: dict, keep) -> dict:
+    """The same result with only the records whose number (column 'rec') is in `keep` - the means over a sample then follow."""
+    keep = set(int(k) for k in keep)
+    out = dict(z)
+    out["summary"] = z["summary"][z["summary"]["rec"].isin(keep)].reset_index(drop=True)
+    if z.get("dist") is not None:
+        out["dist"] = z["dist"][z["dist"]["rec"].isin(keep)].reset_index(drop=True)
+    return out
 
 
 def read_zetasizer(src, name: str = ""):
@@ -882,6 +895,7 @@ def read_zetasizer(src, name: str = ""):
     zp = find_col(df, r"zeta\s*potential\s*\(mv\)$|zeta\s*potential(?!.*(sd|dev))|^zeta\s*\(mv\)")
     zsd = find_col(df, r"zeta.*(sd|dev)")
     summ = pd.DataFrame({"sample": df[sn].astype(str) if sn else [f"S{i+1}" for i in range(len(df))]})
+    summ["rec"] = np.arange(len(summ))                      # v2.14: record number, to select / deselect single runs
     for key, col in [("z_avg", za), ("pdi", pdi), ("zeta", zp), ("zeta_sd", zsd)]:
         summ[key] = pd.to_numeric(df[col], errors="coerce") if col else np.nan
     def _bins(pattern):                           # {bin number: column} for Sizes[k] / Intensities[k] / Volumes[k] / Numbers[k]
@@ -899,8 +913,8 @@ def read_zetasizer(src, name: str = ""):
         num = lambda row, cols, k: float(row[cols[k]]) if k in cols and pd.notna(row[cols[k]]) else np.nan
         for i, row in df.iterrows():
             for k in sorted(set(sizes) & set(ints)):
-                recs.append((summ["sample"].iloc[i], float(row[sizes[k]]), float(row[ints[k]]), num(row, vols, k), num(row, nums, k)))
-        dist = pd.DataFrame(recs, columns=["sample", "size_nm", "intensity", "volume", "number"])
+                recs.append((summ["sample"].iloc[i], float(row[sizes[k]]), float(row[ints[k]]), num(row, vols, k), num(row, nums, k), i))
+        dist = pd.DataFrame(recs, columns=["sample", "size_nm", "intensity", "volume", "number", "rec"])
     return {"summary": summ, "dist": dist}
 
 

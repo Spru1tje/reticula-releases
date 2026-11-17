@@ -19,6 +19,7 @@
 - Analysis: ¹³C satellites are recognised, nH ± uncertainty, a flag for integrals that are not integers (overlap / exchange), and a reliability column in the assignment table (ok / check / ambiguous / doubtful).
 
 ### Zeta / DLS
+- **Runs can be switched off**: a table of all records (runs) with a tick per run; the averages (Z-average, PDI, ζ) and the graphs follow. `.dts` names like `Sample 3` become sample `Sample` + run 3.
 - Excel (.xlsx / .xls) exports as well as CSV, and `.dts` files (sample names, intensity size distribution, and Z-average / PDI calculated from the stored correlation function – checked on Zetasizer software 7.11; ζ needs the Excel / CSV export); volume and number distributions; Z-average, PDI and ζ as movable texts in the DLS figure; quality notes; generated Methods / SI text.
 
 ### All figures

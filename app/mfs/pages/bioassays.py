@@ -66,11 +66,24 @@ def page_zeta():
     z = dict(R.read_zetasizer(files[0], files[0].name))
     if z.get("note"):
         st.info(z["note"])
+    if "rec" in z["summary"].columns and len(z["summary"]) > 1:        # v2.14: every run (record) can be switched off; means and graphs follow
+        _s0 = z["summary"]
+        _tab = pd.DataFrame({"use": True, "sample": _s0["sample"].astype(str), "run": _s0["run"] if "run" in _s0 else _s0["rec"] + 1,
+                             "Z-avg (nm)": _s0["z_avg"].round(1), "PDI": _s0["pdi"].round(3), "ζ (mV)": _s0["zeta"].round(1)})
+        with st.expander(f"🔁 Runs / records ({len(_tab)}) – untick a run to leave it out of the averages and graphs", expanded=len(_tab) <= 12):
+            _ed = st.data_editor(_tab, key="zeta_runs|" + files[0].name, hide_index=True, width="stretch", height=min(360, 38 + 35 * len(_tab)),
+                                 disabled=["sample", "run", "Z-avg (nm)", "PDI", "ζ (mV)"])
+            _keep = _s0["rec"][_ed["use"].to_numpy()].tolist()
+            st.caption(f"{len(_keep)} of {len(_tab)} runs used.")
+        if not _keep:
+            st.info("No run selected."); return
+        z = R.select_records(z, _keep)
     _sel = sample_names_list(list(pd.unique(z["summary"]["sample"].astype(str))), "zeta_samples")
     z["summary"] = _apply_sample_list(z["summary"], "sample", None, _sel)
     if z.get("dist") is not None:
         z["dist"] = _apply_sample_list(z["dist"], "sample", None, _sel)
-    zs = z["summary"].groupby("sample", sort=False).agg(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean")).reset_index()
+    zs = z["summary"].groupby("sample", sort=False).agg(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean"),
+                                                         n_runs=("sample", "size")).reset_index()
     st.dataframe(zs, width="stretch")
     zs["label"] = zs["sample"].str.replace("ZrO2", "ZrO$_2$")
     zs_sd = z["summary"].groupby("sample", sort=False).agg(z_avg_sd=("z_avg", "std"), pdi_sd=("pdi", "std")).reset_index()

@@ -466,7 +466,7 @@ def test_zetasizer_dts_reads_names_and_intensity_distribution():
         pytest.skip("no .dts test file (private measurement data is not part of the repository)")
     z = R.read_zetasizer(open(path, "rb").read(), "x.dts")
     assert len(z["summary"]) >= 1 and z["summary"]["sample"].str.len().min() > 0
-    sums = z["dist"].groupby("sample").intensity.sum()
+    sums = z["dist"].groupby("rec").intensity.sum()                       # every run (record) sums to 100 %
     assert np.allclose(sums, 100.0, atol=0.5)
     assert z["dist"].size_nm.min() == pytest.approx(0.4, rel=1e-3) and z["dist"].size_nm.max() == pytest.approx(10000.0, rel=1e-3)
     assert z["summary"]["zeta"].isna().all() and "ζ" in z["note"]
@@ -477,3 +477,30 @@ def test_zetasizer_dts_reads_names_and_intensity_distribution():
         assert za.isna().all() or (za > 0).all()                                 # other software versions: empty or positive, never invented
     # an .xls (also an OLE file) must not be taken for a .dts
     assert R._zeta_dts(b"\xd0\xcf\x11\xe0" + b"\x00" * 600) is None
+
+
+def test_zeta_records_can_be_deselected_and_means_follow():
+    z = R.read_zetasizer(CSV, "x.csv")
+    assert "rec" in z["summary"] and "rec" in z["dist"] and z["summary"].rec.is_monotonic_increasing
+    keep = [int(r) for r in z["summary"].rec][:-3]
+    z2 = R.select_records(z, keep)
+    assert len(z2["summary"]) == len(keep) and set(z2["dist"].rec) == set(keep)
+    assert len(R.select_records(z, [])["summary"]) == 0
+    # the mean of the remaining runs of a sample changes accordingly
+    s = z["summary"].copy(); s["z_avg"] = [100.0, 110.0, 120.0] + list(s["z_avg"][3:])
+    s["sample"] = ["A", "A", "A"] + list(s["sample"][3:])
+    z3 = {"summary": s, "dist": z["dist"]}
+    assert R.select_records(z3, s.rec)["summary"].query("sample == 'A'").z_avg.mean() == 110.0
+    assert R.select_records(z3, [0, 2])["summary"].query("sample == 'A'").z_avg.mean() == 110.0 and \
+        R.select_records(z3, [0, 1])["summary"].query("sample == 'A'").z_avg.mean() == 105.0
+
+
+def test_dts_runs_are_split_into_sample_and_run_number():
+    path = os.path.join(HERE, "tests", "data", "ZrO2-2-Aliquot1.dts")
+    if not os.path.exists(path):
+        pytest.skip("no .dts test file")
+    z = R.read_zetasizer(open(path, "rb").read(), "x.dts")
+    assert set(z["summary"]["sample"]) == {"ZrO2-aliquot2"} and z["summary"]["run"].tolist() == [1, 2, 3, 4, 5]
+    assert z["summary"]["rec"].tolist() == [0, 1, 2, 3, 4]
+    z2 = R.select_records(z, [0, 1, 4])
+    assert z2["summary"]["run"].tolist() == [1, 2, 5] and set(z2["dist"]["rec"]) == {0, 1, 4}
