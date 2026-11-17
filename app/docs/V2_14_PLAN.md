@@ -71,3 +71,10 @@ in minutes; without it any value I extracted would be a guess. A cumulant fit of
 Built and tested (384 tests pass): Excel import, volume/number distributions, Z-average / PDI / ζ in the DLS figure, legend tick boxes, quality notes,
 generated Methods/SI text, font family per figure + legend, legend-title size, particle-sizer progress bar.
 Open: `.dts` reader (needs one `.dts` + the Excel export of the same records). Release notes for v2.14.0 and the version bump happen at release time.
+
+## 7. Status 18 Nov – scope grew during the session (all done unless marked)
+- Particle sizer: parallel processing (5x), calibrated edge for non-round particles, elongated particles (rods) kept whole, synthetic accuracy tests.
+- ¹H NMR: proton letters, figure and page layout, satellites / integral uncertainty / assignment reliability.
+- Customise-this-figure: systematic test over all pages (every control + every widget), legend font size etc. fixed.
+- Combined figure (several techniques in one figure), BET page restructured, photoluminescence module.
+- Open: `.dts` reader (waiting for a `.dts` + the export of the same records); Ar / CO₂ page and the 3P / Autosorb readers (later).

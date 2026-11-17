@@ -1,18 +1,43 @@
 # Changelog
 
-## 2.14.0 — in development
+## 2.14.0 — 2026-11-18
+
+### New: photoluminescence page
+- Spectra from any spectrofluorometer (CSV / TXT / DAT / Excel; two columns or one table with a column per temperature; the temperature is read from the header or the file name).
+- Temperature-coloured overlay with colour bar, waterfall, emission map; x axis in nm / eV / cm⁻¹ (with the Jacobian); baseline, smoothing, normalisation; peak position and FWHM.
+- **Thermal quenching**: Eₐ and T₅₀ from I(T) = I₀/(1 + A·exp(−Eₐ/k_BT)), Arrhenius plot, peak shift and width against T (A–D figure).
+- **Ratiometric thermometry**: Δ = I₁/I₂ = α·exp(−ΔE/k_BT), relative sensitivity Sᵣ, absolute sensitivity, temperature uncertainty σT (photon counts); emission map, Δ vs T with fit, Sᵣ(T), σT(T) as an A–D figure.
+
+### New: combined figure
+- Every graph has a **🧩 Add to combined figure** button; the sidebar shows the panels ("Open and arrange"). Pick graphs of different techniques, automatic layout, panel letters A/B/C (inside or outside),
+  caption under the figure, long legends hidden, the per-figure settings (axis titles, ranges, units) travel with the panel.
+
+### ¹H NMR
+- Protons are labelled with **letters** (Hₐ, H_b …, most downfield first) in the structure, the chips, the spectrum and the tables - no longer confusable with carbon numbers.
+- Figure: smaller labels with computed head-room (no clipping), integral numbers in their own band under the baseline (option to hide the numbers), thinner line.
+- Page: the structure editor is tall enough for all its tools, with a side panel (SMILES, use / clear, normalisation); the other sections are tabs.
+- Analysis: ¹³C satellites are recognised, nH ± uncertainty, a flag for integrals that are not integers (overlap / exchange), and a reliability column in the assignment table (ok / check / ambiguous / doubtful).
 
 ### Zeta / DLS
-- Reads **Excel exports** (.xlsx / .xls) of the Zetasizer (Ultra / Nano) as well as CSV; the header row is found automatically.
-- **Volume and number distributions** next to the intensity distribution (when the export has them).
-- **Z-average, PDI and ζ-potential** as tick boxes in the DLS figure: coloured text per sample (± SD of the records), movable like every label.
-- Legend tick boxes on both figures (legends are movable); quality notes (single record, PDI > 0.4 / 0.7, |ζ| < 30 mV); generated **Methods / SI text**.
+- Excel (.xlsx / .xls) exports as well as CSV; volume and number distributions; Z-average, PDI and ζ as movable texts in the DLS figure; quality notes; generated Methods / SI text.
 
-### Figures (all pages)
-- **Font family per figure** and for the legend (installed extra families are offered), **legend-title size**.
+### All figures
+- **Font family** per figure and for the legend, **legend-title size**; legend font size, frame and title now work without ticking *Customise the legend* (the font size also sizes direct labels).
+- A log axis without positive data no longer breaks the figure.
+- **New test suite** (`tests/test_figure_controls.py`): every control of *Customise this figure* is applied to the real figures of all 16 pages and every widget is set in the running page.
 
 ### Particle sizer
-- Progress bar with the time left (image k of n; the estimate learns from earlier runs).
+- **Parallel**: images are segmented at the same time on all CPU cores (16 images: 60 s → 11 s, identical results), with real progress; falls back to serial.
+- Edge of non-round particles on the same calibrated edge as the circle fits (mask / circle diameter ratio 1.12 → 1.01).
+- Elongated particles (rods) are no longer cut into pieces or flagged as aggregates (synthetic rods found: 32/72 → 69/72); cubes and spheres are unaffected.
+- Warning for low working resolutions (the sphere model switches off below ~1000 px).
+
+### N₂ / BET
+- The page starts with the BET surface area; the Rouquerol consistency, the comparison with the file's own value, the BET / Rouquerol plots and the t-plot are behind collapsed blocks.
+
+### Code and build
+- Windows: `run_windows.bat` picks Python 3.11-3.13; the frozen app's self-test checks the parallel particle sizer.
+- Release workflow no longer waits for macOS; Mac build kit (`build_mac.command`) in every release.
 
 ## 2.13.0 — 2026-11-17
 

@@ -30,9 +30,11 @@ def test_real_spheres_mean_vs_manual(fn, mean, n_min):
 
 
 def test_v210_overestimate_removed_20k():
-    e_off, _, _ = _run("TEM_SiO2NH2_user6_20k.tif", sphere=False)
+    e_off, _, _ = _run("TEM_SiO2NH2_user6_20k.tif", sphere=False, edge_refine=False)         # the raw mask (v2.10 behaviour)
+    e_ref, _, _ = _run("TEM_SiO2NH2_user6_20k.tif", sphere=False)                              # v2.14: calibrated edge on the mask path
     e_on, info, _ = _run("TEM_SiO2NH2_user6_20k.tif")
     assert e_off.mean() > 235 and e_on.mean() < 215           # v2.10 247 nm → v2.12 209 nm
+    assert abs(e_ref.mean() / e_on.mean() - 1) < 0.07           # v2.14: the mask path is now within 7 % of the circle fit (was +18 %)
     s = info["_sphere"]
     assert s["n_split"] >= 30 and s["n_occluded"] >= 2 and s["n_lowconf"] >= 3
 
