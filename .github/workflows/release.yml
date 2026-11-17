@@ -172,13 +172,13 @@ jobs:
         run: |
           set -euo pipefail
           cd assets
-          cat windows/Reticula_Setup_SHA256.txt > SHA256SUMS.txt
+          cat windows/dist_installer/Reticula_Setup_SHA256.txt > SHA256SUMS.txt
           cp ../pkg/README_macOS.txt README_macOS.txt
           cd ..
           KIT="Reticula_${VER}_mac_build_kit.zip"
           git archive --format=zip --prefix="Reticula_${VER}_mac_build_kit/" -o "assets/$KIT" HEAD
           (cd assets && sha256sum "$KIT" >> SHA256SUMS.txt)
-          FILES=(assets/windows/Reticula_Setup_${VER}.exe assets/SHA256SUMS.txt assets/README_macOS.txt "assets/$KIT")
+          FILES=(assets/windows/dist_installer/Reticula_Setup_${VER}.exe assets/SHA256SUMS.txt assets/README_macOS.txt "assets/$KIT")
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${FILES[@]}" --clobber
             gh release edit "$TAG" --title "Reticula ${VER}" --notes-file "RELEASE_NOTES_v${VER}.md"
