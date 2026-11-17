@@ -12,6 +12,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "tests"))
 from mfs import figctl as F, readers as R, style as S  # noqa: E402
 
 CSV = os.path.join(HERE, "example_data", "Zeta-DLS", "Zetasizer_export_pD7.4_D2O.csv")
@@ -252,3 +253,56 @@ def _aspirin_for_report():
     sp = NP.process(NP.load(open(fn, "rb").read(), "a.zip")[0], lb=None, p0=None, p1=None, reference="auto", use_topspin=True)
     ms = PK.analyse(sp, k=6.0, solvent="CDCl3"); PK.normalise(ms); PK.add_integral_uncertainty(ms, sp)
     return sp, ms
+
+
+# ---------------------------------------------------------------- particle sizer: parallel pool, edge refinement, shapes
+def _synth_jobs(n=3):
+    import particle_synth as PS
+    jobs = []
+    for seed in range(n):
+        img, _ = PS.make("disc", n=8, size=40, hw=(400, 400), seed=seed)
+        jobs.append(("adaptive", img, (True, 1.0, 4.0, 0.0, 0.25, 0.8, 2.0, True, 1536, None, 0.7, 10.0, "auto", 0.5)))
+    return jobs
+
+
+def test_segpool_parallel_equals_serial_and_caches():
+    from mfs import segpool as SP, segjobs as SJ
+    jobs = _synth_jobs(3)
+    ser = [SJ.run(*j) for j in jobs]
+    SP.clear_cache()
+    seen = []
+    last = dict(SP.prefetch(jobs, progress=lambda d, t, s: seen.append((d, t))))
+    assert last["mode"] in ("parallel", "serial") and seen and seen[-1] == (3, 3)
+    par = [SP.get(*j) for j in jobs]
+    assert all(np.array_equal(a[0], b[0]) and a[1] == b[1] for a, b in zip(ser, par))
+    assert all(SP.cached(*j) for j in jobs)
+    assert SP.prefetch(jobs)["mode"] == "cache"                       # nothing left to do
+
+
+def test_segpool_falls_back_to_serial_when_the_pool_breaks(monkeypatch):
+    from mfs import segpool as SP
+    SP.clear_cache(); SP.shutdown()
+
+    def boom():
+        raise RuntimeError("no processes allowed")
+    monkeypatch.setattr(SP, "_get_pool", boom)
+    jobs = _synth_jobs(2)
+    last = dict(SP.prefetch(jobs))
+    assert last["mode"] == "serial" and "no processes allowed" in last["error"]
+    assert all(SP.cached(*j) for j in jobs)
+
+
+def test_edge_refinement_removes_the_mask_bias_for_non_round_particles():
+    import particle_synth as PS
+    from mfs import particles as PA
+    errs = {True: [], False: []}
+    for sh in ("square", "ellipse"):
+        for seed in range(2):
+            img, truth = PS.make(sh, n=14, size=56, seed=seed)
+            for er in (True, False):
+                lab, f, t, info = PA.segment_adaptive(img, edge_refine=er)
+                errs[er] += [(d / dt - 1) * 100 for _, dt, d in PS.evaluate(img, truth, lab, f, info)]
+    refined, raw = np.array(errs[True]), np.array(errs[False])
+    assert len(refined) >= 40
+    assert abs(raw.mean()) > 6.0                                       # the raw mask is biased high
+    assert abs(refined.mean()) < abs(raw.mean()) - 2.0                 # the calibrated edge is clearly closer

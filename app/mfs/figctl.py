@@ -260,8 +260,14 @@ def _axis_apply(ax, axis, p, cfg, minor_on):
     getlim, setlim = (ax.get_xlim, ax.set_xlim) if axis == "x" else (ax.get_ylim, ax.set_ylim)
     scale = ax.get_xscale() if axis == "x" else ax.get_yscale()
     if p.get(f"{axis}log") is not None and p.get(f"{axis}log") != (scale == "log"):
-        (ax.set_xscale if axis == "x" else ax.set_yscale)("log" if p.get(f"{axis}log") else "linear")
-        scale = "log" if p.get(f"{axis}log") else "linear"
+        old_lim = getlim()
+        try:
+            (ax.set_xscale if axis == "x" else ax.set_yscale)("log" if p.get(f"{axis}log") else "linear")
+            A.get_majorticklocs()                # a log axis without positive data only fails here, not in set_*scale
+            scale = "log" if p.get(f"{axis}log") else "linear"
+        except Exception:                       # a log axis needs positive data: keep the axis as it was instead of failing
+            (ax.set_xscale if axis == "x" else ax.set_yscale)(scale)
+            setlim(*old_lim)
     hidden = len(A.get_majorticklocs()) == 0
     fam, uname = p.get(f"{axis}_family"), p.get(f"{axis}_unit")
     u = _unit(fam, uname) if fam and uname else None
@@ -454,10 +460,53 @@ def _rename_direct(fig, cfg):
                     t.set_text(_txt(cfg, e["text"]))
 
 
+def _needs_rebuild(L):
+    """Settings that need a rebuilt legend (position, columns, marker size, panel, hiding, renaming). Font size, frame, title,
+    title size and font family act on the legend that is already there - they work without ticking 'Customise the legend'."""
+    return bool(L.get("custom") or L.get("show") is False or int(L.get("ncol", 1) or 1) != 1 or L.get("loc", "best") != "best"
+                or abs(float(L.get("markerscale", 1) or 1) - 1.0) > 1e-9 or int(L.get("panel", 0) or 0) != 0
+                or abs(float(L.get("handlelength", 1.5) or 1.5) - 1.5) > 1e-9
+                or any((e.get("text") and e["text"] != e["label"]) or not e.get("show", True) for e in (L.get("entries") or [])))
+
+
+def _existing_legends(fig):
+    return list(fig.legends) + [l for ax in fig.axes for l in ax.get_children() if isinstance(l, Legend)]
+
+
+def _direct_fontsize(fig, L):
+    """The legend font size also sizes the sample labels written next to the traces (they are the legend of those figures)."""
+    fs = L.get("fontsize")
+    if not fs:
+        return
+    for ax in fig.axes:
+        for t in ax.texts:
+            s = t.get_text()
+            if s and not re.fullmatch(r"\(?[a-zA-Z]\)?", s) and len(s) < 60 and t.get_gid() != "mfs_note":
+                t.set_fontsize(float(fs))
+
+
+def _legend_light(fig, cfg):
+    L = cfg["legend"]
+    for lg in _existing_legends(fig):
+        if L.get("fontsize"):
+            for t in lg.get_texts():
+                t.set_fontsize(float(L["fontsize"]))
+            if not L.get("title_size"):
+                lg.get_title().set_fontsize(float(L["fontsize"]))
+        if L.get("title"):
+            lg.set_title(_txt(cfg, L["title"]))
+        if L.get("frame"):
+            lg.set_frame_on(True)
+            fr = lg.get_frame(); fr.set_edgecolor("k"); fr.set_linewidth(0.6); fr.set_facecolor("white"); fr.set_alpha(1)
+    _direct_fontsize(fig, L)
+
+
 def _legend_apply(fig, cfg):
     L = cfg["legend"]
-    if not L.get("custom"):
+    if not _needs_rebuild(L):
+        _legend_light(fig, cfg)
         return
+    _direct_fontsize(fig, L)
     entries = legend_entries(fig)
     for ax in fig.axes:
         for lg in [c for c in ax.get_children() if isinstance(c, Legend)]:

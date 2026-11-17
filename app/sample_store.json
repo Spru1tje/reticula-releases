@@ -32,7 +32,7 @@
      "S_ext": 25.236259861125152
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T19:37:43"
+    "updated": "2026-11-17T20:23:43"
    }
   }
  },
@@ -52,7 +52,7 @@
      "S_ext": 41.087791611216176
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T19:37:43"
+    "updated": "2026-11-17T20:23:43"
    },
    "tga": {
     "values": {
@@ -68,7 +68,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T19:37:28"
+    "updated": "2026-11-17T20:23:45"
    },
    "dsc": {
     "values": {
@@ -134,7 +134,7 @@
      "S_ext": 36.51588069459394
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T19:37:43"
+    "updated": "2026-11-17T20:23:43"
    },
    "kinetics": {
     "values": {
@@ -184,7 +184,7 @@
      "S_ext": 38.483724927891984
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T19:37:43"
+    "updated": "2026-11-17T20:23:43"
    },
    "tga": {
     "values": {
@@ -200,7 +200,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T19:37:28"
+    "updated": "2026-11-17T20:23:45"
    },
    "kinetics": {
     "values": {
@@ -258,7 +258,7 @@
      "S_ext": 45.5987139873979
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T19:37:43"
+    "updated": "2026-11-17T20:23:43"
    },
    "tga": {
     "values": {
@@ -274,7 +274,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-17T19:37:28"
+    "updated": "2026-11-17T20:23:45"
    },
    "kinetics": {
     "values": {
@@ -332,7 +332,7 @@
      "S_ext": 74.37863399132486
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-17T19:37:43"
+    "updated": "2026-11-17T20:23:43"
    },
    "kinetics": {
     "values": {

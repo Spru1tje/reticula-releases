@@ -785,11 +785,34 @@ def selftest(out):
                        f"{pred6[1]:.2f}/{pred6[2]:.2f}/{pred6[5]:.2f} ppm") if ok else f"FAIL pages={len(mods6)} bet={b6['n_m']} pred={pred6}"
     except Exception:
         res["v213"] = "FAIL " + traceback.format_exc()[-400:]
+    try:                                       # v2.14: parallel particle segmentation inside the frozen app
+        import numpy as _np7
+        from mfs import segpool as SP7, segjobs as SJ7
+        rng7 = _np7.random.default_rng(3)
+        yy7, xx7 = _np7.mgrid[0:300, 0:300]
+        imgs7 = []
+        for k7 in range(4):
+            im7 = _np7.full((300, 300), 200.0)
+            for cx7, cy7 in rng7.integers(40, 260, (5, 2)):
+                im7[(xx7 - cx7) ** 2 + (yy7 - cy7) ** 2 < 18 ** 2] = 70.0
+            imgs7.append((im7 + rng7.normal(0, 2, im7.shape)).astype(_np7.uint8))
+        a7 = (True, 1.0, 4.0, 0.0, 0.25, 0.8, 2.0, True, 1536, None, 0.7, 10.0, "auto", 0.5)
+        jobs7 = [("adaptive", im7, a7) for im7 in imgs7]
+        ser7 = [SJ7.run(*j) for j in jobs7]
+        SP7.clear_cache(); last7 = dict(SP7.prefetch(jobs7))
+        par7 = [SP7.get(*j) for j in jobs7]
+        same7 = all(_np7.array_equal(x[0], y[0]) for x, y in zip(ser7, par7))
+        res["v214_parallel"] = (f"ok {last7['mode']} ({last7['workers']} workers, {last7['seconds']:.1f} s), identical to serial" if same7
+                                else "FAIL parallel result differs from serial") + (f"; fallback reason: {last7['error']}" if last7.get("error") else "")
+    except Exception:
+        res["v214_parallel"] = "FAIL " + traceback.format_exc()[-400:]
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(res, fh, indent=1)
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()      # v2.14: the particle sizer starts worker processes (a frozen exe would otherwise start the whole app again)
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         selftest(sys.argv[2])
     elif len(sys.argv) >= 3 and sys.argv[1] == "--serve":

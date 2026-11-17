@@ -451,38 +451,19 @@ PARTICLE_POLARITY = ["dark", "bright"]     # v2.9: dark particles (TEM) is the d
 ALG_ADAPTIVE = "adaptive v2.10 (background flattening + particle-scale markers) – recommended"
 
 
-@st.cache_data(show_spinner=False, max_entries=32)
-def _particles_auto(img, pix, dark, thr_pct, smooth, open_px, split, border, max_px):
-    from mfs import particles as PA
-    a = _img8(img)
-    thr = None if thr_pct is None else float(np.percentile(a, thr_pct))
-    lab, f, t = PA.segment(a, dark_particles=dark, threshold=thr, smooth=smooth, open_px=open_px, split=split,
-                           clear_border=border, max_px=max_px)
-    return lab, f, t, PA.measure(lab, pix, f)
+def _particles_auto(img, pix, *args):
+    from mfs import segpool as SPL                 # v2.14: own cache (+ parallel prefetch); same results as before
+    return SPL.get("auto", img, (pix,) + args)
 
 
-@st.cache_data(show_spinner=False, max_entries=32)
-def _particles_ws(img, dark, thr_pct, smooth, open_px, mdf, hf, meth, holes, border, sol, areaf, max_px):
-    from mfs import particles as PA
-    a = _img8(img)
-    thr = None if thr_pct is None else float(np.percentile(a, thr_pct))
-    lab, f, t, info = PA.segment_ws(a, dark_particles=dark, threshold=thr, smooth=smooth, open_px=open_px, min_dist_factor=mdf,
-                                    h_factor=hf, method=meth, exclude_holes=holes, clear_border=border, solidity_min=sol,
-                                    area_factor=areaf, max_px=max_px)
-    info = {k: v for k, v in info.items() if k != "_hole_mask"}
-    return lab, f, t, info
+def _particles_ws(img, *args):
+    from mfs import segpool as SPL
+    return SPL.get("watershed", img, args)
 
 
-@st.cache_data(show_spinner=False, max_entries=32)
-def _particles_adaptive(img, dark, smooth, low_k, size_px, mks, sol, areaf, border, max_px, prior, pstr, pk, sph="auto", cmin=0.5):
-    from mfs import particles as PA
-    a = _img8(img)
-    lab, f, t, info = PA.segment_adaptive(a, dark_particles=dark, smooth=smooth, low_k=low_k, size_px=size_px or None,
-                                          marker_sigma=mks, solidity_min=sol, area_factor=areaf, clear_border=border,
-                                          max_px=max_px, shape_prior=prior, prior_strength=pstr, prior_k=pk,
-                                          sphere={"auto": "auto", "spheres": True, "off": False}.get(sph, "auto"), conf_min=cmin)
-    info = {k: v for k, v in info.items() if k != "_contrast"}
-    return lab, f, t, info
+def _particles_adaptive(img, *args):
+    from mfs import segpool as SPL
+    return SPL.get("adaptive", img, args)
 
 
 def _template_png(t, px=56):
@@ -692,7 +673,10 @@ def sem_particles(allims):
         opx = k2.slider("Opening (px)", 0, 5, 1, key="ps_op")
         split = k3.checkbox("Split touching particles (distance-transform markers)", True, key="ps_split")
         border = k3.checkbox("Exclude particles cut by the image edge", True, key="ps_border")
-        mres = k3.select_slider("Working resolution (px)", [512, 768, 1024, 1536, 2048], 1536, key="ps_res")
+        mres = k3.select_slider("Working resolution (px)", [512, 768, 1024, 1536, 2048], 1536, key="ps_res",
+                                help="Keep 1536 or more for sizing: below ~1000 px the sphere model switches off and the sizes can be 20 % off.")
+        if mres < 1024:
+            k3.caption("⚠️ A low working resolution is only for a quick look: sizes can be off by up to 20 %.")
         dmin = k4.number_input("Min. size (nm)", 0.0, 1e5, 0.0, format="%g", key="ps_dmin")
         dmax = k4.number_input("Max. size (nm, 0 = none)", 0.0, 1e6, 0.0, format="%g", key="ps_dmax")
         algo = st.radio("Splitting", [ALG_ADAPTIVE, "watershed v2.8 (h-maxima markers, aggregates, support holes)",
@@ -743,21 +727,47 @@ def sem_particles(allims):
             smp_guess = st.session_state.get("ps_sample") or ims[0].get("title") or guess_name(ims[0]["file"])
             _sem_saved = (SS_get(smp_guess, "sem") or {})
         segs = []
-        from mfs.progress import SegProgress                       # v2.14: bar with time left for the segmentation
-        prog = SegProgress(len(ims), "Segmenting particles")
+        from mfs import segpool as SPL                             # v2.14: all images at once on all CPU cores, with progress
+        _jobs = []
+        for im in ims:
+            _img = im["image"][:im.get("crop_row") or None]
+            if ws and ad:
+                _jobs.append(("adaptive", _img, (dark, smooth, lowk, (expnm / float(im["pixel_nm"])) if expnm else 0.0,
+                                                 mks, sol, areaf, border, mres, prior, pstr, pk_, sph_mode, conf_min)))
+            elif ws:
+                _jobs.append(("watershed", _img, (dark, tp, smooth, opx, mdf, hf, meth, holes, border, sol, areaf, mres)))
+            else:
+                _jobs.append(("auto", _img, (float(im["pixel_nm"]), dark, tp, smooth, opx, split, border, mres)))
+        _todo = [j for j in _jobs if not SPL.cached(*j)]
+        if len(_todo) > 1:
+            _bar = st.empty(); _st0 = {}
+
+            def _cb(done, total, sec):
+                base = _st0.setdefault("base", done)
+                new = done - base
+                left = (sec / new * (total - done)) if new else None
+                _bar.progress(min(0.99, done / total), text=f"Segmenting particles · {done} of {total} images"
+                              + (f" · {sec:.0f} s elapsed · about {left:.0f} s left" if left is not None else " · working …"))
+            SPL.prefetch(_jobs, progress=_cb)
+            _bar.empty()
+            if SPL.LAST.get("mode") == "parallel":
+                st.caption(f"⚡ {len(_todo)} images segmented on {SPL.LAST['workers']} CPU cores in {SPL.LAST['seconds']:.0f} s.")
+        elif _todo:
+            with st.spinner("Segmenting particles …"):
+                SPL.prefetch(_jobs, parallel=False)
         for im in ims:
             img = im["image"][:im.get("crop_row") or None]
             if ws:
                 if ad:
-                    lab, f, t, info = prog.call(img, "adaptive", _particles_adaptive, dark, smooth, lowk, (expnm / float(im["pixel_nm"])) if expnm else 0.0,
-                                                mks, sol, areaf, border, mres, prior, pstr, pk_, sph_mode, conf_min)
+                    lab, f, t, info = _particles_adaptive(img, dark, smooth, lowk, (expnm / float(im["pixel_nm"])) if expnm else 0.0,
+                                                          mks, sol, areaf, border, mres, prior, pstr, pk_, sph_mode, conf_min)
                     if im is ims[0]:
                         _prior_panel(info.get("_prior"), float(im["pixel_nm"]), f)
                         _shape_model_hint(_shape_hint, info, prior)
                         _sphere_hint(_sph_hint, info)
                     algo_par = (lowk, expnm, mks, prior, pstr, pk_, sph_mode, conf_min)
                 else:
-                    lab, f, t, info = prog.call(img, "watershed", _particles_ws, dark, tp, smooth, opx, mdf, hf, meth, holes, border, sol, areaf, mres)
+                    lab, f, t, info = _particles_ws(img, dark, tp, smooth, opx, mdf, hf, meth, holes, border, sol, areaf, mres)
                     algo_par = ()
                 if edit and im is ims[0]:
                     lab = _particle_editor(im, img, lab, f, info)
@@ -793,7 +803,7 @@ def sem_particles(allims):
                                                                          if x[metric] >= dmin and (not dmax or x[metric] <= dmax)]
                 r_ = PK.apply(r_, excl_now)
             else:
-                lab, f, t, r_ = prog.call(img, "auto", _particles_auto, float(im["pixel_nm"]), dark, tp, smooth, opx, split, border, mres)
+                lab, f, t, r_ = _particles_auto(img, float(im["pixel_nm"]), dark, tp, smooth, opx, split, border, mres)
                 info, nag = {}, 0
             r_ = [dict(x, image=im["file"]) for x in r_ if x[metric] >= dmin and (not dmax or x[metric] <= dmax)]
             keep = np.isin(lab, [x["id"] for x in r_])
@@ -802,7 +812,6 @@ def sem_particles(allims):
                        + (f"; typical radius {info.get('_r_est_px', 0) * f * float(im['pixel_nm']):.0f} nm, {info.get('_holes', 0)} support "
                           f"hole(s) excluded, {nag} aggregate(s) flagged, {len(excl_now)} particle(s) excluded by click/auto" if ws else "")
                        + (f", {sum(1 for x in r_ if x.get('prior'))} split by the shape prior" if ws and ad and prior else "") + ".")
-        prog.finish()
     else:
         rows = _click_measure(ims[0]); segs = []
     if not rows:
