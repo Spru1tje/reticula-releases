@@ -21,3 +21,8 @@ olefile>=0.46          # Zetasizer .dts files (OLE container)             # ncem
 # optional: STOE binary .raw files ->  pip install xylib-py  (needs a C++ compiler; ASCII .xy works without it)
 # optional (developers only): xlwt (1.3.0) to regenerate the synthetic .xls test files;
 #   playwright (1.65.1) + `playwright install chromium` for tests/test_downloads_browser.py (skipped if missing)
+
+# v2.17 Schemes & Icons: vector PDF export (svglib + reportlab) and PNG/TIFF export (resvg-py); no system programs needed
+svglib>=1.5
+reportlab>=4.0
+resvg-py>=0.2
