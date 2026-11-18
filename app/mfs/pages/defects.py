@@ -128,6 +128,9 @@ def _mm_count(formula, el):
 
 def page_defects():
     st.header("Defect calculator – shotgun every method, compare, get the minimal formula")
+    st.caption("TGA plateau: choose the rule and pick the point by hand on the Thermogravimetric analysis page (plateau expander). "
+               "The EJIC 2020 rule uses the mass at the start of the decomposition: Lázaro et al., Eur. J. Inorg. Chem. 2020, "
+               "doi:10.1002/ejic.202000656.")
     st.caption("Per node (M₆O₄(OH)₄, paddlewheel, Zn₄O, M₃O, Al-OH chain, MOF-74, Ti₈, ZIF or your own – see the node library). Enter data once; every applicable method runs in parallel. Equations, symbols, assumptions, your own substitution and "
                "pitfalls are shown for each method. Unit tests reproduce the published worked examples (see README).")
     with LV.gate("Advanced", globals()):

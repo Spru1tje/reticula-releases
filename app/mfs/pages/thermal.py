@@ -56,13 +56,22 @@ def page_tga():
             st.error(f"{f.name}: {e}")
     # v2.17: the plateau point is automatic (the flattest stretch between the steps) or picked on the graph below
     ov = st.session_state.setdefault("tga_plat_ov", {})
+    # EJIC 2020 (Lázaro et al., doi:10.1002/ejic.202000656): R_exp uses the mass at the START of the decomposition profile.
+    rule = st.radio("Plateau rule", ["flattest stretch (automatic)", "start of decomposition (EJIC 2020)"], horizontal=True, key="tga_plat_rule",
+                    help="Flattest stretch: the lowest-slope point of the plateau. Start of decomposition: where the mass first starts to fall "
+                         "after the plateau, as in Lázaro et al., Eur. J. Inorg. Chem. 2020 (doi:10.1002/ejic.202000656).")
     for nm, a_ in res:
         info = a_.get("plateau_info") or {}
+        if rule.startswith("start") and a_.get("T_onset") is not None:
+            a_["T_plateau"] = a_["T_onset"]; a_["W_plateau"] = a_["W_onset"]
+            a_["plateau_source"] = "start of decomposition (EJIC 2020)"
+        elif rule.startswith("start"):
+            a_["plateau_source"] = "start of decomposition – not found (no fall in window)"
         if nm in ov:
             a_["T_plateau"] = float(ov[nm])
             a_["W_plateau"] = float(np.interp(ov[nm], a_["T"], a_["w"]))
             a_["plateau_source"] = "picked on graph"
-        else:
+        elif not rule.startswith("start"):
             a_["plateau_source"] = "automatic (flat)" if info.get("flat") else "automatic – no clear plateau"
     with st.expander("🎯 Plateau point for the defect calculation – automatic, or pick it on the graph", expanded=False):
         st.caption("The point is taken from the flattest stretch between the solvent / dehydroxylation steps and the first linker-combustion step. "

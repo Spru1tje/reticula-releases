@@ -311,9 +311,11 @@ def tga_analysis(T, w, smooth_window=21):
     pk, props = find_peaks(dtg, prominence=max(dtg.max() * 0.05, 1e-4))
     W = lambda t: float(np.interp(t, Tg, ws))
     T_plat, info = flat_plateau(Tg, dtg, pk)
+    T_on, info_on = onset_plateau(Tg, dtg, pk)
     return {"T": Tg, "w": ws, "dtg": dtg, "peaks": Tg[pk], "W200": W(200) if Tg.max() > 200 else None,
             "T_plateau": T_plat, "W_plateau": W(T_plat) if T_plat else None, "W_end": float(ws[-20:].mean()),
-            "W_initial": float(ws[0]), "plateau_info": info}
+            "W_initial": float(ws[0]), "plateau_info": info,
+            "T_onset": T_on, "W_onset": W(T_on) if T_on else None, "onset_info": info_on}
 
 
 def flat_plateau(Tg, dtg, peak_idx, half_width=25.0, slope_tol=None):
@@ -353,6 +355,36 @@ def flat_plateau(Tg, dtg, peak_idx, half_width=25.0, slope_tol=None):
     flat = bool(local[j] <= tol)
     return float(Tg[j]), {"window": (float(lo), float(hi)), "slope_pct_per_C": float(local[j]), "flat": flat,
                           "half_width": half_width, "reason": "" if flat else "the mass still changes here (no clear plateau in this window)"}
+
+
+def onset_plateau(Tg, dtg, peak_idx, half_width=25.0, tol=0.05):
+    """EJIC 2020 rule (Lázaro et al., doi:10.1002/ejic.202000656): R_exp uses the mass at the START of the decomposition profile,
+    i.e. where the linker starts to lose mass after the flat stretch, not the flattest point. Same window as flat_plateau;
+    the onset is the first temperature in that window where the local mass slope exceeds tol (%/°C).
+    Returns (T_onset or None, info)."""
+    T_flat, info = flat_plateau(Tg, dtg, peak_idx, half_width=half_width, slope_tol=tol)
+    lo, hi = info["window"]
+    Tg = np.asarray(Tg, float); dtg = np.asarray(dtg, float)
+    if lo is None or hi is None or hi - lo < 2 * half_width:
+        return None, {"rule": "start of decomposition (EJIC 2020)", "window": info.get("window"), "reason": info.get("reason", "no window")}
+    dx = float(np.median(np.diff(Tg))); k = max(1, int(round(half_width / dx)))
+    local = np.convolve(np.abs(dtg), np.ones(2 * k + 1) / (2 * k + 1), mode="same")
+    # the linker decomposition = the largest DTG peak above 380 °C; the start is the foot of that peak: walk back from it
+    # until the mass slope is back at the plateau level (tol). Without such a peak, the first fall inside the window counts.
+    peaks = np.asarray(peak_idx, int)
+    big = [i for i in peaks if Tg[i] >= 380]
+    if big:
+        i = max(big, key=lambda j: dtg[j])
+        while i > 0 and local[i] > tol and Tg[i] > lo:
+            i -= 1
+        return float(Tg[i]), {"rule": "start of decomposition (EJIC 2020)", "window": (float(lo), float(hi)),
+                              "slope_pct_per_C": float(local[i]), "reason": ""}
+    m = np.nonzero((Tg >= lo + half_width) & (Tg <= hi - half_width))[0]
+    falling = [i for i in m if local[i] > tol]
+    if not falling:
+        return None, {"rule": "start of decomposition (EJIC 2020)", "window": (lo, hi), "reason": "the mass never starts to fall inside the window"}
+    return float(Tg[falling[0]]), {"rule": "start of decomposition (EJIC 2020)", "window": (float(lo), float(hi)),
+                                   "slope_pct_per_C": float(local[falling[0]]), "reason": ""}
 
 
 def renormalise_to_end(w, W_end):
