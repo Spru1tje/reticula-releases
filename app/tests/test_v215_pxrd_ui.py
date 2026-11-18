@@ -186,3 +186,17 @@ def test_indexing_and_le_bail_of_an_unknown_phase_in_the_page():
     assert not at.exception, at.exception
     res = next(iter(at.session_state["rv_res"].values()))
     assert res["mode"] == "lebail" and res["stats"]["Rwp"] < 0.25
+
+
+def test_one_click_automatic_identification_and_structure_refinement():
+    from streamlit.testing.v1 import AppTest
+    warnings.filterwarnings("ignore")
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=900)
+    at.session_state["_lv"] = {"global": "Standard"}
+    at.run()
+    at.sidebar.radio[0].set_value("PXRD").run()
+    [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    [b for b in at.button if b.key == "rv_auto"][0].click().run()
+    assert not at.exception, at.exception
+    res = next(iter(at.session_state["rv_res"].values()))
+    assert res["phases"][0]["name"].startswith("MOF-801") and res["phases"][0].get("structure") and res["stats"]["Rwp"] < 0.2

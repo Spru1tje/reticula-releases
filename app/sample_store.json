@@ -129,12 +129,14 @@
    },
    "pxrd": {
     "values": {
-     "unknown 1 cell a (Å)": 18.284462499999997,
-     "unknown 1 volume (Å^3)": 6112.89018974748,
-     "Rwp (%)": 12.267503266825548
+     "MOF-801 (Zr) cell a (Å)": 17.835584208951854,
+     "MOF-801 (Zr) volume (Å^3)": 5673.6431643494125,
+     "Rwp (%)": 10.596661206472406,
+     "density_g_cm3": 2.2047552131589847,
+     "MOF-801 (Zr) weight fraction (%)": 100.0
     },
-    "source": "PXRD Le Bail",
-    "updated": "2026-11-18T02:33:44",
+    "source": "PXRD Rietveld",
+    "updated": "2026-11-18T02:39:28",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",

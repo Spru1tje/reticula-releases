@@ -373,10 +373,23 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     store = ss.setdefault("rv_res", {})
     run = box.button("▶ Refine", key="rv_go", type="primary", width="stretch", disabled=not (phases_src or ss.get("rv_cellph")),
                      help="Runs the complete automatic strategy: start values, cell, peak shape, background, displacement." if phases_src else "Choose at least one phase.")
-    if run:
+    auto = box.button("✨ Do everything automatically: identify the phases, refine the structure", key="rv_auto", width="stretch",
+                      help="Searches the library for the phases (cell and zero shift included), then refines cell, peak shape, background, atom positions and displacement "
+                           "parameters of the proposed phases. You get the figure, the statistics, the 3D structure and the CIF.")
+    if run or auto:
         x, y = raws[nm]
         bar = box.progress(0.0, text="Starting …")
         try:
+            if auto:
+                bar.progress(0.02, text="Identifying the phases …")
+                _m = [r_ for r_ in PID.match(x, y, RV.RADIATION[rad][0][0]) if r_["confidence"] != "possible"][:3] or PID.match(x, y, RV.RADIATION[rad][0][0])[:1]
+                if not _m:
+                    bar.empty()
+                    box.warning("No phase of the library matches this pattern. Use the indexing (unknown phase) or upload a CIF.")
+                    raise RuntimeError("no phase identified")
+                phases_src = [(r_["name"], r_["file"]) for r_ in _m]
+                mode_l = "Rietveld + refine the atoms (structure)"
+                box.info("Phases found: " + ", ".join(f"{r_['name']} ({r_['confidence']}, cell {r_['cell_change_pct']:+.2f} %)" for r_ in _m))
             sub = {"Zr": "Hf"} if hf else None
             ph = [RV.Phase.from_cif(src, name, substitute=sub) for name, src in phases_src]
             ph += [RV.Phase.from_cell(c_, n_) for n_, c_ in ss.get("rv_cellph", [])]

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.16.0 — 2026-11-18
+
+### PXRD: from a pattern to a refined, checked structure (almost automatic)
+- **✨ One click**: *Do everything automatically* searches a library of 18 reference phases (MOFs, oxides, standards, minerals; COD) with a small search over the cell size and the zero shift, proposes the phases with a confidence, and refines them – cell, peak shape, background, atom positions, displacement parameters.
+- **Structure refinement** (*Rietveld + refine the atoms*): symmetry-aware (space group found from the structure, atoms stay on their special positions), one displacement parameter per element, soft bond restraints that keep linkers chemically sensible (strength adjustable), esd from the covariance. A reflection is computed once per symmetry class, so a 328-atom MOF refines in under 10 s. Validated on two **real laboratory patterns** (fluorapatite: atom positions within 0.0007 of the GSAS result, Rwp 9.1 → 8.6 %; PbSO₄: Rwp 9.1 → 8.7 %, three different starting CIFs reach the same result).
+- **Statistics of the model**: bond lengths and angles with esd, coordination numbers, bond-valence sums, a plain-language verdict (BVS far from the formal charge, too short bonds).
+- **3D viewer** (own, no external libraries, works offline): rotate, zoom, click an atom for its bonds and coordination, views along a / b / c, thermal spheres, labels, 1×1×1 or 2×2×2 cells, PNG.
+- **Publication output**: refined **CIF with esd** (cell, atoms, symmetry operations, U_iso, bonds, angles, figures of merit), tables (Excel), a structure figure (view, angles, atom size, labels) that also goes into the combined figure, and a Methods paragraph.
+- **Unknown phase**: *indexing* finds the unit cell from the peak positions (cubic, tetragonal, hexagonal, orthorhombic; de Wolff M20, physical limits) and a Le Bail fit of the cell checks it. Monoclinic / triclinic are not searched (stated in the page).
+
+### Across the program
+- **Home page redesigned**: dark hero, "what do you want to do?" cards, the five steps, a coloured tile per tool with what you get, the three detail levels (switch on the page), the gallery.
+- **Sample summary with sources**: every number carries its page, data files, time and program version (Excel with a *Sources* sheet, LaTeX with footnotes); also in each material dossier.
+- **Cross-checks between techniques** (SI export page): crystallite size vs particle size, BET vs the external area of the particles, defect methods that disagree, surface (XPS) vs bulk (ICP / XRF) metal ratio, DLS vs image size – with what it can mean and what to check.
+- **Problem report** in the sidebar: a small ZIP with the version, settings and the last error – no data – to send to the developer.
+
 ## 2.15.1 — 2026-11-18
 
 ### PXRD / Rietveld

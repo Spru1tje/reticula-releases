@@ -143,6 +143,7 @@ To compare v1 and v2 on any export, run `python tools/n2_before_after.py your_fi
 | **PXRD: Rietveld / Le Bail** (v2.15, opt-in) | CIF file(s) of the phases | Switch on *Rietveld / Le Bail*, choose the phases, press *Refine*: automatic staged refinement (≈ 1 s), Rwp / GoF / Bragg R, cell ± esd, weight fractions, Rietveld figure, Excel report |
 | **Detail levels** (v2.15) | – | Sidebar → 🎚️ Detail level: **Standard** (default, essentials), **Advanced**, **Developer**; global or per module |
 | **Dossier per material** (v2.15.1) | – | SI export page → *Dossier per material*: one ZIP per material (figures, data, methods, results) |
+| **PXRD structure refinement** (v2.16) | patterns + a CIF (or the library) | One click: identify the phases and refine cell, peaks, atom positions; bond lengths / angles with esd, 3D viewer, refined CIF, structure figure; unknown phases via indexing + Le Bail |
 | **Export guide** | – | Which file to export from each instrument (also in `docs/EXPORT_GUIDE.md`). |
 
 ## 4. Defect calculator (Zr/Hf/Ce/Th₆ nodes, paddlewheels, Zn₄O, Al-OH chains, M₃O trimers, MOF-74, Ti₈, ZIFs, custom nodes)
