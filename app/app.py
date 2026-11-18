@@ -530,7 +530,8 @@ def proc_controls(key, default_baseline="none", default_norm="max", norm_opts=("
 
 # ============================================================== pages
 def page_home():
-    UI.home(HERE)
+    from mfs import home as HM           # v2.16: guided, coloured home page
+    HM.render(HERE, __version__)
 
 
 def page_nmr():
