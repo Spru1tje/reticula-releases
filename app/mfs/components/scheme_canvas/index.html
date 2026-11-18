@@ -67,7 +67,23 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #fbar button.danger:hover{background:#FEF2F2;color:#B91C1C}
 #fbar .sep{width:1px;background:#E2E8F0;margin:3px 2px}
 .status{font:12px Helvetica,Arial,sans-serif;color:#64748B;margin-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+#app.focus{grid-template-columns:1fr}
 #app.focus #left,#app.focus #right{display:none}      /* focus mode: the canvas alone (F) */
+#start{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font:14px Helvetica,Arial,sans-serif;color:#475569;z-index:3;pointer-events:auto}
+#start h4{margin:0 0 10px;font-size:15px;color:#1E293B}
+#start button{margin:4px;padding:8px 14px;border:1px solid #CBD5E1;border-radius:8px;background:#fff;cursor:pointer;font:13px Helvetica,Arial,sans-serif}
+#start button:hover{border-color:#2563EB;background:#EFF6FF}
+@media (max-width:960px){            /* narrow windows: the panels stack under the canvas */
+  #app{grid-template-columns:1fr;grid-template-rows:auto auto 70vh auto;height:auto;min-height:100vh}
+  #bar{grid-column:1/2;flex-wrap:wrap}
+  #left{max-height:280px} #right{border-left:0;border-top:1px solid var(--line)}
+}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #2563EB;outline-offset:1px}   /* keyboard focus ring */
+#bar button:disabled{opacity:.4;cursor:default}
+#save.flash{background:#16A34A !important;color:#fff}
+#stage.dropping{box-shadow:inset 0 0 0 3px #2563EB}   /* drop target while dragging an icon from the library */
+.grp{fill:none;stroke:#94A3B8;stroke-width:1;stroke-dasharray:5 4;pointer-events:none}
+.tile div{font-size:11px !important}
 #stage.pan{cursor:grab}#stage.panning{cursor:grabbing}#stage.panning *{pointer-events:none}
 #left .sub{grid-column:1/-1;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
 #help{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:12px 16px;
@@ -117,7 +133,9 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
     <div id="tiles"></div>
     <div id="family"></div>
   </div>
-  <div id="stage"><div id="paper"><svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+  <div id="stage"><div id="start" hidden><h4>Start a scheme</h4>
+    <button id="st-tpl">Start from a template</button><button id="st-arrow">Draw an arrow</button><button id="st-text">Add a label</button>
+    <div class="hint" style="margin-top:8px">or drag an icon from the left</div></div><div id="paper"><svg id="canvas" xmlns="http://www.w3.org/2000/svg">
     <g id="L_box"></g><g id="L_arrow"></g><g id="L_icon"></g><g id="L_text"></g><g id="L_ui"></g>
   </svg><div id="fbar" hidden></div></div></div>
   <div id="right"><h3>Nothing selected</h3>
@@ -298,12 +316,15 @@ function drawUI(){
   L.ui.innerHTML = "";
   $("alignbar").hidden = !(sel || multi.size);   // align / group only appear when something is selected: less clutter in the bar
   syncFbar(); updateStatus();
-  if (!scene.items.length){                    // empty canvas: a quiet hint instead of a blank page
-    const t = el("text", {x: scene.width / 2, y: scene.height / 2, "text-anchor": "middle", fill: "#94A3B8", "font-size": 18,
-      "font-family": "Helvetica,Arial,sans-serif", "pointer-events": "none"});
-    t.textContent = "Drag an icon from the left, or press A for arrows and T for text";
-    L.ui.appendChild(t);
-  }
+  // dashed outlines around a multi-selection and around each group; live size / angle while resizing or rotating
+  const outl = [];
+  if (multi.size > 1){ const bs = selectedIds().map(byId).map(bbox).filter(Boolean); if (bs.length) outl.push(unionBox(bs)); }
+  for (const g of new Set(selectedIds().map(byId).filter(x => x && x.group).map(x => x.group))){
+    const bs = scene.items.filter(x => x.group === g).map(bbox).filter(Boolean); if (bs.length) outl.push(unionBox(bs)); }
+  for (const o of outl) L.ui.appendChild(el("rect", {class: "grp", x: o.x - 6, y: o.y - 6, width: o.w + 12, height: o.h + 12, rx: 6}));
+  if (drag && drag.label){ const b = bbox(drag.it); if (b){ const t = el("text", {x: b.x + b.w, y: b.y - 10, "text-anchor": "end", fill: "#1E293B",
+    "font-size": 13, "font-family": "Helvetica,Arial,sans-serif"}); t.textContent = drag.label; L.ui.appendChild(t); } }
+  const st = $("start"); if (st) st.hidden = scene.items.length > 0;     // empty canvas: three starting points, gone once something exists
   if (showGrid){ const gp = el("g", {opacity:.5}); for (let x = 0; x <= scene.width; x += 20) gp.appendChild(el("line", {x1:x,y1:0,x2:x,y2:scene.height,stroke:"#E2E8F0"}));
     for (let y = 0; y <= scene.height; y += 20) gp.appendChild(el("line", {x1:0,y1:y,x2:scene.width,y2:y,stroke:"#E2E8F0"})); L.ui.appendChild(gp); }
   for (const g of guides) L.ui.appendChild(el("line", Object.assign({class:"guide"}, g)));
@@ -396,9 +417,10 @@ function applyDrag(p, free){
   } else if (kind === "resize"){
     if (it.type === "icon") it.size = Math.max(24, Math.round(o.size + Math.max(dx, dy)));
     else { it.w = Math.max(40, Math.round(o.w + dx)); it.h = Math.max(30, Math.round(o.h + dy)); }
+    drag.label = it.type === "icon" ? `${it.size} px` : `${it.w} × ${it.h} px`;
   } else if (kind === "rotate"){
     const c = {x: it.x + it.size/2, y: it.y + it.size/2}; let a = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI + 90;
-    if (snapping) a = Math.round(a / 15) * 15; it.rotate = ((Math.round(a) % 360) + 360) % 360;
+    if (snapping) a = Math.round(a / 15) * 15; it.rotate = ((Math.round(a) % 360) + 360) % 360; drag.label = `${it.rotate}°`;
   } else if (kind.startsWith("end-")){ drag.snap = nearestAnchor(p); }
   else if (kind.startsWith("wp-")){ const i = +kind.slice(3); if (it.waypoints && it.waypoints[i]) it.waypoints[i] = [Math.round(p.x), Math.round(p.y)]; }
   drawItem(it); for (const a of arrowsOf(it.id)) drawItem(a); drawUI();
@@ -660,23 +682,28 @@ function inspector(){
   if (multi.size > 1){ R.innerHTML = `<h3>${multi.size} items selected</h3><div class="hint">Bounding box ${selSize()}</div><div class="hint">Align, distribute or group them with the bar above.
     Drag any of them to move the whole selection. Del deletes all. Ctrl+C / Ctrl+V copies them to another scheme too.</div>`; return; }
   if (!it){ R.innerHTML = `<h3>Page</h3>${field("Size (px)", `<div class="row"><input id="pw" type="number" value="${scene.width}"><input id="ph" type="number" value="${scene.height}"></div>`)}
-    ${field("Background", `<input id="pbg" type="color" value="${scene.background||"#ffffff"}">`)}
+    ${field("Format", `<select id="pfmt"><option value="">custom</option><option value="1123x794">A4 landscape</option><option value="794x1123">A4 portrait</option><option value="800x800">Square</option><option value="960x540">Slide 16:9</option></select>`)}
+    ${field("Background", `<input id="pbg" type="color" value="${scene.background||"#ffffff"}"><div class="sw"><b class="pbgq" style="background:#FFFFFF" data-c="#FFFFFF" title="White"></b><b class="pbgq" style="background:#F8FAFC" data-c="#F8FAFC" title="Off-white"></b><b class="pbgq" style="background:#E2E8F0" data-c="#E2E8F0" title="Light grey"></b></div>`)}
     ${offPageHint()}
     <div class="hint">Drag an icon from the left onto the page. Arrow mode (A): click a dot on one icon, then on another.<br>
     Del · Ctrl+D duplicate · Ctrl+Z / Y · arrows nudge (Shift ×10) · H flip · [ ] back / front · Shift while dragging = no snapping · 0 fit · 1 100% · Space + drag pans.</div>`;
-    bind("pw", v => scene.width = +v); bind("ph", v => scene.height = +v); bind("pbg", v => scene.background = v); return; }
+    bind("pw", v => scene.width = +v); bind("ph", v => scene.height = +v); bind("pbg", v => scene.background = v);
+    $("pfmt").onchange = () => { const [w, h] = $("pfmt").value.split("x").map(Number); if (!w) return;
+      snapshot(); scene.width = w; scene.height = h; renderAll(); commit(); inspector(); };
+    R.querySelectorAll(".pbgq").forEach(b => b.onclick = () => { snapshot(); scene.background = b.dataset.c; renderAll(); commit(); inspector(); });
+    return; }
   if (it.type === "icon"){
     const ic = CAT.icons[it.icon], lab = it.label ? (typeof it.label === "string" ? it.label : it.label.text) : "";
     R.innerHTML = `<h3>${esc(ic.label)}</h3>
       ${field("Variant", `<div class="fam" id="ifam"></div>`)}
       ${field("Label", `<input id="ilab" value="${esc(lab)}">`)}
-      ${field("Liquid / sample colour", `<input id="iliq" type="color" value="${it.liquid||"#F39AB4"}"><div class="sw">${OKABE.map(c => `<b style="background:${c}" data-c="${c}"></b>`).join("")}</div>`)}
+      ${field("Liquid / sample colour", `<input id="iliq" type="color" value="${it.liquid||"#F39AB4"}"><div class="sw">${OKABE.map(c => `<b style="background:${c}" data-c="${c}"></b>`).join("")}${recentColors().map(c => `<b style="background:${c};outline:1px dashed #94A3B8" data-c="${c}" title="recent"></b>`).join("")}</div>`)}
       ${field("Position X / Y", `<div class="row"><input id="ix" type="number" value="${Math.round(it.x)}"><input id="iy" type="number" value="${Math.round(it.y)}"></div>`)}
       ${field("Size / rotation", `<div class="row"><input id="isz" type="number" value="${it.size}"><input id="irot" type="number" value="${it.rotate||0}"></div>`)}
       <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input id="ilock" type="checkbox" style="width:auto"> Locked (cannot be dragged or resized)</label>
       <div class="hint">H = flip · [ ] = layer order</div>`;
     famStrip($("ifam"), it.icon, it.shape||"base", k => { snapshot(); it.shape = k; renderAll(); commit(); inspector(); });
-    bind("ilab", v => { it.label = v; }); bind("iliq", v => { it.liquid = v; });
+    bind("ilab", v => { it.label = v; }); bind("iliq", v => { it.liquid = v; pushColor(v); });
     bind("isz", v => { it.size = Math.max(16, +v); }); bind("irot", v => { it.rotate = +v; });
     bind("ix", v => { it.x = +v || 0; }); bind("iy", v => { it.y = +v || 0; });
     const lk = $("ilock"); if (lk){ lk.checked = !!it.locked; lk.onchange = () => { snapshot(); it.locked = lk.checked; commit(); inspector(); }; }
@@ -760,6 +787,7 @@ function fillTiles(){
   const recentNames = (q.length || cat) ? [] : recentList().filter(n => CAT.icons[n]);
   const allHits = recentNames.map(n => [n, CAT.icons[n], "base"]).concat(hits.filter(h => !recentNames.includes(h[0])));
   const T = $("tiles"); T.innerHTML = ""; T.style.display = ""; T.style.gridTemplateColumns = "";
+  if (!allHits.length){ T.innerHTML = `<div class="hint">No icons match. Try a shorter word, another language, or clear the category.</div>`; return; }
   if ($("ptoggle").classList.contains("on") && !q.length && !cat){ fillPeriodic(T); return; }
   if (recentNames.length) T.insertAdjacentHTML("beforeend", `<div class="sub">Recently used</div>`);
   for (const [n, i, k] of allHits.slice(0, 300)){
@@ -799,12 +827,14 @@ function addIcon(name, x, y, shape){ snapshot(); pushRecent(name); const id = ne
   scene.items.push({id, type:"icon", icon:name, shape:shape||"base", style:"illustration", x:Math.round(x), y:Math.round(y), size:96, rotate:0, flip:false});
   sel = id; renderAll(); commit(); showFamily(name, shape||"base");
   if (shape && shape !== "base") ensureFamily(name).then(() => { const g = nodes.get(id); if (g) g.dataset.key = ""; renderAll(); }); }
-$("paper").addEventListener("dragover", ev => ev.preventDefault());
-$("paper").addEventListener("drop", ev => { ev.preventDefault(); const [n, k] = splitId(ev.dataTransfer.getData("text/plain")); if (!CAT.icons[n]) return;
+$("paper").addEventListener("dragover", ev => { ev.preventDefault(); $("stage").classList.add("dropping"); });
+$("stage").addEventListener("dragleave", ev => { if (ev.target === $("stage")) $("stage").classList.remove("dropping"); });
+$("paper").addEventListener("drop", ev => { ev.preventDefault(); $("stage").classList.remove("dropping"); const [n, k] = splitId(ev.dataTransfer.getData("text/plain")); if (!CAT.icons[n]) return;
   const p = svgPt(ev); addIcon(n, p.x - 48, p.y - 48, k); });
 
 /* ------------------------------------------------------------------ toolbar */
-function setMode(m){ mode = m; pending = null; document.querySelectorAll("#bar [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m)); drawUI(); }
+function setMode(m){ mode = m; pending = null; document.querySelectorAll("#bar [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+  $("canvas").style.cursor = m === "select" ? "" : "crosshair"; drawUI(); }
 document.querySelectorAll("#bar [data-mode]").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 $("undo").onclick = undo; $("redo").onclick = redo; $("save").onclick = saveScene;
 window.addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
@@ -870,6 +900,14 @@ function numberSel(){
   renderAll(); commit();
 }
 
+/* Recent colours: the last six picked for a sample colour, most recent first, kept in this browser. */
+function recentColors(){ try { return JSON.parse(localStorage.getItem("reticula_colors") || "[]").slice(0, 6); } catch (e) { return []; } }
+function pushColor(c){ try { const arr = [c, ...recentColors().filter(x => x !== c)].slice(0, 6); localStorage.setItem("reticula_colors", JSON.stringify(arr)); } catch (e) {} }
+function setLocked(v){ const its = selectedIds().map(byId).filter(Boolean); if (!its.length) return;
+  snapshot(); its.forEach(x => x.locked = v); renderAll(); commit(); }
+function unionBox(bs){ const x0 = Math.min(...bs.map(b => b.x)), y0 = Math.min(...bs.map(b => b.y));
+  return {x: x0, y: y0, w: Math.max(...bs.map(b => b.x + b.w)) - x0, h: Math.max(...bs.map(b => b.y + b.h)) - y0}; }
+
 /* Style copy: the look of one item (colours, weight, line style) onto others of the same kind. Geometry and text are never copied. */
 const STYLE_KEYS = {icon:["liquid","style","theme"], text:["color","weight","size","anchor"], box:["fill","radius"], arrow:["color","width","dash","head","route"]};
 let styleClip = null;                          // {type, props}
@@ -918,9 +956,11 @@ const FBAR_ACTIONS = {
   back:   {label:"▼ Back",    title:"Send to back ( [ )",                    run:() => layerMove(false)},
   group:  {label:"Group",     title:"Group the selection (Ctrl+G)",          run:() => groupSel()},
   ungroup:{label:"Ungroup",   title:"Ungroup (Ctrl+Shift+G)",                run:() => ungroupSel()},
-  alignL: {label:"Align L",   title:"Align left edges",                      run:() => alignSel("l")},
-  alignC: {label:"Align C",   title:"Align centres horizontally",            run:() => alignSel("c")},
-  alignR: {label:"Align R",   title:"Align right edges",                     run:() => alignSel("r")},
+  alignL: {label:"⇤ Left",    title:"Align left edges",                      run:() => alignSel("l")},
+  alignC: {label:"⇔ Centre",  title:"Align centres horizontally",            run:() => alignSel("c")},
+  alignR: {label:"⇥ Right",   title:"Align right edges",                     run:() => alignSel("r")},
+  lock:   {label:"🔒 Lock",   title:"Lock the selection (it cannot be dragged or resized)", run:() => setLocked(true)},
+  unlock: {label:"🔓 Unlock", title:"Unlock the selection",                  run:() => setLocked(false)},
   del:    {label:"Delete",    title:"Delete (Del)",                          run:() => deleteSel(), danger:true},
   dup:    {label:"Duplicate", title:"Duplicate the selection (Ctrl+D)",      run:() => { copyItems(selectedIds()); pasteItems(); }},
   copyStyle:{label:"Copy style", title:"Copy the look of this item (colour, weight, line style)", run:() => copyStyle()},
@@ -960,6 +1000,7 @@ function fbarSet(ids){                       // which actions for this selection
   k.push("front", "back", "dup");
   if (items.some(x => x.type !== "arrow")) k.push("pageH", "pageV", "repeat", "num");
   if (items.length === 1 || multiSel) k.push("copyStyle");
+  if (items.length) k.push(items.some(x => x.locked) ? "unlock" : "lock");
   if (styleClip) k.push("pasteStyle");
   if (multiSel && items.filter(x => x.type === "icon").length > 1) k.push("same");
   if (multiSel) k.push("line", "alignL", "alignC", "alignR", "group");
@@ -1020,8 +1061,10 @@ $("tpl").onclick = () => { const names = Object.keys(window.RT_TEMPLATES || {});
 const inFrame = window.parent !== window;
 function send(type, data){ if (inFrame) window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, data), "*"); }
 let dirty = false;
-function setDirty(v){ dirty = v; const b = $("save"); if (b) b.textContent = v ? "💾 Save ●" : "💾 Saved"; }
-function commit(){ setDirty(true); $("undo").title = `Undo (${hist.length} step${hist.length === 1 ? "" : "s"}, Ctrl+Z)`; scheduleDraft(); }
+let lastSaved = null;                          // time of the last save, shown on the button
+function setDirty(v){ dirty = v; const b = $("save"); if (b) b.textContent = v ? "💾 Save ●" : (lastSaved ? `💾 Saved ${lastSaved}` : "💾 Saved"); }
+function commit(){ setDirty(true); $("undo").title = `Undo (${hist.length} step${hist.length === 1 ? "" : "s"}, Ctrl+Z)`;
+  $("undo").disabled = !hist.length; $("redo").disabled = !redoStack.length; scheduleDraft(); }
 /* Draft: an unsaved scheme is kept in this browser, so a reload does not lose work. Only offered again for the same loaded scene. */
 function scheduleDraft(){ clearTimeout(draftT); draftT = setTimeout(() => {
   try { localStorage.setItem("reticula_draft", JSON.stringify({ts: Date.now(), base: baseSig, scene})); } catch (e) {} }, 800); }
@@ -1044,7 +1087,9 @@ function offerDraft(){
 }   // local edit only: no Streamlit rerun, so selection and scroll stay put
 function commitSoon(){ commit(); }
 function saveScene(){ clearTimeout(tmr); clearTimeout(draftT); try { localStorage.removeItem("reticula_draft"); } catch (e) {}
-  send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"}); setDirty(false); }
+  send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"});
+  lastSaved = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); setDirty(false);
+  const b = $("save"); b.classList.add("flash"); setTimeout(() => b.classList.remove("flash"), 800); }
 let tmr = 0;
 let lastSig = null;
 window.addEventListener("message", ev => { const d = ev.data; if (!d || d.type !== "streamlit:render") return;
@@ -1056,6 +1101,8 @@ window.addEventListener("message", ev => { const d = ev.data; if (!d || d.type !
 async function boot(){
   CAT = window.RT_CATALOG || await (await fetch("catalog.json")).json();
   buildPicker(); renderAll(); send("streamlit:componentReady", {apiVersion:1});
+  $("undo").disabled = true; $("redo").disabled = true;              // nothing to undo yet
+  $("st-tpl").onclick = () => $("tpl").click(); $("st-arrow").onclick = () => setMode("arrow"); $("st-text").onclick = () => setMode("text");
 }
 boot();
 </script>
