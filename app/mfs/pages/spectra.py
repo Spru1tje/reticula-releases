@@ -266,6 +266,13 @@ def _crystal_size_ui(traces, lo, hi):
                    "Williamson–Hall analysis of ≥ 3 reflections; uncertainties are from the weighted regression.")
 
 
+def _add_cell_phase(sol):
+    """Callback: the indexed cell becomes an 'unknown phase' for Le Bail."""
+    ss = st.session_state
+    lst = ss.setdefault("rv_cellph", [])
+    lst.append((f"unknown {len(lst) + 1}", tuple(sol["cell"])))
+
+
 def _use_ident(labels):
     """Callback of 'Use these phases': the identified phases become the selection of the refinement."""
     st.session_state["rv_phases"] = list(labels)
@@ -294,7 +301,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         if st.button("🔎 Identify the phases", key="rv_ident"):
             _x, _y = raws[nm]
             with st.spinner("Searching the library …"):
-                ss["rv_ident_res"] = (nm, PID.match(_x, _y, RV.RADIATION[rad][0][0], progress=None))
+                ss["rv_ident_res"] = (nm, PID.match(_x, _y, RV.RADIATION[ss.get("rv_rad", "Cu Kα1")][0][0], progress=None))
         _ir = ss.get("rv_ident_res")
         if _ir and _ir[0] == nm:
             if not _ir[1]:
@@ -305,6 +312,29 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                                              "pattern explained (%)": round(100 * r_.get("explained", 0), 0)} for r_ in _ir[1]]), hide_index=True, width="stretch")
                 st.button("➕ Use these phases", key="rv_use_ident", type="primary", on_click=_use_ident, args=([f"{r_['name']} ({r_['source']})" for r_ in _ir[1]],))
                 st.caption("The cell change shows how far the measured cell is from the library cell (solid solution, another metal, temperature …).")
+    with box.expander("🧭 Unknown phase? Find its unit cell (indexing)", expanded=False):
+        from mfs import indexing as IX
+        st.caption("For a phase that is not in the library and has no CIF: the unit cell is searched from the peak positions (cubic, tetragonal, hexagonal, orthorhombic). "
+                   "The quality is the de Wolff M20 (> 10 reliable). The cell is then fitted with Le Bail (no structure needed) – a good cell gives a good fit.")
+        if st.button("🧭 Index the pattern", key="rv_index"):
+            _x, _y = raws[nm]
+            _lam = RV.RADIATION[ss.get("rv_rad", "Cu Kα1")][0][0]
+            _pk = PID.exp_peaks(_x, _y, 0.015)[0]
+            with st.spinner("Searching unit cells …"):
+                ss["rv_index_res"] = (nm, IX.index(_pk, _lam), len(_pk))
+        _xr = ss.get("rv_index_res")
+        if _xr and _xr[0] == nm:
+            if not _xr[1]:
+                st.warning(f"No cell found from {_xr[2]} peaks (monoclinic / triclinic cells, impurities or too few peaks). Dedicated programs (DICVOL, McMaille) go further.")
+            else:
+                st.dataframe(pd.DataFrame([{"#": k + 1, "system": s_["system"], "a (Å)": s_["cell"][0], "b (Å)": s_["cell"][1], "c (Å)": s_["cell"][2], "γ (°)": s_["cell"][5],
+                                             "volume (Å³)": s_["volume"], "M20": s_["M20"], "unindexed": s_["n_unindexed"], "quality": s_["quality"]} for k, s_ in enumerate(_xr[1])]),
+                             hide_index=True, width="stretch")
+                _sel = st.selectbox("Cell to use", range(len(_xr[1])), format_func=lambda k: f"#{k + 1}: {_xr[1][k]['system']} · V = {_xr[1][k]['volume']} Å³ · M20 = {_xr[1][k]['M20']}", key="rv_index_pick")
+                st.button("➕ Add as unknown phase (Le Bail)", key="rv_index_add", on_click=_add_cell_phase, args=(_xr[1][_sel],))
+        if ss.get("rv_cellph"):
+            st.markdown("**Unknown phases (cell only):** " + ", ".join(f"{n_} ({c_[0]:.3f}, {c_[1]:.3f}, {c_[2]:.3f} Å)" for n_, c_ in ss["rv_cellph"]))
+            st.button("Remove the unknown phases", key="rv_cell_clear", on_click=lambda: ss.pop("rv_cellph", None))
     ups = box.file_uploader("…and / or your own CIF file(s)", type=["cif"], accept_multiple_files=True, key="rv_cifs")
     rad = c3.selectbox("Radiation", list(RV.RADIATION), key="rv_rad", help="Kα1 only = monochromated beam (e.g. STOE); Kα1 + Kα2 = Kβ filter (e.g. Rigaku, Bruker).")
     d1, d2, d3 = box.columns([3, 2, 2])
@@ -341,7 +371,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         except ValueError:
             return None
     store = ss.setdefault("rv_res", {})
-    run = box.button("▶ Refine", key="rv_go", type="primary", width="stretch", disabled=not phases_src,
+    run = box.button("▶ Refine", key="rv_go", type="primary", width="stretch", disabled=not (phases_src or ss.get("rv_cellph")),
                      help="Runs the complete automatic strategy: start values, cell, peak shape, background, displacement." if phases_src else "Choose at least one phase.")
     if run:
         x, y = raws[nm]
@@ -349,6 +379,10 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         try:
             sub = {"Zr": "Hf"} if hf else None
             ph = [RV.Phase.from_cif(src, name, substitute=sub) for name, src in phases_src]
+            ph += [RV.Phase.from_cell(c_, n_) for n_, c_ in ss.get("rv_cellph", [])]
+            if ss.get("rv_cellph") and not mode_l.startswith("Le Bail"):
+                box.info("A phase with only a cell (no structure) can only be fitted with Le Bail – the method was switched for this run.")
+                mode_l = "Le Bail (cell + peak shape only)"
             for ph_, (name, _s) in zip(ph, phases_src):
                 ph_.po_axis = _axis(po_txt.get(name, ""))
             res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,

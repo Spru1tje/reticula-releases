@@ -151,6 +151,13 @@ class Phase:
         obj._structure = s
         return obj
 
+    @classmethod
+    def from_cell(cls, cell, name="unknown phase"):
+        """A phase without a structure (e.g. from indexing): every reflection of the cell with intensity 1 - for Le Bail refinement only."""
+        obj = cls(name, cell, detect_system(cell), np.zeros((0, 3)), [], [], 0.0, "")
+        obj.cell_only = True
+        return obj
+
     def enable_structure(self, symprec: float = 0.01, restraint_tol: float = 0.45):
         """Switches the phase to structure refinement (atom positions, displacement parameters): builds the symmetry-aware model and the bond restraints."""
         from mfs.structmodel import StructureModel
@@ -175,6 +182,8 @@ class Phase:
         self.cls_group[inv] = self.m_grp
 
     def build(self, dmin: float):
+        if getattr(self, "cell_only", False):
+            return self._build_cell_only(dmin)
         """Reflections down to d = dmin (Å): half-space hkl, structure factors at B = 0, equivalents merged by d-spacing."""
         from pymatgen.analysis.diffraction.xrd import ATOMIC_SCATTERING_PARAMS
         from pymatgen.core import Element
@@ -213,6 +222,24 @@ class Phase:
         self.dmin = dmin
         if self.model is not None:
             self._classify()
+        return self
+
+    def _build_cell_only(self, dmin: float):
+        Gs = np.linalg.inv(_cell_metric(self.cell0))
+        hm = [int(math.ceil(v / dmin)) for v in self.cell0[:3]]
+        h, k, l = np.meshgrid(*[np.arange(-m, m + 1) for m in hm], indexing="ij")
+        hk = np.stack([h.ravel(), k.ravel(), l.ravel()], 1)
+        half = (hk[:, 0] > 0) | ((hk[:, 0] == 0) & (hk[:, 1] > 0)) | ((hk[:, 0] == 0) & (hk[:, 1] == 0) & (hk[:, 2] > 0))
+        hk = hk[half]
+        inv_d2 = np.einsum("ki,ij,kj->k", hk, Gs, hk)
+        sel = inv_d2 <= 1.0 / dmin ** 2
+        hk, inv_d2 = hk[sel], inv_d2[sel]
+        key = np.round(inv_d2 * 1e6).astype(np.int64)
+        uk, first, inv = np.unique(key, return_index=True, return_inverse=True)
+        self.hkl = hk[first]
+        self.I0 = np.bincount(inv, weights=np.full(len(hk), 2.0))
+        self.m_hkl, self.m_F2, self.m_grp = hk.astype(float), np.full(len(hk), 2.0), inv
+        self.dmin = dmin
         return self
 
     @property

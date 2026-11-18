@@ -166,3 +166,23 @@ def test_phase_identification_in_the_pxrd_page():
     [b for b in at.button if b.key == "rv_use_ident"][0].click().run()
     assert not at.exception, at.exception
     assert any("MOF-801" in x for x in at.session_state["rv_phases"])
+
+
+def test_indexing_and_le_bail_of_an_unknown_phase_in_the_page():
+    from streamlit.testing.v1 import AppTest
+    warnings.filterwarnings("ignore")
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
+    at.session_state["_lv"] = {"global": "Standard"}
+    at.run()
+    at.sidebar.radio[0].set_value("PXRD").run()
+    [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    [b for b in at.button if b.key == "rv_index"][0].click().run()
+    assert not at.exception, at.exception
+    name, sols, n = at.session_state["rv_index_res"]
+    assert sols and sols[0]["system"] == "cubic" and abs(sols[0]["cell"][0] - 17.8) < 0.6           # MOF-801 (Hf): fcc, a ≈ 17.8 Å
+    [b for b in at.button if b.key == "rv_index_add"][0].click().run()
+    assert at.session_state["rv_cellph"]
+    [b for b in at.button if b.key == "rv_go"][0].click().run()
+    assert not at.exception, at.exception
+    res = next(iter(at.session_state["rv_res"].values()))
+    assert res["mode"] == "lebail" and res["stats"]["Rwp"] < 0.25
