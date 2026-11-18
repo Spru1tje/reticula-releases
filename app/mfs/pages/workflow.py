@@ -222,6 +222,14 @@ def page_batch():
         dl(st, "⬇️ ZIP (figures + data + log + preset)", z, f"batch_{safe_name(k_)}.zip", "bp_zip")
 
 
+def _xlsx_sources(summary, long):
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+        summary.to_excel(xw, sheet_name="Summary", index=False)
+        long.to_excel(xw, sheet_name="Sources", index=False)
+    return buf.getvalue()
+
+
 def _xlsx_bytes(df):
     buf = io.BytesIO()
     df.to_excel(buf, index=False, engine="openpyxl")
@@ -307,6 +315,13 @@ def page_si():
             dl(_cc[0], "⬇️ Excel", lambda: _xlsx_bytes(_sm), "Reticula_sample_summary.xlsx", "si_sum_x")
             dl(_cc[1], "⬇️ CSV", lambda: _sm.to_csv(index=False).encode("utf-8-sig"), "Reticula_sample_summary.csv", "si_sum_c")
             dl(_cc[2], "⬇️ LaTeX", lambda: SUM.summary_latex(_sm).encode("utf-8"), "Reticula_sample_summary.tex", "si_sum_t")
+            _c2 = st.columns(2)
+            _store_now = st.session_state.get("sample_store", {})
+            dl(_c2[0], "⬇️ Excel with the source of every number", lambda: _xlsx_sources(SUM.sample_summary(_store_now), SUM.summary_long(_store_now)),
+               "Reticula_sample_summary_with_sources.xlsx", "si_sum_xs",
+               help="Sheet *Summary* (one row per sample) and sheet *Sources* (one row per number: page, data files, time, program version).")
+            dl(_c2[1], "⬇️ LaTeX with source footnotes", lambda: SUM.summary_latex_sourced(_store_now).encode("utf-8"), "Reticula_sample_summary_sourced.tex", "si_sum_ts",
+               help="Every value carries a footnote letter that names its page, data files and time.")
     with st.expander("📏 Journal check – will the figures be readable at the final size?", expanded=False):
         jn = st.selectbox("Journal / column", list(J.JOURNALS), key="si_journal")
         w_, f_, l_, d_ = J.JOURNALS[jn]

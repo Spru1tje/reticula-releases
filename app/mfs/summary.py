@@ -86,3 +86,70 @@ def summary_latex(df, caption: str = "Summary of the characterisation of the sam
         lines.append(" & ".join(esc(r[c]) for c in cols) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
     return "\n".join(lines)
+
+
+TECH_NAMES = {"tga": "TGA", "nmr": "¹H NMR (digest)", "nmr_1h": "¹H NMR", "icp": "ICP-OES", "xrf": "XRF", "xps": "XPS", "sem": "SEM / TEM sizing", "n2": "N₂ sorption",
+              "pxrd": "PXRD", "kinetics": "Kinetics", "dsc": "DSC", "defects": "Defect calculator", "pl": "Photoluminescence", "uvvis": "UV/Vis"}
+
+
+def summary_long(store: dict, sections=None):
+    """One row per number: Sample, Technique, Quantity, Value, Source (page), Data files, Time, Version - the provenance of every value of the summary."""
+    import pandas as pd
+    from mfs.si_bundle import _flat
+    rows = []
+    for sid, rec in (store or {}).items():
+        for sec, d in rec.get("sections", {}).items():
+            if sections and sec not in sections:
+                continue
+            for k, v in _flat(d.get("values") or {}).items():
+                if isinstance(v, (int, float, str, bool)) and not (isinstance(v, str) and len(v) > 80):
+                    rows.append({"Sample": rec.get("name", sid), "Technique": TECH_NAMES.get(sec, sec), "Quantity": k, "Value": round(v, 4) if isinstance(v, float) else v,
+                                 "Source": d.get("source", ""), "Data files": "; ".join(d.get("files") or []), "Time": d.get("updated", ""), "Version": d.get("version", "")})
+    return pd.DataFrame(rows, columns=["Sample", "Technique", "Quantity", "Value", "Source", "Data files", "Time", "Version"])
+
+
+def summary_notes(store: dict, sections=None):
+    """The footnotes of the summary: one per (sample, technique) with page, files, time. Returns (list of (label, text), {(sample, technique): label})."""
+    notes, ref = [], {}
+    for sid, rec in (store or {}).items():
+        for sec, d in rec.get("sections", {}).items():
+            if sections and sec not in sections:
+                continue
+            lab = chr(ord("a") + len(notes)) if len(notes) < 26 else f"a{len(notes)}"
+            tx = (f"{rec.get('name', sid)}, {TECH_NAMES.get(sec, sec)}: {d.get('source') or 'Reticula'}"
+                  + (f", file(s) {'; '.join(d.get('files') or [])}" if d.get("files") else "") + (f", {d.get('updated', '')[:16].replace('T', ' ')}" if d.get("updated") else "")
+                  + (f", Reticula {d.get('version')}" if d.get("version") else ""))
+            notes.append((lab, tx))
+            ref[(rec.get("name", sid), sec)] = lab
+    return notes, ref
+
+
+def summary_latex_sourced(store: dict, caption: str = "Summary of the characterisation of the samples.", label: str = "tab:summary") -> str:
+    """The summary as a LaTeX table whose every value carries a footnote letter that names its source (page, files, time, program version)."""
+    import pandas as pd
+    wide = sample_summary(store)
+    if not len(wide):
+        return ""
+    notes, ref = summary_notes(store)
+    sec_of = {TECH_NAMES.get(k, k): k for k in TECH_NAMES}
+
+    def esc(x):
+        s = "--" if x is None or str(x) == "nan" else str(x)
+        for a_, b_ in (("\\", "\\textbackslash{}"), ("&", "\\&"), ("%", "\\%"), ("_", "\\_"), ("#", "\\#"), ("$", "\\$")):
+            s = s.replace(a_, b_)
+        return s
+    cols = list(wide.columns)
+    lines = ["\\begin{table}[ht]", "\\centering", f"\\caption{{{esc(caption)}}}", f"\\label{{{label}}}", "\\small",
+             "\\begin{tabular}{" + "l" + "r" * (len(cols) - 1) + "}", "\\toprule", " & ".join(esc(c) for c in cols) + " \\\\", "\\midrule"]
+    for _, r in wide.iterrows():
+        cells = [esc(r["Sample"])]
+        for c in cols[1:]:
+            tech_key = c.split(":")[0]
+            lab = ref.get((r["Sample"], tech_key))
+            v = r[c]
+            cells.append(esc(v) + (f"$^{{{lab}}}$" if lab and str(v) != "nan" else ""))
+        lines.append(" & ".join(cells) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", "\\\\[2pt]", "\\begin{minipage}{\\linewidth}\\footnotesize"]
+    lines += [f"$^{{{lab}}}$ {esc(tx)}\\\\" for lab, tx in notes]
+    lines += ["\\end{minipage}", "\\end{table}"]
+    return "\n".join(lines)

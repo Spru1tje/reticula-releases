@@ -171,7 +171,8 @@ def store_put(sample, section, values, source=""):
     """Put one page's per-sample results into the shared sample store (session + Documents/Reticula/sample_store.json)."""
     from mfs import samplestore as SS
     try:
-        SS.put(st.session_state, sample, section, values, source, STORE_PATH if st.session_state.get("store_persist", True) else None)
+        SS.put(st.session_state, sample, section, values, source, STORE_PATH if st.session_state.get("store_persist", True) else None,
+               files=list(dict.fromkeys(SOURCES)), version=__version__)
     except Exception as e:      # the store must never break a page
         st.session_state["_store_err"] = str(e)
 

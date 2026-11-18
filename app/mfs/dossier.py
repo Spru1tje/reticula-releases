@@ -50,6 +50,8 @@ def build_dossier(material: str, rendered: dict, store: dict, version: str = "",
         if len(sm):
             z.writestr("sample_summary.csv", sm.to_csv(index=False))
             z.writestr("sample_summary.tex", SUM.summary_latex(sm, f"Characterisation of {material}."))
+            z.writestr("sample_summary_sources.csv", SUM.summary_long(store_for(material, store)).to_csv(index=False))
+            z.writestr("sample_summary_sourced.tex", SUM.summary_latex_sourced(store_for(material, store), f"Characterisation of {material}."))
         if provenance:
             z.writestr("provenance.json", json.dumps(provenance, indent=1, ensure_ascii=False, default=str))
         z.writestr("README.txt", f"Reticula {version} - dossier of '{material}'\n{len(rendered)} figure(s) from: {', '.join(sorted({p for p in pages if p}))}.\n"

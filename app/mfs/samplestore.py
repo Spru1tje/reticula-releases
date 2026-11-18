@@ -36,7 +36,7 @@ def _store(state):
     return state["sample_store"]
 
 
-def put(state, sample: str, section: str, values: dict, source: str = "", path: str | None = None):
+def put(state, sample: str, section: str, values: dict, source: str = "", path: str | None = None, files=None, version: str = ""):
     """Store/replace one section of one sample. Returns the sample id."""
     st = _store(state)
     sid = norm_id(sample)
@@ -45,7 +45,8 @@ def put(state, sample: str, section: str, values: dict, source: str = "", path: 
     rec = st.setdefault(sid, {"name": sample, "sections": {}})
     rec["name"] = rec.get("name") or sample
     rec["sections"][section] = {"values": _clean(dict(values)), "source": source,
-                                "updated": datetime.datetime.now().isoformat(timespec="seconds")}
+                                "updated": datetime.datetime.now().isoformat(timespec="seconds"),
+                                "files": [str(f) for f in (files or [])][:12], "version": version}      # v2.16: where does this number come from?
     if path:
         save(state, path)
     return sid
