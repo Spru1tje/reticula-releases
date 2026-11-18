@@ -217,8 +217,9 @@ def main():
     res_list = []
     for key in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]:
         inp = example_defect_input(key)
-        with open(os.path.join(ED, "Defects", f"defect_input_{key}.json"), "w", encoding="utf-8") as f:
-            json.dump(report.input_to_dict(inp), f, indent=1)
+        if not ARGS.png_only:   # --png-only (tests) must not rewrite the tracked example inputs
+            with open(os.path.join(ED, "Defects", f"defect_input_{key}.json"), "w", encoding="utf-8") as f:
+                json.dump(report.input_to_dict(inp), f, indent=1)
         res = D.run_all(inp)
         res_list.append(res)
         fig = P.fig_defect_comparison(res); save(fig, f"14_defects_{key}")
