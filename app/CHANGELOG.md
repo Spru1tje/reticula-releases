@@ -55,6 +55,11 @@
 - **Periodic table view** of the 118 element tiles in the picker.
 
 ### Known limits (summary)
+- Accepted as they are for this version: the TGA plateau rule (SI tables not checked against it) and the journal SI wording (templates, not checked against current author guidelines).
+- Zetasizer 8.02: Z-average and PDI not calculated (use the software's export); ζ not read from .dts.
+- Browser tests of the scheme editor and of 8 older browser tests are not run here (Playwright missing). PyInstaller build not run with these changes.
+- Full to-do list for the next version: TODO_v2.19.md.
+
 - The browser preview shows each icon in its default style; the export (PDF, SVG, PNG, TIFF) uses the chosen style and theme.
 - The scheme panel in the combined figure is an image at 600 dpi, so that one panel is not vector.
 - The automatic route works on an 8 px grid around the icon boxes; check the result after routing.
