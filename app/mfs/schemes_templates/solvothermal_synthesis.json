@@ -1,0 +1,160 @@
+{
+ "version": 1,
+ "width": 1000,
+ "height": 360,
+ "background": "#FFFFFF",
+ "theme": "default",
+ "items": [
+  {
+   "id": "t",
+   "type": "text",
+   "x": 500,
+   "y": 36,
+   "text": "Solvothermal synthesis",
+   "size": 20,
+   "weight": "bold",
+   "anchor": "middle"
+  },
+  {
+   "id": "metal",
+   "type": "icon",
+   "icon": "reagent_bottle",
+   "shape": "base",
+   "x": 30,
+   "y": 110,
+   "size": 96,
+   "label": "Metal salt"
+  },
+  {
+   "id": "linker",
+   "type": "icon",
+   "icon": "linker_fumarate",
+   "x": 30,
+   "y": 230,
+   "size": 70,
+   "label": "Linker"
+  },
+  {
+   "id": "mix",
+   "type": "icon",
+   "icon": "beaker",
+   "shape": "stirring",
+   "x": 200,
+   "y": 140,
+   "size": 110,
+   "label": "Dissolve + mix"
+  },
+  {
+   "id": "ac",
+   "type": "icon",
+   "icon": "autoclave",
+   "x": 380,
+   "y": 140,
+   "size": 110,
+   "label": "Seal in autoclave"
+  },
+  {
+   "id": "oven",
+   "type": "icon",
+   "icon": "oven",
+   "shape": "heating",
+   "x": 560,
+   "y": 140,
+   "size": 110,
+   "label": "Heat"
+  },
+  {
+   "id": "cent",
+   "type": "icon",
+   "icon": "centrifuge",
+   "x": 740,
+   "y": 140,
+   "size": 100,
+   "label": "Wash / centrifuge"
+  },
+  {
+   "id": "prod",
+   "type": "icon",
+   "icon": "crystal_octahedron",
+   "x": 890,
+   "y": 150,
+   "size": 90,
+   "label": "MOF powder"
+  },
+  {
+   "id": "a0",
+   "type": "arrow",
+   "from": {
+    "item": "metal",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "mix",
+    "anchor": "left"
+   },
+   "route": "curved"
+  },
+  {
+   "id": "a00",
+   "type": "arrow",
+   "from": {
+    "item": "linker",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "mix",
+    "anchor": "left"
+   },
+   "route": "curved"
+  },
+  {
+   "id": "a1",
+   "type": "arrow",
+   "from": {
+    "item": "mix",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "ac",
+    "anchor": "left"
+   }
+  },
+  {
+   "id": "a2",
+   "type": "arrow",
+   "from": {
+    "item": "ac",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "oven",
+    "anchor": "left"
+   },
+   "label": "120 °C, 24 h"
+  },
+  {
+   "id": "a3",
+   "type": "arrow",
+   "from": {
+    "item": "oven",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "cent",
+    "anchor": "left"
+   }
+  },
+  {
+   "id": "a4",
+   "type": "arrow",
+   "from": {
+    "item": "cent",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "prod",
+    "anchor": "left"
+   }
+  }
+ ]
+}

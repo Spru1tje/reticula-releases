@@ -1,0 +1,255 @@
+{
+ "version": 1,
+ "width": 1020,
+ "height": 480,
+ "background": "#FFFFFF",
+ "theme": "default",
+ "items": [
+  {
+   "id": "syn0",
+   "type": "icon",
+   "icon": "autoclave",
+   "x": 30,
+   "y": 182.0,
+   "size": 96,
+   "label": "Synthesis"
+  },
+  {
+   "id": "syn1",
+   "type": "icon",
+   "icon": "solvent_exchange",
+   "x": 180,
+   "y": 182.0,
+   "size": 96,
+   "label": "Activation"
+  },
+  {
+   "id": "as1",
+   "type": "arrow",
+   "from": {
+    "item": "syn0",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "syn1",
+    "anchor": "left"
+   }
+  },
+  {
+   "id": "sample",
+   "type": "icon",
+   "icon": "crystal_octahedron",
+   "x": 330,
+   "y": 172.0,
+   "size": 116,
+   "label": {
+    "text": "Sample A",
+    "weight": "bold"
+   }
+  },
+  {
+   "id": "as_last",
+   "type": "arrow",
+   "from": {
+    "item": "syn1",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "sample",
+    "anchor": "left"
+   }
+  },
+  {
+   "id": "t0",
+   "type": "icon",
+   "icon": "xrd",
+   "x": 560,
+   "y": 26.0,
+   "size": 74,
+   "label": "PXRD"
+  },
+  {
+   "id": "at0",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t0",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t1",
+   "type": "icon",
+   "icon": "sorption_analyzer",
+   "x": 560,
+   "y": 136.0,
+   "size": 74,
+   "label": "N₂ sorption"
+  },
+  {
+   "id": "at1",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t1",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t2",
+   "type": "icon",
+   "icon": "tga_instrument",
+   "x": 560,
+   "y": 246.0,
+   "size": 74,
+   "label": "TGA"
+  },
+  {
+   "id": "at2",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t2",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t3",
+   "type": "icon",
+   "icon": "ftir_atr",
+   "x": 560,
+   "y": 356.0,
+   "size": 74,
+   "label": "FTIR"
+  },
+  {
+   "id": "at3",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t3",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t4",
+   "type": "icon",
+   "icon": "nmr",
+   "x": 770,
+   "y": 26.0,
+   "size": 74,
+   "label": "NMR"
+  },
+  {
+   "id": "at4",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t4",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t5",
+   "type": "icon",
+   "icon": "electron_microscope",
+   "x": 770,
+   "y": 136.0,
+   "size": 74,
+   "label": "SEM"
+  },
+  {
+   "id": "at5",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t5",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t6",
+   "type": "icon",
+   "icon": "xps",
+   "x": 770,
+   "y": 246.0,
+   "size": 74,
+   "label": "XPS"
+  },
+  {
+   "id": "at6",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t6",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  },
+  {
+   "id": "t7",
+   "type": "icon",
+   "icon": "icp_oes",
+   "x": 770,
+   "y": 356.0,
+   "size": 74,
+   "label": "ICP-OES"
+  },
+  {
+   "id": "at7",
+   "type": "arrow",
+   "from": {
+    "item": "sample",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "t7",
+    "anchor": "left"
+   },
+   "route": "curved",
+   "width": 2,
+   "head_size": 9
+  }
+ ]
+}

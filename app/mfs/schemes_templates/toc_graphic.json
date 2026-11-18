@@ -1,0 +1,84 @@
+{
+ "version": 1,
+ "width": 800,
+ "height": 400,
+ "background": "#FFFFFF",
+ "theme": "default",
+ "items": [
+  {
+   "id": "bg",
+   "type": "box",
+   "x": 0,
+   "y": 0,
+   "w": 800,
+   "h": 400,
+   "fill": "#F8FAFC",
+   "radius": 0
+  },
+  {
+   "id": "mof",
+   "type": "icon",
+   "icon": "mof_framework",
+   "shape": "guests",
+   "x": 250,
+   "y": 80,
+   "size": 230
+  },
+  {
+   "id": "sub",
+   "type": "icon",
+   "icon": "protein_globule",
+   "x": 40,
+   "y": 130,
+   "size": 130,
+   "label": "Protein"
+  },
+  {
+   "id": "pep",
+   "type": "icon",
+   "icon": "selective_cleavage",
+   "x": 610,
+   "y": 140,
+   "size": 140,
+   "label": "Selective cleavage"
+  },
+  {
+   "id": "a1",
+   "type": "arrow",
+   "from": {
+    "item": "sub",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "mof",
+    "anchor": "left"
+   },
+   "width": 4,
+   "head_size": 15
+  },
+  {
+   "id": "a2",
+   "type": "arrow",
+   "from": {
+    "item": "mof",
+    "anchor": "right"
+   },
+   "to": {
+    "item": "pep",
+    "anchor": "left"
+   },
+   "width": 4,
+   "head_size": 15
+  },
+  {
+   "id": "t",
+   "type": "text",
+   "x": 400,
+   "y": 360,
+   "text": "Your headline here",
+   "size": 24,
+   "weight": "bold",
+   "anchor": "middle"
+  }
+ ]
+}
