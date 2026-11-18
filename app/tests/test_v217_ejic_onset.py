@@ -33,3 +33,15 @@ def test_no_fall_means_no_onset():
     w = np.full_like(T, 100.0)
     a = A.tga_analysis(T, w)
     assert a["T_onset"] is None
+
+
+def test_real_uio66_tga_onset_regression():
+    """Real UiO-66 TGA (Leuven, Zenodo 15013202, CC-BY 4.0; example_data/TGA/README_UiO66_source.md).
+    The knee of the mass curve falls at ~470 C; the rule must stay in the 455-490 C band seen on the plot."""
+    import os
+    path = os.path.join(os.path.dirname(__file__), "..", "example_data", "TGA", "UiO-66_Leuven_TGA_EXAMPLE.csv")
+    a_ = np.loadtxt(path, delimiter=",", skiprows=1)
+    a = A.tga_analysis(a_[:, 0], a_[:, 1], 21)
+    assert a["T_onset"] is not None
+    assert 455 <= a["T_onset"] <= 490
+    assert a["onset_info"]["method"].startswith("knee")

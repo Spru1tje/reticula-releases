@@ -357,6 +357,25 @@ def flat_plateau(Tg, dtg, peak_idx, half_width=25.0, slope_tol=None):
                           "half_width": half_width, "reason": "" if flat else "the mass still changes here (no clear plateau in this window)"}
 
 
+def knee_onset(Tg, w, peak_T, thr=1.0, sustain=10, fit_lo=150.0, fit_hi=320.0):
+    """Start of decomposition as the visible knee: the mass line before the decomposition is fitted (linear, fit_lo .. min(fit_hi,
+    peak-150 °C)); the onset is the first temperature after it where the mass lies more than thr % below that line, and stays there
+    for `sustain` points. Chosen against the real UiO-66 TGA (Leuven, 'Figure 2' of doi:10.1002/ejic.202000656 data): the knee falls
+    at ~460-470 °C, where the curve visibly leaves its gentle slope. Returns (T or None, slope %/°C)."""
+    Tg = np.asarray(Tg, float); w = np.asarray(w, float)
+    hi = min(fit_hi, peak_T - 150.0)
+    m = (Tg >= fit_lo) & (Tg <= hi)
+    if m.sum() < 10:
+        return None, None
+    p = np.polyfit(Tg[m], w[m], 1)
+    dev = np.polyval(p, Tg) - w                       # mass below the extrapolated pre-decomposition line
+    after = np.nonzero((Tg > hi) & (Tg < peak_T))[0]
+    for i in after:
+        if dev[i] > thr and np.all(dev[i:i + sustain] > 0.5 * thr):
+            return float(Tg[i]), float(p[0])
+    return None, float(p[0])
+
+
 def onset_plateau(Tg, dtg, peak_idx, half_width=25.0, tol=0.05, w=None):
     """EJIC 2020 rule (Lázaro et al., doi:10.1002/ejic.202000656): R_exp uses the mass at the START of the decomposition profile,
     i.e. where the linker starts to lose mass after the flat stretch, not the flattest point. Same window as flat_plateau;
@@ -374,9 +393,13 @@ def onset_plateau(Tg, dtg, peak_idx, half_width=25.0, tol=0.05, w=None):
     peaks = np.asarray(peak_idx, int)
     big = [i for i in peaks if Tg[i] >= 380]
     if big and w is not None:
-        # tangent rule (what an analyst does by hand): the tangent at the steepest point of the linker step, extended back to the
-        # plateau level. Its crossing with the plateau is the start of the decomposition; it is close to the hand-picked onset.
         iL = max(big, key=lambda j: dtg[j])
+        T_k, slope_k = knee_onset(Tg, w, float(Tg[iL]))
+        if T_k is not None:                              # primary: the visible knee of the mass curve
+            return T_k, {"rule": "start of decomposition (EJIC 2020)", "method": "knee: mass 1 % below the pre-decomposition line",
+                         "window": (float(lo), float(hi)), "slope_pct_per_C": slope_k, "reason": ""}
+        # fallback: tangent at the steepest point of the linker step, extended back to the plateau level
+
         base = float(np.interp(T_flat if T_flat else lo + half_width, Tg, w))
         slope = float(dtg[iL])
         if slope > 0:
