@@ -38,7 +38,7 @@ def canvas_component():
     return _COMP
 
 
-def canvas(scene: dict, key: str, height: int = 760):
+def canvas(scene: dict, key: str, height: int = 980):
     """Show the editor for one scene. Returns the edited scene (dict) when the user changed it, otherwise None."""
     value = canvas_component()(scene=scene, height=height, key=key, default=None)
     if value is None:

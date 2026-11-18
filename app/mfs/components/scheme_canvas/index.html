@@ -71,6 +71,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
     <button data-mode="box" title="Add panel box (B)">▭ Box</button>
     <span class="sep"></span>
     <button id="undo" title="Ctrl+Z">↶</button><button id="redo" title="Ctrl+Y">↷</button>
+    <button id="save" class="primary" title="Save this scheme to the project (Ctrl+S)">💾 Saved</button>
     <span class="sep"></span>
     <span id="alignbar">
       <button data-al="l" title="Align left edges (multi-select)">Align L</button><button data-al="c" title="Align centres horizontally">Align C</button><button data-al="r" title="Align right edges">Align R</button>
@@ -481,6 +482,7 @@ document.addEventListener("keydown", ev => {
   const it = sel && byId(sel), k = ev.key.toLowerCase(), mod = ev.ctrlKey || ev.metaKey;
   if (mod && k === "z"){ ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
   if (mod && k === "y"){ ev.preventDefault(); redo(); return; }
+  if (mod && k === "s"){ ev.preventDefault(); saveScene(); return; }
   if (k === "escape"){ pending = null; setMode("select"); return; }
   if (!mod && k === "v") setMode("select"); if (!mod && k === "a") setMode("arrow"); if (!mod && k === "t") setMode("text"); if (!mod && k === "b") setMode("box");
   const ids = selectedIds();
@@ -639,7 +641,8 @@ $("paper").addEventListener("drop", ev => { ev.preventDefault(); const [n, k] = 
 /* ------------------------------------------------------------------ toolbar */
 function setMode(m){ mode = m; pending = null; document.querySelectorAll("#bar [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m)); drawUI(); }
 document.querySelectorAll("#bar [data-mode]").forEach(b => b.onclick = () => setMode(b.dataset.mode));
-$("undo").onclick = undo; $("redo").onclick = redo;
+$("undo").onclick = undo; $("redo").onclick = redo; $("save").onclick = saveScene;
+window.addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
 $("ptoggle").onclick = () => { $("ptoggle").classList.toggle("on"); fillTiles(); };
 document.querySelectorAll("#alignbar [data-al]").forEach(b => b.onclick = () => {
   const a = b.dataset.al; if (a === "group") groupSel(); else if (a === "ungroup") ungroupSel(); else if (a === "help") toggleHelp(); else alignSel(a); });
@@ -661,12 +664,16 @@ $("tpl").onclick = () => { const names = Object.keys(window.RT_TEMPLATES || {});
 /* ------------------------------------------------------------------ Streamlit bridge (same protocol as Reticula's components) */
 const inFrame = window.parent !== window;
 function send(type, data){ if (inFrame) window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, data), "*"); }
-let tmr = 0; function commit(){ clearTimeout(tmr); send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"}); }
-function commitSoon(){ clearTimeout(tmr); tmr = setTimeout(commit, 250); }
+let dirty = false;
+function setDirty(v){ dirty = v; const b = $("save"); if (b) b.textContent = v ? "💾 Save ●" : "💾 Saved"; }
+function commit(){ setDirty(true); }          // local edit only: no Streamlit rerun, so selection and scroll stay put
+function commitSoon(){ commit(); }
+function saveScene(){ clearTimeout(tmr); send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"}); setDirty(false); }
+let tmr = 0;
 let lastSig = null;
 window.addEventListener("message", ev => { const d = ev.data; if (!d || d.type !== "streamlit:render") return;
   const A = d.args || {}; if (A.scene){ const s = typeof A.scene === "string" ? A.scene : JSON.stringify(A.scene);
-    if (s !== lastSig && s !== JSON.stringify(scene)){ lastSig = s; loadScene(JSON.parse(s)); sel = null; renderAll(); } }
+    if (s !== lastSig && s !== JSON.stringify(scene) && !dirty){ lastSig = s; loadScene(JSON.parse(s)); sel = null; renderAll(); setDirty(false); } }
   send("streamlit:setFrameHeight", {height: A.height || 760}); });
 
 /* ------------------------------------------------------------------ boot */
