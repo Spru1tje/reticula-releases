@@ -395,11 +395,11 @@ def _characterisation(g):
                 for fmt in ("png", "pdf", "svg"):
                     z.writestr(f"spectrum_labelled.{fmt}", g["export_bytes"](fig2, fmt))
                 plt.close(fig2)
-                z.writestr("SI_page.pdf", si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur))
+                z.writestr("SI_page.pdf", si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur, simple=bool(st.session_state.get("nmr1h_fsimple"))))
             return b.getvalue()
         c1, c2, c3 = st.columns(3)
         dl(c1, "⬇️ SI package (.zip)", _zip, f"NMR_SI_{g['safe_name'](ename)}.zip", "nmr1h_zip|" + skey)
-        dl(c2, "⬇️ SI page (PDF)", lambda: si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur),
+        dl(c2, "⬇️ SI page (PDF)", lambda: si_pdf(sp, mults, mol, groups, imp, acs, ename, solvent, mhz, pur, simple=bool(st.session_state.get("nmr1h_fsimple"))),
            f"NMR_SI_{g['safe_name'](ename)}.pdf", "nmr1h_pdf|" + skey)
         dl(c3, "⬇️ Multiplets (CSV)", mt.to_csv(index=False).encode("utf-8-sig"), f"NMR_multiplets_{g['safe_name'](ename)}.csv",
            "nmr1h_csv|" + skey)
@@ -477,7 +477,7 @@ def _qnmr(mults, mol, un, imp, skey, g):
     return None
 
 
-def si_pdf(sp, mults, mol, groups, imp, acs, name, solvent, mhz, purity=None):
+def si_pdf(sp, mults, mol, groups, imp, acs, name, solvent, mhz, purity=None, simple=False):
     """One SI page (A4): labelled spectrum, structure, characterisation string, multiplet table."""
     import matplotlib
     import matplotlib.pyplot as plt
@@ -489,9 +489,9 @@ def si_pdf(sp, mults, mol, groups, imp, acs, name, solvent, mhz, purity=None):
         fig = plt.figure(figsize=(8.27, 11.69))
         fig.text(0.07, 0.96, f"¹H NMR — {name}", fontsize=13, weight="bold")
         fig.text(0.07, 0.94, f"{mhz:.0f} MHz, {solvent or ''}, 298 K; processed in Reticula ({sp.ref_note})", fontsize=8,
-                 color="#46607F")
+                 color="black" if simple else "#46607F")
         ax = fig.add_axes([0.07, 0.6, 0.86, 0.32])
-        F.draw(ax, sp, mults, mol, groups, imp)
+        F.draw(ax, sp, mults, mol, groups, imp, simple=simple)
         fig.text(0.07, 0.55, "\n".join(textwrap.wrap(acs, 120)), fontsize=8, va="top", family="DejaVu Sans")
         if purity is not None:
             fig.text(0.07, 0.48, f"qNMR purity: {purity:.1f} wt %", fontsize=8)
