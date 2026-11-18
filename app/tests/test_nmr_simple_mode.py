@@ -2,6 +2,7 @@
 from types import SimpleNamespace as N
 
 import matplotlib
+import matplotlib.image
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,3 +37,31 @@ def test_simple_mode_is_all_black():
     F.draw(ax, sp, mults, simple=True)
     plt.close(fig)
     assert _colours(ax) == {"black"}
+
+
+def _max_saturation(png_bytes):
+    """Largest channel spread (max - min) over all pixels of a PNG: 0 means pure greys/black/white."""
+    import io
+    img = matplotlib.image.imread(io.BytesIO(png_bytes), format="png")[..., :3]
+    return float((img.max(axis=2) - img.min(axis=2)).max())
+
+
+def test_simple_mode_figure_with_structure_has_no_colour():
+    import io
+    import pytest
+    rdkit = pytest.importorskip("rdkit")
+    from rdkit import Chem
+    sp, mults = _data()
+    mol = Chem.MolFromSmiles("OC(=O)c1ccc(cc1)C(=O)O")       # O and carbonyl: RDKit colours heteroatoms by default
+    buf = io.BytesIO()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    F.draw(ax, sp, mults, mol=mol, simple=True, inset_box=(0.55, 0.45, 0.4, 0.5))
+    fig.savefig(buf, format="png", dpi=100)
+    plt.close(fig)
+    assert _max_saturation(buf.getvalue()) < 0.02
+    buf2 = io.BytesIO()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    F.draw(ax, sp, mults, mol=mol, simple=False, inset_box=(0.55, 0.45, 0.4, 0.5))
+    fig.savefig(buf2, format="png", dpi=100)
+    plt.close(fig)
+    assert _max_saturation(buf2.getvalue()) > 0.1       # the coloured figure is really coloured

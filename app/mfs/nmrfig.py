@@ -8,7 +8,7 @@ import numpy as np
 OKABE = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442", "#000000"]
 
 
-def mol_drawing(mol, groups=None, size=(360, 280), fmt="png", notes=True, highlight=None):
+def mol_drawing(mol, groups=None, size=(360, 280), fmt="png", notes=True, highlight=None, mono=False):
     """Structure with atom numbers on the H-bearing atoms (same labels as the assignment). Returns (bytes|str, coords)
     where coords = {atom index: (x, y) px}."""
     from rdkit.Chem import rdDepictor
@@ -29,6 +29,8 @@ def mol_drawing(mol, groups=None, size=(360, 280), fmt="png", notes=True, highli
     o.addStereoAnnotation = False
     o.padding = 0.08
     o.clearBackground = fmt == "png"
+    if mono:                                  # simple mode: heteroatoms black too (RDKit default is CPK colours)
+        o.useBWAtomPalette()
     hl = list(highlight or [])
     if hl:
         d.DrawMolecule(m, highlightAtoms=hl, highlightAtomColors={i: (0.98, 0.6, 0.25) for i in hl}, highlightBonds=[])
@@ -232,7 +234,7 @@ def draw(ax, sp, mults, mol=None, groups=None, impurities=None, xlim=None, show_
         if show_int_numbers:
             ax.text(m.centre, b_frac - 0.055 - rows[k_] * row_frac, t, transform=xt, ha="center", va="top", fontsize=int_fs, color=ink("#0072B2"))
     if show_structure and mol is not None:
-        png, _ = mol_drawing(mol, groups, size=(520, 400))
+        png, _ = mol_drawing(mol, groups, size=(520, 400), mono=simple)
         import matplotlib.image as mpimg
         img = mpimg.imread(io.BytesIO(png), format="png")
         if inset_box is None or inset_box == "auto":
