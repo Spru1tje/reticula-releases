@@ -56,6 +56,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 <style>
 .marq{fill:rgba(37,99,235,.08);stroke:#2563EB;stroke-width:1;stroke-dasharray:3 3}
 #alignbar button{font-size:12px;padding:3px 7px}
+#alignbar[hidden]{display:none}
 #left .sub{grid-column:1/-1;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
 #help{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:12px 16px;
   box-shadow:0 8px 24px rgba(15,23,42,.15);font:13px/1.55 Helvetica,Arial,sans-serif;color:#334155;z-index:9;max-width:380px}
@@ -89,7 +90,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
       <button data-al="help" title="Keyboard shortcuts (?)">?</button>
     </span>
     <span class="sep"></span>
-    <button id="zin">＋</button><button id="zout">－</button><button id="grid">Grid</button>
+    <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content">Fit</button><button id="grid">Grid</button>
     <select id="theme" title="Colour theme"></select>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
@@ -279,6 +280,7 @@ function bbox(it){
 }
 function drawUI(){
   L.ui.innerHTML = "";
+  $("alignbar").hidden = !(sel || multi.size);   // align / group only appear when something is selected: less clutter in the bar
   if (showGrid){ const gp = el("g", {opacity:.5}); for (let x = 0; x <= scene.width; x += 20) gp.appendChild(el("line", {x1:x,y1:0,x2:x,y2:scene.height,stroke:"#E2E8F0"}));
     for (let y = 0; y <= scene.height; y += 20) gp.appendChild(el("line", {x1:0,y1:y,x2:scene.width,y2:y,stroke:"#E2E8F0"})); L.ui.appendChild(gp); }
   for (const g of guides) L.ui.appendChild(el("line", Object.assign({class:"guide"}, g)));
@@ -715,6 +717,17 @@ $("ptoggle").onclick = () => { $("ptoggle").classList.toggle("on"); fillTiles();
 document.querySelectorAll("#alignbar [data-al]").forEach(b => b.onclick = () => {
   const a = b.dataset.al; if (a === "group") groupSel(); else if (a === "ungroup") ungroupSel(); else if (a === "help") toggleHelp(); else alignSel(a); });
 $("zin").onclick = () => setZoom(zoom * 1.2); $("zout").onclick = () => setZoom(zoom / 1.2);
+$("zfit").onclick = () => fitContent();
+function fitContent(){       // zoom so every item fits the visible stage, then scroll to its top-left corner
+  const bs = scene.items.map(bbox).filter(Boolean);
+  const st = $("stage");
+  if (!bs.length){ setZoom(1); st.scrollLeft = 0; st.scrollTop = 0; return; }
+  const x0 = Math.min(...bs.map(b => b.x)), y0 = Math.min(...bs.map(b => b.y));
+  const x1 = Math.max(...bs.map(b => b.x + b.w)), y1 = Math.max(...bs.map(b => b.y + b.h));
+  const z = Math.min((st.clientWidth - 80) / Math.max(1, x1 - x0), (st.clientHeight - 60) / Math.max(1, y1 - y0), 2);
+  setZoom(z);
+  st.scrollLeft = Math.max(0, 40 + x0 * zoom - 24); st.scrollTop = Math.max(0, 30 + y0 * zoom - 24);
+}
 $("grid").onclick = () => { showGrid = !showGrid; $("grid").classList.toggle("on", showGrid); drawUI(); };
 $("theme").onchange = () => { scene.theme = $("theme").value; commit(); };
 function setZoom(z){ zoom = Math.max(.25, Math.min(4, z)); $("paper").style.transform = `scale(${zoom})`; }
