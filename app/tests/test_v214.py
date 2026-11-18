@@ -159,15 +159,14 @@ def test_methods_text_uses_only_the_data():
 
 
 # ---------------------------------------------------------------- NMR: proton letters, figure layout
-def test_proton_tags_are_letters_from_the_most_downfield_group():
+def test_proton_tags_are_literature_locants():
+    """v2.17: a proton is named after the locant of the carbon it sits on (H-2, H-2/6), not by letters."""
     from mfs import nmrassign as A, nmrpredict as HP
     G = A.groups(HP.mol_from_any("CC(=O)Oc1ccccc1C(=O)O"))
-    tags = {g["tag"] for g in G}
-    assert tags == set("abcdef")
-    by_shift = sorted(G, key=lambda g: -g["shift"])
-    assert [g["tag"] for g in by_shift] == list("abcdef")
-    assert A._letters(0) == "a" and A._letters(25) == "z" and A._letters(26) == "aa" and A._letters(27) == "ab"
-    assert A.proton_label(G[0]).startswith("H") and not any(ch.isdigit() for ch in A.proton_label(G[0]))
+    tags = [g["tag"] for g in G]
+    assert all(t.startswith("-") and t[1:].replace("/", "").isdigit() for t in tags), tags
+    assert len(set(tags)) == len(tags)
+    assert A.proton_label(G[0]).startswith("H-") and not any(ch.isalpha() for ch in A.proton_label(G[0])[1:])
 
 
 def _nmr_fig(**kw):

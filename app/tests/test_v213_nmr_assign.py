@@ -1,3 +1,4 @@
+import re
 """v2.13 M3/M4: ¹H prediction (nmrshiftdb2 HOSE table), assignment, impurity check, qNMR, labelled figure, SI page."""
 import sys, pathlib
 import numpy as np
@@ -76,7 +77,7 @@ def test_figure_and_si_pdf():
     mol = HP.mol_from_any(ASPIRIN); G = A.groups(mol); A.assign(G, ms)
     fig, ax = plt.subplots(); F.draw(ax, sp, ms, mol, G, {}); plt.close(fig)
     acs = P.acs_string(ms, mhz=300, solvent="CDCl3")
-    assert "(br s, 1H, Ha)" in acs                    # COOH (most downfield group = Ha): nH from the assignment, not the broad integral
+    assert re.search(r"\(br s, 1H, H-\d+\)", acs)  # COOH proton: literature locant label (v2.17); nH from the assignment, not the broad integral
     pdf = NPG.si_pdf(sp, ms, mol, G, {}, acs, "aspirin", "CDCl3", 300, 98.7)
     assert pdf[:4] == b"%PDF" and len(pdf) > 10000
 

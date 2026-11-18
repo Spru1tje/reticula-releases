@@ -110,6 +110,17 @@ div[class*="st-key-exportbar_"] [data-testid="stButton"] button { background:var
 .rt-tile .b { font-size:.86rem; color:#475569; }
 div[class*="st-key-gal_"] { background:#fff; border-radius:14px; }
 div[class*="st-key-gal_"] img { border-radius:8px; }
+/* v2.17: work tabs are the main way to reach the extra figures (h-bonds, SI tables, simulated PXRD): make them unmissable */
+[data-testid="stTabs"] { margin: 6px 0 10px; }
+[data-testid="stTabs"] [role="tablist"] { gap: 6px; background: linear-gradient(90deg,#ECFDF5 0%%,#EEF2FF 100%%); border: 1px solid #CBD5E1;
+  border-radius: 14px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(15,23,42,.06); flex-wrap: wrap; }
+[data-testid="stTabs"] [role="tab"] { font-weight: 700; font-size: .98rem; color: #312E81; border-radius: 10px; padding: 8px 14px; background: #FFFFFF;
+  border: 1px solid #C7D2FE; transition: all .15s ease; }
+[data-testid="stTabs"] [role="tab"]:hover { background: #E0E7FF; border-color: #6366F1; }
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] { background: linear-gradient(135deg,#0F766E 0%%,#14B8A6 100%%); color: #FFFFFF !important;
+  border-color: #0F766E; box-shadow: 0 3px 10px rgba(15,118,110,.35); }
+[data-testid="stTabs"] [data-baseweb="tab-highlight"] { display: none; }
+[data-testid="stTabs"] [data-baseweb="tab-border"] { display: none; }
 </style>
 """ % {"teal": TEAL, "indigo": INDIGO}
 

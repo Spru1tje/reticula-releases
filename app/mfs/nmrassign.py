@@ -65,9 +65,10 @@ def groups(mol, preds=None):
                         sigma=1.5 if exch else max(SIGMA[conf], 1.3 * max([p["spread"] or 0 for p in ps] or [0])),
                         exch=exch, vicinal=0 if exch else vic,
                         spread=max([p["spread"] or 0 for p in ps] or [0])))
-    # v2.14: proton labels are LETTERS (Ha, Hb ... from the most downfield group), so they cannot be mistaken for the atom numbers
-    for k, gr in enumerate(sorted(out, key=lambda g: -(g["shift"] if g["shift"] is not None else -99.0))):
-        gr["tag"] = _letters(k)
+    # v2.17: literature style - a proton is named after the locant of the carbon it sits on (H-2, H-3); equivalent protons share one label (H-2/6).
+    # The locant is the 1-based atom number in the molecule as entered (SMILES / drawing order). Unique labels are guaranteed by construction.
+    for gr in out:
+        gr["tag"] = "-" + "/".join(str(x) for x in sorted(gr["labels"]))
     return out
 
 
@@ -82,7 +83,7 @@ def _letters(k):
 
 
 def proton_label(g):
-    return "H" + g["tag"]
+    return "H" + g["tag"]          # e.g. H-2 or H-2/6 (v2.17)
 
 
 def _usable(mults):

@@ -315,8 +315,9 @@ def _characterisation(g):
     res = A.impurity_check(mults, un, solvent or "CDCl3", unit_nH=unit,
                            mw_compound=(__import__("rdkit.Chem.Descriptors", fromlist=["MolWt"]).MolWt(mol) if mol is not None else None))
     imp = {i: b["name"] for b in res["best"] for i in b["peaks"]}
-    tabs = st.tabs(["🧪 Unassigned & impurities", "📝 Characterisation", "🖼️ Figure", "⚖️ qNMR", "📦 Export"])
-    with tabs[0]:
+    # v2.17: the figure comes first; "unassigned & impurities" second
+    tabs = st.tabs(["🖼️ Figure", "🧪 Unassigned & impurities", "📝 Characterisation", "⚖️ qNMR", "📦 Export"])
+    with tabs[1]:
         st.markdown("Unassigned peaks and impurity check")
         if not un:
             st.success("Every multiplet is assigned to the structure (solvent/TMS lines excluded).")
@@ -335,14 +336,14 @@ def _characterisation(g):
                        "1997, 62, 7512. Multi-signal impurities count only if their other signals are present with matching "
                        "integral ratios. Shifts move with concentration/temperature — treat as a best guess.")
     # ---------------- ACS string ----------------------------------------------------------------------------------------
-    with tabs[1]:
+    with tabs[2]:
         c1, c2 = st.columns([1, 4])
         with_lab = c1.checkbox("Add assignments", value=False, key="nmr1h_acslab")
         acs = PK.acs_string(mults, mhz=mhz, solvent=solvent or "", labels=with_lab, skip=set(imp) | set(un if mol is not None else []),
                             min_nH=0.5)
         c2.code(acs, language=None, wrap_lines=True)
     # ---------------- figure ---------------------------------------------------------------------------------------------
-    with tabs[2]:
+    with tabs[0]:
         c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 2])
         s_str = c1.checkbox("Structure inset", True, key="nmr1h_fstr", disabled=mol is None)
         s_int = c2.checkbox("Integral bars", True, key="nmr1h_fint")

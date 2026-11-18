@@ -304,6 +304,8 @@ def panel(fig, key, units=None, series=None, expanded=False):
                         L["custom"] = True
         # ---------------- colours
         with t4:
+            cfg["simple_black"] = st.checkbox("⚫ Simple mode – all black, one symbol per sample (sleek journal look)", base.get("simple_black", False),
+                                              key=_k(key, "simple_black"), help="Every data line and point becomes black; the samples are told apart by their symbol (○ □ △ ◇ ▽ …). Colour is kept in the legend-free figure only if you switch this off.")
             names = [n for n in series if n] if series is not None else None
             if names is None:
                 names = [l for l, _ in entries if not NOT_SERIES.match(l)] + [t for t in direct if not NOT_SERIES.match(t)]

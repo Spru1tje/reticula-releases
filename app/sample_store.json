@@ -12,12 +12,12 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-18T02:25:45",
+    "updated": "2026-11-18T18:00:52",
     "files": [
      "aspirin_300_XWIN35.zip (bundled example)",
      "naphtoic_500_TS35_dspfvs12.zip (bundled example)"
     ],
-    "version": "2.15.1"
+    "version": "2.16.0"
    }
   }
  },
@@ -73,7 +73,13 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T00:55:45"
+    "updated": "2026-11-18T17:56:07",
+    "files": [
+     "MOF801_Netzsch.txt (bundled example)",
+     "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
+     "ZrO2@Sulfo-MOF801_Mettler_STARe.txt (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "dsc": {
     "values": {
@@ -136,7 +142,7 @@
      "MOF-801 (Zr) weight fraction (%)": 100.0
     },
     "source": "PXRD Rietveld",
-    "updated": "2026-11-18T02:39:28",
+    "updated": "2026-11-18T18:02:18",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",
@@ -144,7 +150,7 @@
      "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
      "ZrO2_STOE.xy (bundled example)"
     ],
-    "version": "2.15.1"
+    "version": "2.16.0"
    }
   }
  },
@@ -248,7 +254,13 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T00:55:45"
+    "updated": "2026-11-18T17:56:14",
+    "files": [
+     "MOF801_Netzsch.txt (bundled example)",
+     "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
+     "ZrO2@Sulfo-MOF801_Mettler_STARe.txt (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "kinetics": {
     "values": {
@@ -346,7 +358,13 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T00:55:45"
+    "updated": "2026-11-18T17:56:14",
+    "files": [
+     "MOF801_Netzsch.txt (bundled example)",
+     "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
+     "ZrO2@Sulfo-MOF801_Mettler_STARe.txt (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "kinetics": {
     "values": {

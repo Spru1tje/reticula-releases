@@ -36,6 +36,7 @@ def default_settings():
         "version": 2,
         "title": "", "title_size": 0.0,
         "mathify": True,                       # turn ^{..} / _{..} / ^-1 into super/subscripts
+        "simple_black": False,                 # v2.17 simple mode: all data black, one symbol per series
         "font": {"label_size": 0.0, "tick_size": 0.0, "family": ""},   # 0 = keep; family "" = the figure style's font
         "ticks": {"preset": "All 4 sides", "sides": dict(bottom=True, top=True, left=True, right=True),
                   "labels": dict(bottom=True, top=False, left=True, right=False),
@@ -357,9 +358,44 @@ def apply_panel(ax, cfg, families=None, idx=0):
     return ax
 
 
+_SIMPLE_MARKERS = ["o", "s", "^", "D", "v", "P", "X", "<", ">", "h", "*", "d"]
+
+
+def simple_black(fig):
+    """v2.17 simple mode: every data line and scatter in black; each series gets its own marker (and the marker is thinned so the curve stays clean).
+    Legend, axes and text are left as they are; only the data marks change. Works on finished figures, so the same settings apply to every figure."""
+    for ax in fig.axes:
+        if not ax.axison:
+            continue
+        k = 0
+        for ln in ax.get_lines():
+            try:
+                xd = ln.get_xdata()
+                if len(xd) < 2 or ln.get_label().startswith("_") and ln.get_linestyle() in ("None", "", " "):
+                    continue
+            except Exception:
+                continue
+            ln.set_color("black")
+            mk = _SIMPLE_MARKERS[k % len(_SIMPLE_MARKERS)]
+            ln.set_marker(mk)
+            ln.set_markersize(max(3.0, float(ln.get_markersize() or 3.0)))
+            ln.set_markerfacecolor("black")
+            ln.set_markeredgecolor("black")
+            ln.set_markevery(max(1, len(xd) // 14))
+            k += 1
+        for coll in ax.collections:
+            try:
+                coll.set_facecolor("black")
+                coll.set_edgecolor("black")
+            except Exception:
+                pass
+
+
 def apply(fig, cfg, families=None):
     """Apply a settings dict to a finished figure. families: {panel_index or 'all': {'x': fam, 'y': fam}}."""
     cfg = merge(default_settings(), cfg or {})
+    if cfg.get("simple_black"):
+        simple_black(fig)
     axes = data_axes(fig)
     T = cfg["ticks"]
     sides = dict(TICK_PRESETS.get(T.get("preset")) or T.get("sides") or {})
