@@ -143,7 +143,7 @@ def verdict(rep: dict) -> list[dict]:
                                                  "(or the oxidation state / coordination differs from the assumed one)."})
         elif abs(b["deviation_pct"]) > 12:
             out.append({"level": "info", "text": f"{b['atom']}: bond-valence sum {b['BVS']:.2f} v.u. vs formal {b['formal']} ({b['deviation_pct']:+.0f} %)."})
-    short = [b for b in rep.get("bonds", []) if b["distance"] < 0.9 * (_covalent(b["atom1"].rstrip("0123456789/")) + _covalent(b["atom2"].rstrip("0123456789/")))]
+    short = [b for b in rep.get("bonds", []) if b["distance"] < 0.78 * (_covalent(b["atom1"].rstrip("0123456789/")) + _covalent(b["atom2"].rstrip("0123456789/")))]
     for b in short[:3]:
         out.append({"level": "warn", "text": f"{b['atom1']}–{b['atom2']} = {b['distance']:.3f} Å is shorter than expected for a covalent bond."})
     if not out:

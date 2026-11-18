@@ -131,3 +131,28 @@ def test_statistics_and_cif_of_the_refined_fluorapatite():
     os.unlink(path)
     assert back.composition.reduced_formula == orig.composition.reduced_formula and len(back) == len(orig)
     assert abs(back.lattice.a - p["cell"][0]) < 1e-4 and abs(back.lattice.c - p["cell"][2]) < 1e-4
+
+
+PB_XRA = os.path.join(DATA, "PBSO4_REAL.xra")
+PB_CIF = os.path.join(DATA, "PBSO4_REAL.cif")
+
+
+@pytest.mark.skipif(not os.path.exists(PB_XRA), reason="real data not present (kept out of the repository)")
+def test_real_lead_sulfate_pattern_second_structure():
+    """Real laboratory pattern of PbSO4 (GSAS-II tutorial 'CWCombined', Cu radiation, 10-160 deg), orthorhombic Pbnm, 28 atoms in the cell."""
+    L = open(PB_XRA).read().splitlines()
+    vals = []
+    for ln in L[2:]:
+        vals += [float(ln[8 * k:8 * k + 8]) for k in range(10) if ln[8 * k:8 * k + 8].strip()]
+    y = np.array(vals[:6001])
+    x = 10.0 + 0.025 * np.arange(len(y))
+    r0 = RV.quick_refine(x, y, [PB_CIF], radiation=RAD)
+    r = RV.quick_refine(x, y, [PB_CIF], radiation=RAD, refine_structure=True)
+    assert r0["stats"]["Rwp"] < 0.10 and r["stats"]["Rwp"] < r0["stats"]["Rwp"] - 0.002 and r["phases"][0]["Rb"] < r0["phases"][0]["Rb"]
+    st = r["phases"][0]["structure"]
+    assert st["sg_number"] == 62 and len(st["atoms"]) == 5 and st["bond_rms_deviation"] < 0.06
+    so = [b["distance"] for b in st["bonds"] if {b["atom1"][0], b["atom2"][0]} == {"S", "O"}]
+    assert so and all(1.38 < d < 1.52 for d in so)                                                   # sulfate S-O
+    assert [v for v in st["verdict"] if v["level"] == "warn"] == []
+    cn = {c["atom"]: c["CN"] for c in st["coordination"]}
+    assert cn["S1"] == 4 and 7 <= cn["Pb1"] <= 12
