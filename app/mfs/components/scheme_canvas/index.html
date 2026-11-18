@@ -57,6 +57,14 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 .marq{fill:rgba(37,99,235,.08);stroke:#2563EB;stroke-width:1;stroke-dasharray:3 3}
 #alignbar button{font-size:12px;padding:3px 7px}
 #alignbar[hidden]{display:none}
+/* floating contextual bar: the actions for the selection sit just above it (BioRender-style context bar, own layout) */
+#fbar{position:absolute;z-index:5;display:flex;gap:2px;background:#fff;border:1px solid #CBD5E1;border-radius:8px;padding:3px;
+  box-shadow:0 6px 18px rgba(15,23,42,.16);transform:translate(-50%,-100%);white-space:nowrap}
+#fbar[hidden]{display:none}
+#fbar button{font:12px Helvetica,Arial,sans-serif;padding:4px 8px;border:0;background:none;border-radius:5px;cursor:pointer;color:#1E293B}
+#fbar button:hover{background:#EFF6FF}
+#fbar button.danger:hover{background:#FEF2F2;color:#B91C1C}
+#fbar .sep{width:1px;background:#E2E8F0;margin:3px 2px}
 #left .sub{grid-column:1/-1;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
 #help{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:12px 16px;
   box-shadow:0 8px 24px rgba(15,23,42,.15);font:13px/1.55 Helvetica,Arial,sans-serif;color:#334155;z-index:9;max-width:380px}
@@ -106,7 +114,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
   </div>
   <div id="stage"><div id="paper"><svg id="canvas" xmlns="http://www.w3.org/2000/svg">
     <g id="L_box"></g><g id="L_arrow"></g><g id="L_icon"></g><g id="L_text"></g><g id="L_ui"></g>
-  </svg></div></div>
+  </svg><div id="fbar" hidden></div></div></div>
   <div id="right"><h3>Nothing selected</h3>
     <div class="hint">Drag an icon from the left onto the page. Arrow mode: click a dot on one icon, then a dot on another.
     Keys: Del, Ctrl+D duplicate, Ctrl+Z/Y, arrows nudge (Shift ×10), H flip, [ ] layer order.</div></div>
@@ -281,6 +289,7 @@ function bbox(it){
 function drawUI(){
   L.ui.innerHTML = "";
   $("alignbar").hidden = !(sel || multi.size);   // align / group only appear when something is selected: less clutter in the bar
+  syncFbar();
   if (showGrid){ const gp = el("g", {opacity:.5}); for (let x = 0; x <= scene.width; x += 20) gp.appendChild(el("line", {x1:x,y1:0,x2:x,y2:scene.height,stroke:"#E2E8F0"}));
     for (let y = 0; y <= scene.height; y += 20) gp.appendChild(el("line", {x1:0,y1:y,x2:scene.width,y2:y,stroke:"#E2E8F0"})); L.ui.appendChild(gp); }
   for (const g of guides) L.ui.appendChild(el("line", Object.assign({class:"guide"}, g)));
@@ -494,7 +503,8 @@ function layerMove(front){ const ids = selectedIds(); if (!ids.length) return; s
 function deleteSel(){ const ids = selectedIds(); if (!ids.length) return; snapshot(); const del = new Set(ids);
   scene.items = scene.items.filter(i => !del.has(i.id) && !(i.type === "arrow" && (del.has(i.from.item) || del.has(i.to.item))));
   sel = null; multi = new Set(); renderAll(); commit(); }
-function flipSel(){ selectedIds().map(byId).filter(x => x && x.type === "icon").forEach(x => x.flip = !x.flip); snapshot(); renderAll(); commit(); }
+function flipSel(){ const ids = selectedIds().map(byId).filter(x => x && x.type === "icon"); if (!ids.length) return;
+  snapshot(); ids.forEach(x => x.flip = !x.flip); renderAll(); commit(); }   // snapshot before the change, so undo reverts it
 function selectSameIcon(){ const it = sel && byId(sel); if (!it || it.type !== "icon") return;
   multi = new Set(scene.items.filter(x => x.type === "icon" && x.icon === it.icon).map(x => x.id)); sel = [...multi][0] || null; drawUI(); inspector(); }
 function ctxItems(onItem){
@@ -718,6 +728,49 @@ document.querySelectorAll("#alignbar [data-al]").forEach(b => b.onclick = () => 
   const a = b.dataset.al; if (a === "group") groupSel(); else if (a === "ungroup") ungroupSel(); else if (a === "help") toggleHelp(); else alignSel(a); });
 $("zin").onclick = () => setZoom(zoom * 1.2); $("zout").onclick = () => setZoom(zoom / 1.2);
 $("zfit").onclick = () => fitContent();
+/* Floating bar above the selection: the few actions that fit this selection, next to where the eye already is. */
+const FBAR_ACTIONS = {
+  flip:   {label:"⇋ Flip",    title:"Flip horizontally (H)",                 run:() => flipSel()},
+  front:  {label:"▲ Front",   title:"Bring to front ( ] )",                  run:() => layerMove(true)},
+  back:   {label:"▼ Back",    title:"Send to back ( [ )",                    run:() => layerMove(false)},
+  group:  {label:"Group",     title:"Group the selection (Ctrl+G)",          run:() => groupSel()},
+  ungroup:{label:"Ungroup",   title:"Ungroup (Ctrl+Shift+G)",                run:() => ungroupSel()},
+  alignL: {label:"Align L",   title:"Align left edges",                      run:() => alignSel("l")},
+  alignC: {label:"Align C",   title:"Align centres horizontally",            run:() => alignSel("c")},
+  alignR: {label:"Align R",   title:"Align right edges",                     run:() => alignSel("r")},
+  del:    {label:"Delete",    title:"Delete (Del)",                          run:() => deleteSel(), danger:true},
+};
+function fbarSet(ids){                       // which actions for this selection
+  const items = ids.map(byId).filter(Boolean);
+  const multiSel = items.length > 1;
+  const hasIcon = items.some(x => x.type === "icon");
+  const k = [];
+  if (hasIcon) k.push("flip");
+  k.push("front", "back");
+  if (multiSel) k.push("alignL", "alignC", "alignR", "group");
+  if (items.some(x => x.group)) k.push("ungroup");
+  k.push("del");
+  return k;
+}
+function syncFbar(){
+  const f = $("fbar");
+  if (!f) return;
+  const ids = selectedIds();
+  const bs = ids.map(id => byId(id)).map(bbox).filter(Boolean);
+  if (!bs.length || mode !== "select" || pending){ f.hidden = true; return; }
+  const x0 = Math.min(...bs.map(b => b.x)), x1 = Math.max(...bs.map(b => b.x + b.w)), y0 = Math.min(...bs.map(b => b.y));
+  f.hidden = false;
+  f.style.left = ((x0 + x1) / 2) + "px";
+  f.style.top = (y0 - 10) + "px";
+  const keys = fbarSet(ids);
+  f.innerHTML = keys.map((k, i) => (k === "del" && i) ? `<span class="sep"></span><button data-fk="${k}" class="danger" title="${FBAR_ACTIONS[k].title}">${FBAR_ACTIONS[k].label}</button>`
+    : `<button data-fk="${k}" title="${FBAR_ACTIONS[k].title}">${FBAR_ACTIONS[k].label}</button>`).join("");
+}
+$("fbar").addEventListener("pointerdown", ev => ev.stopPropagation());
+$("fbar").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-fk]"); if (!b) return;
+  const a = FBAR_ACTIONS[b.dataset.fk]; if (a) a.run();
+});
 function fitContent(){       // zoom so every item fits the visible stage, then scroll to its top-left corner
   const bs = scene.items.map(bbox).filter(Boolean);
   const st = $("stage");
