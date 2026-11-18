@@ -60,6 +60,14 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #help{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:12px 16px;
   box-shadow:0 8px 24px rgba(15,23,42,.15);font:13px/1.55 Helvetica,Arial,sans-serif;color:#334155;z-index:9;max-width:380px}
 #help[hidden]{display:none}
+#ctx{position:fixed;z-index:20;min-width:210px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:5px;
+  box-shadow:0 10px 28px rgba(15,23,42,.18);font:13px Helvetica,Arial,sans-serif;color:#1E293B;display:none}
+#ctx.on{display:block}
+#ctx div{padding:6px 10px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;gap:16px;white-space:nowrap}
+#ctx div:hover{background:#EFF6FF}
+#ctx div.off{color:#94A3B8;cursor:default;background:none}
+#ctx hr{border:0;border-top:1px solid #E2E8F0;margin:4px 2px}
+#ctx kbd{color:#64748B;font:11px ui-monospace,monospace}
 </style>
 </head>
 <body>
@@ -102,6 +110,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
     <div class="hint">Drag an icon from the left onto the page. Arrow mode: click a dot on one icon, then a dot on another.
     Keys: Del, Ctrl+D duplicate, Ctrl+Z/Y, arrows nudge (Shift ×10), H flip, [ ] layer order.</div></div>
 </div>
+<div id="ctx"></div>
 <div id="help" hidden><b>Keyboard</b><br>
 V select · A arrow · T text · B box · Esc cancel<br>
 Drag on empty canvas: select several · Shift-click: add / remove · Ctrl+G group · Ctrl+Shift+G ungroup<br>
@@ -476,6 +485,64 @@ function nearestAnchor(p, maxd = 36){ let best = null, bd = maxd;
     if (d < bd){ bd = d; best = {item:ic.id, anchor:a.id}; } }
   return best; }
 
+/* ------------------------------------------------------------------ context menu (v2.17): acts on the selection, where the pointer is */
+function layerMove(front){ const ids = selectedIds(); if (!ids.length) return; snapshot();
+  const set = new Set(ids), moved = scene.items.filter(i => set.has(i.id)), rest = scene.items.filter(i => !set.has(i.id));
+  scene.items = front ? rest.concat(moved) : moved.concat(rest); renderAll(); commit(); }
+function deleteSel(){ const ids = selectedIds(); if (!ids.length) return; snapshot(); const del = new Set(ids);
+  scene.items = scene.items.filter(i => !del.has(i.id) && !(i.type === "arrow" && (del.has(i.from.item) || del.has(i.to.item))));
+  sel = null; multi = new Set(); renderAll(); commit(); }
+function flipSel(){ selectedIds().map(byId).filter(x => x && x.type === "icon").forEach(x => x.flip = !x.flip); snapshot(); renderAll(); commit(); }
+function selectSameIcon(){ const it = sel && byId(sel); if (!it || it.type !== "icon") return;
+  multi = new Set(scene.items.filter(x => x.type === "icon" && x.icon === it.icon).map(x => x.id)); sel = [...multi][0] || null; drawUI(); inspector(); }
+function ctxItems(onItem){
+  const ids = selectedIds(), it = sel && byId(sel), has = ids.length > 0;
+  const L = [];
+  if (onItem && has){
+    L.push({t:"Duplicate", k:"Ctrl+D", a:() => { copyItems(ids); pasteItems(); }});
+    L.push({t:"Copy", k:"Ctrl+C", a:() => copyItems(ids)});
+    L.push({t:"Delete", k:"Del", a:deleteSel});
+    L.push("-");
+    if (it && it.type === "icon") L.push({t:"Flip horizontally", k:"H", a:flipSel});
+    if (it && it.type === "icon") L.push({t:"Select all of this icon", a:selectSameIcon});
+    L.push({t:"Bring to front", k:"]", a:() => layerMove(true)});
+    L.push({t:"Send to back", k:"[", a:() => layerMove(false)});
+    L.push("-");
+    L.push({t:"Group", k:"Ctrl+G", a:groupSel, off: ids.length < 2});
+    L.push({t:"Ungroup", k:"Ctrl+Shift+G", a:ungroupSel, off: !ids.some(id => byId(id).group)});
+    L.push({t:"Align left", a:() => alignSel("l"), off: ids.length < 2});
+    L.push({t:"Align centre", a:() => alignSel("c"), off: ids.length < 2});
+  } else {
+    L.push({t:"Paste", k:"Ctrl+V", a:pasteItems});
+    L.push({t:"Select all", k:"Ctrl+A", a:() => { multi = new Set(scene.items.filter(i => i.type !== "arrow").map(i => i.id)); sel = null; drawUI(); inspector(); }});
+    L.push("-");
+    L.push({t:"Grid on/off", a:() => $("grid").click()});
+    L.push({t:"Undo", k:"Ctrl+Z", a:undo});
+    L.push({t:"Redo", k:"Ctrl+Y", a:redo});
+  }
+  return L;
+}
+function closeCtx(){ $("ctx").classList.remove("on"); }
+function openCtx(x, y, onItem){
+  const M = $("ctx"); M.innerHTML = "";
+  for (const e of ctxItems(onItem)){
+    if (e === "-"){ M.appendChild(document.createElement("hr")); continue; }
+    const d = document.createElement("div"); if (e.off) d.className = "off";
+    d.innerHTML = `<span>${esc(e.t)}</span>${e.k ? `<kbd>${esc(e.k)}</kbd>` : ""}`;
+    d.onclick = () => { if (e.off) return; closeCtx(); e.a(); };
+    M.appendChild(d);
+  }
+  M.style.left = Math.min(x, innerWidth - 230) + "px"; M.style.top = Math.min(y, innerHeight - 40 - 26 * M.children.length) + "px";
+  M.classList.add("on");
+}
+document.addEventListener("pointerdown", ev => { if (!$("ctx").contains(ev.target)) closeCtx(); });
+cv.addEventListener("contextmenu", ev => {
+  ev.preventDefault();
+  const g = ev.target.closest && ev.target.closest("[data-id]"); const id = g && g.dataset.id;
+  if (id){ if (!multi.has(id)) multi = new Set(groupMembers(byId(id))); sel = id; drawUI(); inspector(); }
+  openCtx(ev.clientX, ev.clientY, !!id);
+});
+
 /* ------------------------------------------------------------------ keyboard */
 document.addEventListener("keydown", ev => {
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
@@ -483,7 +550,8 @@ document.addEventListener("keydown", ev => {
   if (mod && k === "z"){ ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
   if (mod && k === "y"){ ev.preventDefault(); redo(); return; }
   if (mod && k === "s"){ ev.preventDefault(); saveScene(); return; }
-  if (k === "escape"){ pending = null; setMode("select"); return; }
+  if (mod && k === "a"){ ev.preventDefault(); multi = new Set(scene.items.filter(i => i.type !== "arrow").map(i => i.id)); sel = null; drawUI(); inspector(); return; }
+  if (k === "escape"){ closeCtx(); pending = null; setMode("select"); return; }
   if (!mod && k === "v") setMode("select"); if (!mod && k === "a") setMode("arrow"); if (!mod && k === "t") setMode("text"); if (!mod && k === "b") setMode("box");
   const ids = selectedIds();
   if (mod && k === "c" && ids.length){ ev.preventDefault(); copyItems(ids); return; }
