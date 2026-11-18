@@ -70,6 +70,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #fbar .sep{width:1px;background:#E2E8F0;margin:3px 2px}
 .status{font:12px Helvetica,Arial,sans-serif;color:#64748B;margin-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
 #app.focus{grid-template-columns:1fr}
+.tip summary{cursor:pointer;color:#475569;font-size:12px;margin-top:12px;user-select:none}   /* collapsible tips in the side panel */
 #app.focus #left,#app.focus #right{display:none}      /* focus mode: the canvas alone (F) */
 #start{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font:14px Helvetica,Arial,sans-serif;color:#475569;z-index:3;pointer-events:auto}
 #start h4{margin:0 0 10px;font-size:15px;color:#1E293B}
@@ -126,7 +127,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button id="helpbtn" title="Keyboard shortcuts (?)">?</button>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
-    <button id="imp">Open JSON</button><button id="expj">Save JSON</button><button id="exps">Export SVG</button>
+    <button id="imp">Open JSON</button><button id="expj">Save JSON</button><button id="exps">Export SVG</button><button id="copypng" title="Copy the scheme as a PNG image (downloads it if the clipboard is blocked)">Copy PNG</button>
     <input type="file" id="file" accept=".json" hidden>
   </div>
   <div id="left">
@@ -689,8 +690,8 @@ function inspector(){
     ${field("Format", `<select id="pfmt"><option value="">custom</option><option value="1123x794">A4 landscape</option><option value="794x1123">A4 portrait</option><option value="800x800">Square</option><option value="960x540">Slide 16:9</option></select>`)}
     ${field("Background", `<input id="pbg" type="color" value="${scene.background||"#ffffff"}"><div class="sw"><b class="pbgq" style="background:#FFFFFF" data-c="#FFFFFF" title="White"></b><b class="pbgq" style="background:#F8FAFC" data-c="#F8FAFC" title="Off-white"></b><b class="pbgq" style="background:#E2E8F0" data-c="#E2E8F0" title="Light grey"></b></div>`)}
     ${offPageHint()}
-    <div class="hint">Drag an icon from the left onto the page. Arrow mode (A): click a dot on one icon, then on another.<br>
-    Del · Ctrl+D duplicate · Ctrl+Z / Y · arrows nudge (Shift ×10) · H flip · [ ] back / front · Shift while dragging = no snapping · 0 fit · 1 100% · Space + drag pans.</div>`;
+    <details class="tip"><summary>Keyboard and tips</summary><div class="hint">Drag an icon from the left onto the page. Arrow mode (A): click a dot on one icon, then on another.<br>
+    Del · Ctrl+D duplicate · Ctrl+Z / Y · arrows nudge (Shift ×10) · H flip · [ ] back / front · Shift while dragging = no snapping · 0 fit · 1 100% · Space + drag pans.</div></details>`;
     bind("pw", v => scene.width = +v); bind("ph", v => scene.height = +v); bind("pbg", v => scene.background = v);
     $("pfmt").onchange = () => { const [w, h] = $("pfmt").value.split("x").map(Number); if (!w) return;
       snapshot(); scene.width = w; scene.height = h; renderAll(); commit(); inspector(); };
@@ -1056,6 +1057,28 @@ $("exps").onclick = () => { const c = cv.cloneNode(true); c.querySelector("#L_ui
   c.querySelectorAll('path[stroke="transparent"]').forEach(p => p.remove());
   if (scene.background) c.insertAdjacentHTML("afterbegin", `<rect width="${scene.width}" height="${scene.height}" fill="${scene.background}"/>`);
   download("scheme.svg", new XMLSerializer().serializeToString(c), "image/svg+xml"); };
+/* Copy PNG: the scene as a 2x PNG on the clipboard; if the browser blocks the clipboard, the PNG is downloaded instead. */
+$("copypng").onclick = async () => {
+  const c = cv.cloneNode(true); c.querySelector("#L_ui").remove();
+  c.querySelectorAll('path[stroke="transparent"]').forEach(p => p.remove());
+  if (scene.background) c.insertAdjacentHTML("afterbegin", `<rect width="${scene.width}" height="${scene.height}" fill="${scene.background}"/>`);
+  const svgUrl = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(c)], {type: "image/svg+xml"}));
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = svgUrl; });
+    const k = 2, out = document.createElement("canvas");
+    out.width = scene.width * k; out.height = scene.height * k;
+    const g = out.getContext("2d"); g.fillStyle = scene.background || "#FFFFFF"; g.fillRect(0, 0, out.width, out.height);
+    g.drawImage(img, 0, 0, out.width, out.height);
+    const blob = await new Promise(res => out.toBlob(res, "image/png"));
+    try { await navigator.clipboard.write([new ClipboardItem({"image/png": blob})]); toast("PNG copied to the clipboard", "", null); }
+    catch (e) {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "scheme.png"; a.click();
+      toast("Clipboard not available here: the PNG was downloaded", "", null);
+    }
+  } catch (e) { toast("Could not make the PNG", "", null); }
+  finally { URL.revokeObjectURL(svgUrl); }
+};
 $("imp").onclick = () => $("file").click();
 $("file").onchange = async ev => { const f = ev.target.files[0]; if (!f) return; snapshot(); loadScene(JSON.parse(await f.text())); sel = null; renderAll(); commit(); };
 $("tpl").onclick = () => { const names = Object.keys(window.RT_TEMPLATES || {}); if (!names.length) return alert("No templates bundled.");
@@ -1112,6 +1135,8 @@ async function boot(){
   rs.addEventListener("pointermove", e => { if (!rsDrag) return; root.style.setProperty("--rw", Math.max(200, Math.min(520, window.innerWidth - e.clientX)) + "px"); });
   rs.addEventListener("pointerup", () => { rsDrag = false; });
   rs.addEventListener("dblclick", () => root.style.setProperty("--rw", "250px"));
+  const hasTpl = !!(window.RT_TEMPLATES && Object.keys(window.RT_TEMPLATES).length);   // in the app, templates come from the page's "Start from" list
+  $("st-tpl").hidden = !hasTpl; $("tpl").hidden = !hasTpl;
   $("st-tpl").onclick = () => $("tpl").click(); $("st-arrow").onclick = () => setMode("arrow"); $("st-text").onclick = () => setMode("text");
 }
 boot();
