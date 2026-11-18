@@ -138,9 +138,14 @@ def _stagger(centres, widths, gap):
 
 def draw(ax, sp, mults, mol=None, groups=None, impurities=None, xlim=None, show_integrals=True, show_labels=True,
          show_structure=True, show_mult=True, inset_box="auto", color="black", lw=0.6,
-         label_fmt="{label}", fontsize=None, mark_unknown=True, show_int_numbers=True):
+         label_fmt="{label}", fontsize=None, mark_unknown=True, show_int_numbers=True, simple=False):
     """Spectrum with multiplet/assignment labels (leader lines), integrals under the axis, solvent (*) and impurity (#)
-    marks and an optional numbered structure inset. impurities: {mult index: name}."""
+    marks and an optional numbered structure inset. impurities: {mult index: name}.
+    simple=True is the 'simple mode' for the final figure: every ink (spectrum, labels, leaders, integrals, marks) is black."""
+    def ink(c):
+        return "black" if simple else c
+    if simple:
+        color = "black"
     hi, lo = xlim or auto_xlim(sp, mults)
     m_ = (sp.ppm <= hi) & (sp.ppm >= lo)
     heights = []
@@ -209,23 +214,23 @@ def draw(ax, sp, mults, mol=None, groups=None, impurities=None, xlim=None, show_
     ax.set_ylim(y_lo, y_hi)
     xt = ax.get_xaxis_transform()                                 # x in data, y in axes fraction (stable against the ylim)
     for m, x0, ypk, txt in lab_items:
-        ax.plot([m.centre, m.centre, x0], [ypk + 0.03, top - 0.06, top - 0.02], color="#6B7F99", lw=0.45, solid_capstyle="round")
-        ax.text(x0, top, txt, rotation=90, ha="center", va="bottom", fontsize=lab_fs, color="#33475B", fontweight="normal")
+        ax.plot([m.centre, m.centre, x0], [ypk + 0.03, top - 0.06, top - 0.02], color=ink("#6B7F99"), lw=0.45, solid_capstyle="round")
+        ax.text(x0, top, txt, rotation=90, ha="center", va="bottom", fontsize=lab_fs, color=ink("#33475B"), fontweight="normal")
     ymax = y_hi
     for i, m in vis:
         mm = (sp.ppm <= m.hi) & (sp.ppm >= m.lo)
         ypk = float(np.max(y[mm])) if mm.any() else 0.5
         if m.note and not m.label:
-            ax.text(m.centre, min(ypk, 1.0) + 0.03, "*", ha="center", va="bottom", fontsize=fs + 1, color="#7A8CA5")
+            ax.text(m.centre, min(ypk, 1.0) + 0.03, "*", ha="center", va="bottom", fontsize=fs + 1, color=ink("#7A8CA5"))
         elif i in impurities:
-            ax.text(m.centre, min(ypk, 1.0) + 0.03, "#", ha="center", va="bottom", fontsize=fs, color="#D55E00")
+            ax.text(m.centre, min(ypk, 1.0) + 0.03, "#", ha="center", va="bottom", fontsize=fs, color=ink("#D55E00"))
         elif not m.label and (m.nH or 0) >= 0.05 and mark_unknown and mol is not None:
-            ax.text(m.centre, min(ypk, 1.0) + 0.03, "?", ha="center", va="bottom", fontsize=fs, color="#7A8CA5")
+            ax.text(m.centre, min(ypk, 1.0) + 0.03, "?", ha="center", va="bottom", fontsize=fs, color=ink("#7A8CA5"))
     for k_, (m, t) in enumerate(ints):
         a_, b_ = (max(m.lines) + 0.012, min(m.lines) - 0.012) if m.lines else (m.hi, m.lo)
-        ax.plot([min(a_, m.hi), max(b_, m.lo)], [b_frac - 0.03] * 2, color="#0072B2", lw=0.9, transform=xt, clip_on=False)
+        ax.plot([min(a_, m.hi), max(b_, m.lo)], [b_frac - 0.03] * 2, color=ink("#0072B2"), lw=0.9, transform=xt, clip_on=False)
         if show_int_numbers:
-            ax.text(m.centre, b_frac - 0.055 - rows[k_] * row_frac, t, transform=xt, ha="center", va="top", fontsize=int_fs, color="#0072B2")
+            ax.text(m.centre, b_frac - 0.055 - rows[k_] * row_frac, t, transform=xt, ha="center", va="top", fontsize=int_fs, color=ink("#0072B2"))
     if show_structure and mol is not None:
         png, _ = mol_drawing(mol, groups, size=(520, 400))
         import matplotlib.image as mpimg

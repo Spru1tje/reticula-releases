@@ -344,7 +344,7 @@ def _characterisation(g):
         c2.code(acs, language=None, wrap_lines=True)
     # ---------------- figure ---------------------------------------------------------------------------------------------
     with tabs[0]:
-        c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 2])
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1, 1, 2, 1])
         s_str = c1.checkbox("Structure inset", True, key="nmr1h_fstr", disabled=mol is None)
         s_int = c2.checkbox("Integral bars", True, key="nmr1h_fint")
         s_num = c3.checkbox("Integral numbers", True, key="nmr1h_fnum", disabled=not s_int)
@@ -353,10 +353,12 @@ def _characterisation(g):
         h0, l0 = F.auto_xlim(sp, mults)
         rng = c5.slider("δ window", float(np.floor(sp.ppm.min())), float(np.ceil(sp.ppm.max())), (round(l0, 1), round(h0, 1)), 0.1,
                         key="nmr1h_xr|" + skey)
+        s_simple = c6.checkbox("Simple mode (black)", False, key="nmr1h_fsimple",
+                               help="Final figure without colours: the spectrum, labels, leader lines, integrals and marks are all black.")
 
-        def draw(ax, sp=sp, mults=mults, mol=mol, groups=groups, imp=imp, rng=rng):
+        def draw(ax, sp=sp, mults=mults, mol=mol, groups=groups, imp=imp, rng=rng, s_simple=s_simple):
             F.draw(ax, sp, mults, mol if s_str else None, groups, imp, xlim=(rng[1], rng[0]), show_integrals=s_int,
-                   show_labels=s_lab, show_int_numbers=s_num)
+                   show_labels=s_lab, show_int_numbers=s_num, simple=s_simple)
         fig, ax = g["newfig"](0.45); draw(ax)
         df = NP.to_frame(sp)
         show(fig, "NMR_1H_" + g["safe_name"](ename), df, draw, "¹H NMR (labelled)")
