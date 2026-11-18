@@ -298,6 +298,20 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     phases_src = [(k.split(" (")[0], os.path.join(REF, bundled[k])) for k in pick]
     for u in ups or []:
         phases_src.append((os.path.splitext(u.name)[0], u.getvalue()))
+    po_txt = {}
+    if LV.at_least("Advanced") and phases_src:
+        with box.expander("📐 Preferred orientation (plate / needle crystals that lie in one direction)", expanded=False):
+            st.caption("Give the axis (h k l) per phase, e.g. `0 0 1` for plates that lie flat; empty = random powder. The factor r is refined "
+                       "(r < 1 plates, r > 1 needles) with the March–Dollase function.")
+            for nm_, _src in phases_src:
+                po_txt[nm_] = st.text_input(f"Axis of {nm_}", "", key=f"rv_po|{nm_}")
+
+    def _axis(txt):
+        try:
+            v = [int(float(x)) for x in txt.replace(",", " ").split()]
+            return tuple(v) if len(v) == 3 and any(v) else None
+        except ValueError:
+            return None
     store = ss.setdefault("rv_res", {})
     run = box.button("▶ Refine", key="rv_go", type="primary", width="stretch", disabled=not phases_src,
                      help="Runs the complete automatic strategy: start values, cell, peak shape, background, displacement." if phases_src else "Choose at least one phase.")
@@ -307,6 +321,8 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         try:
             sub = {"Zr": "Hf"} if hf else None
             ph = [RV.Phase.from_cif(src, name, substitute=sub) for name, src in phases_src]
+            for ph_, (name, _s) in zip(ph, phases_src):
+                ph_.po_axis = _axis(po_txt.get(name, ""))
             res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,
                                   mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_))
             store[nm] = res
@@ -347,6 +363,8 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                "esd a": (p["cell_esd"] or {}).get("a"), "V (Å³)": p["volume"], "density (g/cm³)": p["density"]}
         if res["mode"] == "rietveld":
             row.update({"weight %": 100 * p["weight_fraction"], "Bragg R (%)": 100 * p["Rb"], "B (Å²)": p["B"]})
+            if p.get("po_r") is not None:
+                row["texture r"] = p["po_r"]
         tab.append(row)
     st.dataframe(pd.DataFrame(tab).style.format(precision=4, na_rep="–"), hide_index=True, width="stretch")
     with LV.gate("Advanced", globals()):

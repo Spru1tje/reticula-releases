@@ -110,6 +110,7 @@ class Phase:
         self.hkl = None
         self.mult = None
         self.F2 = None
+        self.po_axis = None            # (h, k, l) of the preferred-orientation axis (March-Dollase), None = random powder
 
     @classmethod
     def from_cif(cls, src, name=None, substitute=None):
@@ -173,6 +174,11 @@ class Phase:
         uk, first, inv = np.unique(key, return_index=True, return_inverse=True)
         I0 = np.bincount(inv, weights=2.0 * F2)
         keep = I0 > 1e-7 * I0.max()
+        newidx = -np.ones(len(I0), int)
+        newidx[keep] = np.arange(int(keep.sum()))
+        mg = newidx[inv]
+        ok = mg >= 0
+        self.m_hkl, self.m_F2, self.m_grp = hk[ok].astype(float), 2.0 * F2[ok], mg[ok]      # every single reflection and its group
         self.hkl = hk[first][keep]
         self.I0 = I0[keep]                      # multiplicity · |F|² (Friedel pairs counted)
         self.dmin = dmin
@@ -264,6 +270,7 @@ class Refinement:
                 lo, hi = (v * 0.97, v * 1.03) if n != "alpha" and n != "beta" and n != "gamma" else (v - 3.0, v + 3.0)
                 P[f"c{i}.{n}"] = _P(f"c{i}.{n}", v, lo, hi, False, 0.002 * (1 if n in "abc" else 50), f"{ph.name}: {n}")
             P[f"B{i}"] = _P(f"B{i}", 1.0, 0.0, 12.0, False, 0.05, f"{ph.name}: B overall (Å²)")
+            P[f"po{i}"] = _P(f"po{i}", 1.0, 0.3, 1.8, False, 0.02, f"{ph.name}: preferred orientation r (March-Dollase)")
         if self.instrument:
             for k, v in self.instrument.items():
                 if k in ("U", "V", "W", "X", "Y"):
@@ -284,6 +291,22 @@ class Refinement:
         g = (lambda n: vals[f"c{i}.{n}"]) if vals else (lambda n: self.P[f"c{i}.{n}"].value)
         return cell_from_dof(ph.system, {n: g(n) for n in CELL_DOF[ph.system]}, ph.cell0)
 
+    def _I0(self, i, v):
+        """multiplicity · |F|² of the reflection groups of phase i; with a preferred-orientation axis every single reflection is weighted by the
+        March-Dollase function (r² cos²α + sin²α / r)^(-3/2), α = angle between the reflection and the axis (r < 1 plate-like, r > 1 needle-like)."""
+        ph = self.phases[i]
+        r = v[f"po{i}"]
+        if ph.po_axis is None or ph.m_hkl is None:
+            return ph.I0
+        Gs = np.linalg.inv(_cell_metric(self.cell(i, v)))
+        h0 = np.asarray(ph.po_axis, float)
+        dot = ph.m_hkl @ Gs @ h0
+        n1 = np.einsum("ki,ij,kj->k", ph.m_hkl, Gs, ph.m_hkl)
+        n2 = float(h0 @ Gs @ h0)
+        cos2 = np.clip(dot ** 2 / np.maximum(n1 * n2, 1e-30), 0.0, 1.0)
+        w = (r * r * cos2 + (1.0 - cos2) / r) ** -1.5
+        return np.bincount(ph.m_grp, weights=ph.m_F2 * w, minlength=ph.n_ref)
+
     def _values(self, theta=None):
         v = {n: p.value for n, p in self.P.items()}
         if theta is not None:
@@ -302,7 +325,7 @@ class Refinement:
         if self.mode == "lebail":
             I = self.I_free[i].copy()
         else:
-            I = ph.I0 * np.exp(-2.0 * v[f"B{i}"] * s2)
+            I = self._I0(i, v) * np.exp(-2.0 * v[f"B{i}"] * s2)
         out = np.zeros_like(self.x)
         pk_pos, pk_I = [], []
         for lam, wl in self.rad:
@@ -446,6 +469,21 @@ class Refinement:
                     best = (rr, (self.P["W"].value, self.P["X"].value))
         self.P["W"].value, self.P["X"].value = best[1]
 
+    def _po_scan(self):
+        """The March-Dollase objective has two basins (plates r < 1 and needles r > 1): scan r on a grid for every phase with a texture axis
+        and start the refinement in the better one."""
+        for i, ph in enumerate(self.phases):
+            if ph.po_axis is None:
+                continue
+            best = (1e99, 1.0)
+            for r in np.concatenate([np.linspace(0.35, 0.95, 13), np.linspace(1.05, 1.75, 8), [1.0]]):
+                self.P[f"po{i}"].value = float(r)
+                s_, bg_, calc, _ = self._solve_linear(self._values())
+                rr = float(np.sum(self.w * (self.y - calc) ** 2))
+                if rr < best[0]:
+                    best = (rr, float(r))
+            self.P[f"po{i}"].value = best[1]
+
     def _le_bail_extract(self, cycles=40):
         v = self._values()
         for i in range(len(self.phases)):
@@ -508,12 +546,18 @@ class Refinement:
                   ]
         if self.mode == "rietveld":
             stages.append(("Atomic displacement (B)", off + ["U", "V", "W", "X", "Y"] + cell_names + [f"B{i}" for i in range(n_ph)], 0.70))
+            po_names = [f"po{i}" for i, ph_ in enumerate(self.phases) if ph_.po_axis is not None]
+            if po_names:
+                stages.append(("Preferred orientation", off + ["U", "V", "W", "X", "Y"] + cell_names + [f"B{i}" for i in range(n_ph)] + po_names, 0.76))
         low_angle = float(self.x.min()) < 20.0
         stages.append(("Fine tuning" + (" incl. peak asymmetry" if low_angle else ""),
                        off + ["U", "V", "W", "X", "Y"] + (["asym"] if low_angle else []) + cell_names
-                       + ([f"B{i}" for i in range(n_ph)] if self.mode == "rietveld" else []), 0.85))
+                       + ([f"B{i}" for i in range(n_ph)] + [f"po{i}" for i, ph_ in enumerate(self.phases) if ph_.po_axis is not None]
+                          if self.mode == "rietveld" else []), 0.85))
         for nm, names, frac in stages:
             prog(frac, nm)
+            if nm.startswith("Preferred"):
+                self._po_scan()
             if self.mode == "lebail":
                 self._le_bail_extract(15)
             if names:
@@ -575,7 +619,8 @@ class Refinement:
             if ph.system == "cubic" and ce.get("a"):
                 veps = 3 * vol * ce["a"] / cell[0]
             phases.append({"name": ph.name, "system": ph.system, "cell": cell, "cell_esd": ce, "volume": vol, "volume_esd": veps, "density": dens,
-                           "B": self.P[f"B{i}"].value, "B_esd": esd.get(f"B{i}"), "scale": float(s[i]), "n_reflections": ph.n_ref, "ticks": pk_pos,
+                           "B": self.P[f"B{i}"].value, "B_esd": esd.get(f"B{i}"), "po_r": self.P[f"po{i}"].value if ph.po_axis is not None else None,
+                           "po_axis": ph.po_axis, "po_esd": esd.get(f"po{i}"), "scale": float(s[i]), "n_reflections": ph.n_ref, "ticks": pk_pos,
                            "formula": ph.formula})
             zmv.append(float(s[i]) * ph.mass_cell * vol if self.mode == "rietveld" else 0.0)
         tot = sum(zmv)
@@ -604,7 +649,7 @@ class Refinement:
         inv_d2 = np.einsum("ki,ij,kj->k", ph.hkl, Gs, ph.hkl)
         d = 1.0 / np.sqrt(inv_d2)
         s2 = inv_d2 / 4.0
-        I = ph.I0 * np.exp(-2.0 * v[f"B{i}"] * s2)
+        I = self._I0(i, v) * np.exp(-2.0 * v[f"B{i}"] * s2)
         ycp = calc - bg
         ratio = np.where(ycp > 1e-9, np.clip(self.y - bg, 0, None) / np.maximum(ycp, 1e-9), 0.0)
         Ic_tot = 0.0
@@ -654,12 +699,15 @@ class Refinement:
                 n.append(f"{p.label} sits at its limit.")
         if size < 100:
             n.append(f"Apparent size from the Lorentzian width X: {size:.0f} nm (instrument broadening NOT removed → a lower limit; measure a standard to separate it).")
-        n.append("Not refined: atom positions, preferred orientation, anisotropic broadening, dispersion corrections – results are for phase identification, "
+        for p_ in phases:
+            if p_.get("po_r") is not None and (p_["po_r"] < 0.45 or p_["po_r"] > 1.6):
+                n.append(f"{p_['name']}: preferred-orientation r = {p_['po_r']:.2f} is far from 1 – a strong texture; check the sample preparation (back-loading, spinning, capillary).")
+        n.append("Not refined: atom positions, anisotropic broadening, dispersion corrections – results are for phase identification, "
                  "lattice parameters and weight fractions, not for structure determination.")
         return n
 
 
-def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement"):
+def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None):
     """One call: cifs = list of CIF paths / bytes (or Phase objects). Returns the result dict of Refinement.run()."""
     x = np.asarray(x, float)
     y = np.asarray(y, float)
@@ -667,6 +715,9 @@ def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None
         m = (x >= tt_range[0]) & (x <= tt_range[1])
         x, y = x[m], y[m]
     phases = [c if isinstance(c, Phase) else Phase.from_cif(c, (names or [None] * len(cifs))[k]) for k, c in enumerate(cifs)]
+    for k, ax_ in enumerate(po_axes or []):
+        if ax_ is not None and k < len(phases):
+            phases[k].po_axis = tuple(int(v) for v in ax_)
     R = Refinement(x, y, phases, radiation, bg_order, mode, mono_2theta, progress=progress, offset=offset)
     return R.run()
 

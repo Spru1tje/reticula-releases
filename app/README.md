@@ -142,6 +142,7 @@ To compare v1 and v2 on any export, run `python tools/n2_before_after.py your_fi
 | **PXRD: crystallite size** (v2.15, opt-in) | the patterns on the PXRD page | Switch on *Crystallite size and microstrain*: automatic peak fits, instrumental broadening (typical / measured standard / known), Scherrer, Williamson–Hall, Halder–Wagner with uncertainties |
 | **PXRD: Rietveld / Le Bail** (v2.15, opt-in) | CIF file(s) of the phases | Switch on *Rietveld / Le Bail*, choose the phases, press *Refine*: automatic staged refinement (≈ 1 s), Rwp / GoF / Bragg R, cell ± esd, weight fractions, Rietveld figure, Excel report |
 | **Detail levels** (v2.15) | – | Sidebar → 🎚️ Detail level: **Standard** (default, essentials), **Advanced**, **Developer**; global or per module |
+| **Dossier per material** (v2.15.1) | – | SI export page → *Dossier per material*: one ZIP per material (figures, data, methods, results) |
 | **Export guide** | – | Which file to export from each instrument (also in `docs/EXPORT_GUIDE.md`). |
 
 ## 4. Defect calculator (Zr/Hf/Ce/Th₆ nodes, paddlewheels, Zn₄O, Al-OH chains, M₃O trimers, MOF-74, Ti₈, ZIFs, custom nodes)

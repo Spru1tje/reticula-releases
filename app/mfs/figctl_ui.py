@@ -157,16 +157,18 @@ def panel(fig, key, units=None, series=None, expanded=False):
         with t1:
             c1, c2, c3 = st.columns([3, 1, 1])
             cfg["title"] = c1.text_input("Figure title (optional)", base.get("title", ""), key=_k(key, "title"))
-            cfg["title_size"] = c2.number_input("Title size (pt, 0 = auto)", 0.0, 24.0, float(base.get("title_size") or 0.0), 0.5, key=_k(key, "title_size"))
-            cfg["mathify"] = c3.checkbox("^ and _ → super/subscript", base.get("mathify", True), key=_k(key, "mathify"),
-                                         help="cm^-1 → cm⁻¹, ZrO_2 → ZrO₂, x^{2+}. Text with $…$ is used as mathtext as is. Unicode (², ₂, ⁻¹, θ, µ) always works.")
-            c1, c2, c3 = st.columns(3)
-            cfg["font"]["label_size"] = c1.number_input("Axis-title size (pt, 0 = style)", 0.0, 24.0, float(base["font"].get("label_size") or 0.0), 0.5, key=_k(key, "label_size"))
-            cfg["font"]["tick_size"] = c2.number_input("Tick-label size (pt, 0 = style)", 0.0, 24.0, float(base["font"].get("tick_size") or 0.0), 0.5, key=_k(key, "tick_size"))
-            _fam_opts = [""] + [f for f in S.available_fonts() if f != "auto"]
-            cfg["font"]["family"] = c3.selectbox("Font (this figure)", _fam_opts, index=_fam_opts.index(base["font"].get("family") or "") if (base["font"].get("family") or "") in _fam_opts else 0,
-                                                 format_func=lambda f: f or "(figure style)", key=_k(key, "family"),
-                                                 help="Overrides the font of the figure style for this figure only (axis titles, ticks, texts and legend).")
+            if adv:                      # Standard: title size, sub/superscript rule and font sizes stay at their defaults
+                cfg["title_size"] = c2.number_input("Title size (pt, 0 = auto)", 0.0, 24.0, float(base.get("title_size") or 0.0), 0.5, key=_k(key, "title_size"))
+                cfg["mathify"] = c3.checkbox("^ and _ → super/subscript", base.get("mathify", True), key=_k(key, "mathify"),
+                                             help="cm^-1 → cm⁻¹, ZrO_2 → ZrO₂, x^{2+}. Text with $…$ is used as mathtext as is. Unicode (², ₂, ⁻¹, θ, µ) always works.")
+            if adv:
+                c1, c2, c3 = st.columns(3)
+                cfg["font"]["label_size"] = c1.number_input("Axis-title size (pt, 0 = style)", 0.0, 24.0, float(base["font"].get("label_size") or 0.0), 0.5, key=_k(key, "label_size"))
+                cfg["font"]["tick_size"] = c2.number_input("Tick-label size (pt, 0 = style)", 0.0, 24.0, float(base["font"].get("tick_size") or 0.0), 0.5, key=_k(key, "tick_size"))
+                _fam_opts = [""] + [f for f in S.available_fonts() if f != "auto"]
+                cfg["font"]["family"] = c3.selectbox("Font (this figure)", _fam_opts, index=_fam_opts.index(base["font"].get("family") or "") if (base["font"].get("family") or "") in _fam_opts else 0,
+                                                     format_func=lambda f: f or "(figure style)", key=_k(key, "family"),
+                                                     help="Overrides the font of the figure style for this figure only (axis titles, ticks, texts and legend).")
             if not data_panels:
                 st.caption("Image figure – no axes to customise (use the scale-bar controls above).")
             pidx = 0

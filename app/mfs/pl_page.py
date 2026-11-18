@@ -238,6 +238,60 @@ def _show_fit(fit, spec, T, I1w, I2w, method, counts, g):
     return A, B, D, tot, None, {"method": "fit", "fit": fit}
 
 
+def _extras_panel(proc, rng, g):
+    """v2.15.1: CIE 1931 colour of the spectra and the power dependence (log-log slope)."""
+    show, newfig, dl = g["show"], g["newfig"], g["dl"]
+    from mfs import plextras as PX
+    with st.expander("🎨 CIE 1931 colour (x, y, colour temperature)", expanded=False):
+        photon = st.checkbox("Intensities are photon counts (convert to energy before weighting)", True, key="pl_cie_ph")
+        rows, pts, cols = [], [], []
+        pal = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#7F7F7F", "#000000"]
+        for k, q in enumerate(proc):
+            c = PX.cie_xy(q["wl_c"], q["y_c"], photon)
+            rows.append({"spectrum": q["name"], "T (K)": q["T"], "x": c["x"], "y": c["y"], "CCT (K)": c["CCT"]})
+            if np.isfinite(c["x"]):
+                pts.append((c["x"], c["y"])); cols.append(pal[k % len(pal)])
+        tab = pd.DataFrame(rows)
+        st.dataframe(tab.style.format(precision=4, na_rep="–"), hide_index=True, width="stretch")
+        st.caption("Only the 380–780 nm part of each spectrum counts. Colour-matching functions: analytic fit of the CIE 1931 2° observer "
+                   "(Wyman et al. 2013, errors ≈ 0.003); the colour temperature (McCamy) is only meaningful close to the Planckian locus.")
+        if pts:
+            def draw(ax, pts=pts, cols=cols):
+                PX.draw_cie(ax, pts, colors=cols)
+            fig, ax = newfig(1.0); draw(ax)
+            show(fig, "PL_CIE", tab, draw, "CIE 1931 chromaticity")
+    with st.expander("🔦 Power dependence (slope of log I vs log P)", expanded=False):
+        st.caption("Needs spectra at several excitation powers. The power is read from the name (`250mW`, `1.5W`) and can be edited; the intensity is the "
+                   "integral over the chosen wavelength range. Slope n ≈ 1: linear process; n ≈ 2 / 3: two- / three-photon upconversion; "
+                   "n < 1 at high power: saturation.")
+        base = pd.DataFrame({"use": True, "spectrum": [q["name"] for q in proc], "power (W)": [PX.parse_power(q["name"]) for q in proc],
+                             "integral": [PL.band_integral(q["wl_c"], q["y_c"], rng[0], rng[1], "linear") for q in proc]})
+        ed = st.data_editor(base, key="pl_pw_tab|" + "|".join(base["spectrum"].astype(str))[:200], hide_index=True, width="stretch",
+                            disabled=["spectrum", "integral"])
+        sel = ed[ed["use"] & ed["power (W)"].notna()]
+        if len(sel) < 3:
+            st.info("Give at least three spectra a power value (name them like `..._250mW` or type it in the table).")
+        else:
+            f = PX.fit_power(sel["power (W)"].to_numpy(float), sel["integral"].to_numpy(float))
+            if f.get("status") == "ok":
+                m1, m2, m3 = st.columns(3)
+                m1.metric("slope n", f"{f['n']:.2f}", f"± {f['n_err']:.2f}", delta_color="off")
+                m2.metric("R²", f"{f['R2']:.4f}")
+                if f.get("saturating"):
+                    m3.metric("saturation", "yes", f"n {f['slope_low']:.2f} → {f['slope_high']:.2f}", delta_color="inverse")
+                P_ = sel["power (W)"].to_numpy(float); I_ = sel["integral"].to_numpy(float)
+
+                def draw_p(ax, P_=P_, I_=I_, f=f):
+                    ax.loglog(P_, I_, "o", ms=4, color="#0072B2")
+                    pp = np.geomspace(P_.min(), P_.max(), 50)
+                    ax.loglog(pp, f["f"](pp), "-", color="#D55E00", lw=1.0, label=f"n = {f['n']:.2f} ± {f['n_err']:.2f}")
+                    ax.set_xlabel("Excitation power (W)"); ax.set_ylabel("Integrated intensity"); ax.legend(frameon=False, fontsize=6)
+                fig, ax = newfig(0.8); draw_p(ax)
+                show(fig, "PL_power_dependence", sel, draw_p, "Power dependence")
+            else:
+                st.warning(f.get("status"))
+
+
 def _band_default(spectra, lo, hi):
     """Two strongest peaks of the mean spectrum -> two integration windows split at the valley between them."""
     from scipy.signal import find_peaks
@@ -278,6 +332,20 @@ def render(g):
     spectra = _spectra_from(files)
     if not spectra:
         return
+    with LV.gate("Advanced", globals()):
+        with st.expander("🎚️ Spectral-response correction (optional)", expanded=False):
+            st.caption("A file with two columns (wavelength in nm, correction factor) – the detector / grating response of your spectrometer. "
+                       "Every spectrum is multiplied by the factor at its wavelength. Corrected data are no longer photon counts.")
+            cf = st.file_uploader("Correction file", type=["txt", "csv", "dat"], key="pl_cal")
+            if cf is not None:
+                try:
+                    from mfs import plextras as _PX
+                    _cw, _cfac = _PX.read_correction(cf.getvalue())
+                    for s_ in spectra:
+                        s_["I"] = _PX.apply_correction(s_["wl"], s_["I"], _cw, _cfac)
+                    st.caption(f"✅ Correction applied ({len(_cw)} points, {_cw.min():.0f}–{_cw.max():.0f} nm).")
+                except Exception as e:
+                    st.warning(f"Correction not applied: {e}")
     # ------------------------------------------------------------ temperatures (editable)
     c1, c2 = st.columns([1, 3])
     unit = c1.radio("Plain numbers in headers are", ["auto", "K", "°C"], horizontal=True, key="pl_unit")
@@ -355,6 +423,8 @@ def render(g):
         pk = pd.DataFrame(rows)
         st.dataframe(pk, hide_index=True, width="stretch")
         dl(st, "CSV peaks", pk.to_csv(index=False).encode("utf-8-sig"), "PL_peaks.csv", "pl_peaks_csv")
+        with LV.gate("Advanced", globals()):
+            _extras_panel(proc, rng, g)
 
     if n_t < 3:
         if n_t == 0 and len(spectra) > 1:
@@ -471,6 +541,17 @@ def render(g):
             fn = dict(panels)[pick]
             fig2, ax2 = newfig(0.8); fn(ax2)
             show(fig2, "PL_" + safe_name(pick), res, fn, pick)
+        with LV.gate("Advanced", globals()):
+            with st.expander("🔁 Temperature uncertainty from repeat measurements", expanded=False):
+                from mfs import plextras as _PX
+                rep = _PX.repeat_uncertainty(T, D, lambda t_: PL.relative_sensitivity(t_, bf["dE_eV"]))
+                if rep:
+                    st.dataframe(pd.DataFrame([{"T (K)": r_["T"], "repeats": r_["n"], "mean Δ": r_["mean"], "std Δ": r_["std"], "std (%)": r_["rel_pct"],
+                                                "σT from the scatter (K)": r_["sigma_T"]} for r_ in rep]).style.format(precision=4), hide_index=True, width="stretch")
+                    st.caption("σT = (std Δ / Δ) / Sᵣ: what the scatter between repeated spectra at one temperature means in kelvin – the experimental "
+                               "temperature resolution, which includes everything the counting statistics do not (drift, positioning, laser noise).")
+                else:
+                    st.info("Measure each temperature at least twice (same temperature within 0.6 K) to get the repeat-based uncertainty.")
         st.dataframe(res.round(5), hide_index=True, width="stretch")
         dl(st, "CSV thermometry", res.to_csv(index=False).encode("utf-8-sig"), "PL_thermometry.csv", "pl_th_csv")
         store_put(sample, "pl", {"dE_cm1": bf["dE_cm1"], "alpha": bf["alpha"], "Sr_Tmin_pct_per_K": float(Sr[0]), "R2_boltzmann": bf["R2"],

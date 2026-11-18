@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.15.1 — 2026-11-18
+
+### PXRD / Rietveld
+- **Preferred orientation** (March–Dollase): give the axis (h k l) per phase under *Advanced → Preferred orientation*; the factor r (r < 1 plates, r > 1 needles) is refined after a scan that finds the right basin (the objective has two). Recovered on a synthetic texture within 0.05.
+- Zero shift and sample displacement are no longer refined together by default (they are strongly correlated and bias the cell, 0.06 % on a real pattern): displacement only (reflection geometry), option *Instrument offset*. Validated on a real laboratory pattern (fluorapatite, Cu Kα1+Kα2): Rwp 9 %, GoF 1.6, cell within 0.003 % of the GSAS result.
+
+### Photoluminescence (Advanced)
+- **Spectral-response correction** file (wavelength, factor) applied to every spectrum.
+- **Temperature uncertainty from repeat measurements**: σT from the scatter between spectra at the same temperature (the experimental temperature resolution).
+- **Power dependence**: power read from the name (`250mW`) or typed, slope n of log I vs log P ± error, saturation warning, log–log figure.
+- **CIE 1931 colour**: x, y and colour temperature of every spectrum and a chromaticity diagram.
+
+### Dossier per material
+- SI export page: a *material* column (guessed when a graph shows one sample) and **one ZIP per material**: figures, plotted data in one Excel, settings, methods text, the results of that material from the sample store; or all materials in one ZIP with a folder each.
+
+### Interface
+- **Readable sidebar**: the expanders of the sidebar (figure style, colour rules, house style, About, project, saved work) were white with pale text on the dark sidebar; they now have a dark background with light text.
+- **Detail level** is now a coloured box at the TOP of the sidebar with three buttons (🟢 Standard, 🔵 Advanced, 🟣 Developer) and the colour of the current level; the override for the current module sits right under it.
+- Standard level of *Customise this figure*: title size, sub/superscript rule and font sizes moved to Advanced (they keep their defaults).
+
+### Build and tests
+- macOS: pyarrow's `libarrow_*` libraries are no longer removed from the app (the self-test of v2.15.0 failed on this); a manual `macos-build` workflow attaches the dmg to an existing release; `SHA256SUMS.txt` without the build path.
+- Real-browser tests updated (composer button / page names, sample-list shift-click timing); the old NMR drag test is skipped until it is rewritten for the new layout.
+
 ## 2.15.0 — 2026-11-17
 
 ### New: detail levels (Standard / Advanced / Developer)

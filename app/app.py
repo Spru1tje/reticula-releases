@@ -93,9 +93,9 @@ UI.sidebar_brand(HERE, __version__)
 PAGES = UI.PAGES
 if "composer" not in st.session_state:
     st.session_state.composer = {}
-page = st.sidebar.radio("Technique", PAGES, key="nav", format_func=UI.nav_label, label_visibility="collapsed", on_change=PS.on_nav)
 from mfs import levels as LV            # v2.15: Standard / Advanced / Developer
-LV.sidebar(page)
+LV.sidebar()                            # v2.15.1: coloured box at the TOP of the sidebar (reads the current page from the nav widget)
+page = st.sidebar.radio("Technique", PAGES, key="nav", format_func=UI.nav_label, label_visibility="collapsed", on_change=PS.on_nav)
 with st.sidebar.container(border=True, key="composer_tray"):          # v2.14: always visible: where the combined figure lives
     _nc = len(st.session_state.composer)
     st.markdown("**🧩 Combined figure**" + (f" · {_nc} panel{'s' if _nc != 1 else ''}" if _nc else ""))
@@ -391,7 +391,7 @@ def _si_capture(fig, stem, data, title, cfg):
                   and isinstance(v, (int, float, str, bool)) and not (isinstance(v, str) and len(v) > 200)}
         st.session_state.setdefault("si_figs", {})[safe_name(stem)] = {
             "fig": fig, "data": data if isinstance(data, pd.DataFrame) else None, "page": page, "title": title, "params": params,
-            "cfg": cfg, "time": datetime.datetime.now().strftime("%H:%M:%S"), "n_rows": int(len(data)) if isinstance(data, pd.DataFrame) else None}
+            "cfg": cfg, "series": list(CURRENT_SERIES), "time": datetime.datetime.now().strftime("%H:%M:%S"), "n_rows": int(len(data)) if isinstance(data, pd.DataFrame) else None}
     except Exception as e:      # never break a page
         st.session_state["_si_err"] = str(e)
 

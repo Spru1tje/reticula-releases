@@ -85,6 +85,13 @@ div[class*="st-key-exportbar_"] [data-testid="stDownloadButton"], div[class*="st
 /* cards */
 [data-testid="stExpander"] details { border-radius:12px; border-color:#DCE3EE; background:#fff; }
 [data-testid="stExpander"] summary { font-weight:600; }
+/* v2.15.1: the sidebar is dark - its expanders get a dark glass look with light text (they were white with pale text = unreadable) */
+section[data-testid="stSidebar"] [data-testid="stExpander"] details { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.24); }
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary { color:#F8FAFC !important; font-weight:700; }
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover { background:rgba(94,234,212,.12); }
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary * { color:#F8FAFC !important; }
+section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] * { color:#E2E8F0; }
+section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] [data-baseweb="select"] * { color:#F8FAFC; }
 div[class*="st-key-data_"] { background:#fff; border-radius:14px; }
 .rt-sec { font-weight:700; color:var(--rt-indigo); font-size:.95rem; margin:2px 0 6px 0; }
 /* export bar */

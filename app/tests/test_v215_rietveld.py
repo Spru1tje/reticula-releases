@@ -108,3 +108,21 @@ def test_real_laboratory_pattern_fluorapatite_matches_gsas():
     p = r["phases"][0]
     assert r["stats"]["Rwp"] < 0.11 and np.sqrt(r["stats"]["chi2"]) < 2.0 and p["Rb"] < 0.08
     assert abs(p["cell"][0] - 9.371724) < 0.002 and abs(p["cell"][2] - 6.885867) < 0.002            # within 0.02 % of the GSAS result
+
+
+def test_preferred_orientation_march_dollase_is_recovered():
+    ph = RV.Phase.from_cif(UIO)
+    ph.po_axis = (1, 1, 1)
+    x = np.arange(3, 60, 0.02)
+    R = RV.Refinement(x, np.ones_like(x) * 1000.0, [ph], "Cu Kα1", 6, "rietveld", counts=True)
+    for k, v in {"c0.a": 20.80, "W": 0.004, "X": 0.12, "B0": 1.2, "po0": 0.65}.items():
+        R.P[k].value = v
+    y = R._design(R._values())[:, 0]
+    y = np.random.default_rng(5).poisson(y / y.max() * 20000 + 250 + 1.0 * x).astype(float)
+    off = RV.quick_refine(x, y, [UIO], offset="zero")                                   # without the texture model
+    r = RV.quick_refine(x, y, [UIO], offset="zero", po_axes=[(1, 1, 1)])
+    p = r["phases"][0]
+    assert abs(p["po_r"] - 0.65) < 0.05 and p["po_axis"] == (1, 1, 1)
+    assert r["stats"]["Rwp"] < 0.7 * off["stats"]["Rwp"] and r["stats"]["chi2"] < 1.6
+    assert off["phases"][0]["po_r"] is None
+    assert RV.quick_refine(x, y, [UIO], offset="zero")["stats"]["Rwp"] == off["stats"]["Rwp"]   # r = 1 / no axis = old behaviour

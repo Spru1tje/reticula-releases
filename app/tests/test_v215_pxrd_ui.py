@@ -120,3 +120,14 @@ def test_pl_thermometry_automatic_fit_in_the_app():
     r.set_value("Integration windows (choose them on the graph)").run()
     assert not at.exception, at.exception
     assert any(s.key == "pl_b1" for s in at.slider)
+
+
+def test_pl_extras_panels_exist_and_run():
+    at = _page("Photoluminescence", "Advanced")
+    assert not at.exception, at.exception
+    labels = [e.label for e in at.expander]
+    assert any("CIE 1931" in l for l in labels) and any("Power dependence" in l for l in labels)
+    assert any("repeat measurements" in l for l in labels) and any("Spectral-response correction" in l for l in labels)
+    at = _page("Photoluminescence", "Standard")
+    assert not at.exception, at.exception
+    assert not any("CIE 1931" in e.label for e in at.expander)

@@ -237,8 +237,12 @@ def page_si():
     figs = st.session_state.get("si_figs", {})
     if not figs:
         st.info("No figures collected yet – open the technique pages (collection is on by default)."); return
-    tab = pd.DataFrame([{"include": True, "figure": k, "page": v.get("page", ""), "captured": v.get("time", "")} for k, v in figs.items()])
-    tab = st.data_editor(tab, hide_index=True, disabled=["figure", "page", "captured"], key="si_tab")
+    from mfs import dossier as DOS
+    tab = pd.DataFrame([{"include": True, "figure": k, "page": v.get("page", ""), "material": DOS.guess_material(v.get("series")), "captured": v.get("time", "")}
+                        for k, v in figs.items()])
+    tab = st.data_editor(tab, hide_index=True, disabled=["figure", "page", "captured"], key="si_tab",
+                         column_config={"material": st.column_config.TextColumn("material", help="Name of the material the graph is about (guessed when it shows one sample). "
+                                                                                              "Graphs with the same material end up in one dossier.")})
     sel = [r.figure for r in tab.itertuples() if r.include]
     inc = st.multiselect("Include", ["pdf", "png", "svg", "csv"], ["pdf", "png", "csv"], key="si_inc")
     c1, c2 = st.columns(2)
@@ -261,6 +265,33 @@ def page_si():
             out[k] = d
         return SB.build(out, st.session_state.get("sample_store", {}), __version__, inc)
     dl(c1, f"⬇️ SI bundle ({len(sel)} figures)", _bundle, "Reticula_SI_bundle.zip", "si_zip")
+    _assign = {r.figure: r.material for r in tab.itertuples() if r.include}
+    _groups = DOS.group_by_material({k: figs[k] for k in sel}, _assign)
+    with st.expander(f"📁 Dossier per material ({len(_groups)} material{'s' if len(_groups) != 1 else ''})", expanded=bool(_groups)):
+        if not _groups:
+            st.caption("Fill the *material* column of the table above (it is guessed when a graph shows one sample); graphs of the same material go into one dossier.")
+        else:
+            st.caption("One ZIP per material: its figures, plotted data (one Excel), settings, methods text and the results from the sample store.")
+
+            def _render(k):
+                f = figs[k]; fig = f["fig"]
+                d = {kk: f.get(kk) for kk in ("page", "time", "params", "cfg", "title", "n_rows")}
+                d["data"] = f.get("data")
+                with _RENDER_LOCK:
+                    for ext in ("pdf", "png", "svg"):
+                        if ext in inc:
+                            d[ext] = S.export(fig, ext, DPI)
+                if "csv" in inc and f.get("data") is not None:
+                    d["csv"] = f["data"].to_csv(index=False).encode("utf-8-sig")
+                return d
+            for _m, _fg in _groups.items():
+                dl(st, f"⬇️ {_m} ({len(_fg)} figure{'s' if len(_fg) != 1 else ''})",
+                   (lambda _m=_m, _fg=_fg: DOS.build_dossier(_m, {k: _render(k) for k in _fg}, st.session_state.get("sample_store", {}), __version__, inc)),
+                   f"Reticula_dossier_{re.sub(r'[^A-Za-z0-9._@+-]+', '_', _m)}.zip", "si_dos_" + re.sub(r"[^A-Za-z0-9]+", "_", _m))
+            if len(_groups) > 1:
+                dl(st, "⬇️ All materials (one folder each)",
+                   lambda: DOS.build_all({m_: {k: _render(k) for k in fg_} for m_, fg_ in _groups.items()}, st.session_state.get("sample_store", {}), __version__, inc),
+                   "Reticula_dossiers_all.zip", "si_dos_all")
     from mfs import journal as J
     dl(c1, "⬇️ All figure data in ONE Excel (a sheet per figure)",
        lambda: J.figure_data_xlsx({k: figs[k] for k in sel}, __version__), "Reticula_figure_data.xlsx", "si_xlsx")

@@ -12,7 +12,7 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-17T23:51:37"
+    "updated": "2026-11-18T00:55:43"
    }
   }
  },
@@ -32,7 +32,7 @@
      "S_ext": 25.236259861125152
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:28:47"
+    "updated": "2026-11-18T00:56:04"
    }
   }
  },
@@ -52,7 +52,7 @@
      "S_ext": 41.087791611216176
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:28:47"
+    "updated": "2026-11-18T00:56:04"
    },
    "tga": {
     "values": {
@@ -68,7 +68,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T00:31:10"
+    "updated": "2026-11-18T00:55:45"
    },
    "dsc": {
     "values": {
@@ -76,7 +76,7 @@
      "cp_100C": 0.7385646145917613
     },
     "source": "DSC cp",
-    "updated": "2026-11-17T23:23:50"
+    "updated": "2026-11-18T00:55:47"
    },
    "kinetics": {
     "values": {
@@ -89,7 +89,7 @@
      "label": "MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:30:08"
+    "updated": "2026-11-18T00:55:48"
    },
    "icp": {
     "values": {
@@ -106,7 +106,7 @@
      "xrf_S_per_M_sd": 0.0
     },
     "source": "ICP page",
-    "updated": "2026-11-17T23:23:53"
+    "updated": "2026-11-18T00:55:49"
    },
    "xps": {
     "values": {
@@ -114,7 +114,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T23:51:31"
+    "updated": "2026-11-18T00:55:55"
    },
    "pxrd": {
     "values": {
@@ -144,7 +144,7 @@
      "S_ext": 36.51588069459394
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:28:47"
+    "updated": "2026-11-18T00:56:04"
    },
    "kinetics": {
     "values": {
@@ -157,7 +157,7 @@
      "label": "PM"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:30:08"
+    "updated": "2026-11-18T00:55:48"
    },
    "icp": {
     "values": {
@@ -174,7 +174,7 @@
      "xrf_S_per_M_sd": 0.0023493795479097917
     },
     "source": "ICP page",
-    "updated": "2026-11-17T23:23:53"
+    "updated": "2026-11-18T00:55:49"
    },
    "pxrd": {
     "values": {
@@ -204,7 +204,7 @@
      "S_ext": 38.483724927891984
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:28:47"
+    "updated": "2026-11-18T00:56:04"
    },
    "tga": {
     "values": {
@@ -220,7 +220,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T00:31:10"
+    "updated": "2026-11-18T00:55:45"
    },
    "kinetics": {
     "values": {
@@ -233,7 +233,7 @@
      "label": "Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:30:08"
+    "updated": "2026-11-18T00:55:48"
    },
    "icp": {
     "values": {
@@ -250,7 +250,7 @@
      "xrf_S_per_M_sd": 0.0013754594240809794
     },
     "source": "ICP page",
-    "updated": "2026-11-17T23:23:53"
+    "updated": "2026-11-18T00:55:49"
    },
    "xps": {
     "values": {
@@ -258,7 +258,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T23:51:31"
+    "updated": "2026-11-18T00:55:55"
    },
    "pxrd": {
     "values": {
@@ -288,7 +288,7 @@
      "S_ext": 45.5987139873979
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:28:47"
+    "updated": "2026-11-18T00:56:04"
    },
    "tga": {
     "values": {
@@ -304,7 +304,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T00:31:10"
+    "updated": "2026-11-18T00:55:45"
    },
    "kinetics": {
     "values": {
@@ -317,7 +317,7 @@
      "label": "ZrO2@Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:30:08"
+    "updated": "2026-11-18T00:55:48"
    },
    "icp": {
     "values": {
@@ -334,7 +334,7 @@
      "xrf_S_per_M_sd": 0.0007071992563601338
     },
     "source": "ICP page",
-    "updated": "2026-11-17T23:23:53"
+    "updated": "2026-11-18T00:55:49"
    },
    "xps": {
     "values": {
@@ -342,7 +342,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-17T23:51:31"
+    "updated": "2026-11-18T00:55:55"
    },
    "pxrd": {
     "values": {
@@ -372,7 +372,7 @@
      "S_ext": 74.37863399132486
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:28:47"
+    "updated": "2026-11-18T00:56:04"
    },
    "kinetics": {
     "values": {
@@ -385,7 +385,7 @@
      "label": "ZrO2"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:30:08"
+    "updated": "2026-11-18T00:55:48"
    },
    "icp": {
     "values": {
@@ -402,7 +402,7 @@
      "xrf_S_per_M_sd": 0.0
     },
     "source": "ICP page",
-    "updated": "2026-11-17T23:23:53"
+    "updated": "2026-11-18T00:55:49"
    },
    "pxrd": {
     "values": {
@@ -430,7 +430,7 @@
      "label": "Blank (no catalyst)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:30:08"
+    "updated": "2026-11-18T00:55:48"
    }
   }
  },
@@ -439,14 +439,14 @@
   "sections": {
    "pl": {
     "values": {
-     "dE_cm1": 740.2897283525892,
-     "alpha": 10.629334317413317,
-     "Sr_Tmin_pct_per_K": 1.2394110311028486,
-     "R2_boltzmann": 0.9996401142270991,
-     "sigmaT_Tmin_K": 0.27562126340201976
+     "dE_cm1": 737.9857286898299,
+     "alpha": 10.55527872957106,
+     "Sr_Tmin_pct_per_K": 1.2355536189460758,
+     "R2_boltzmann": 0.9995164032044154,
+     "sigmaT_Tmin_K": 0.2053595220017044
     },
     "source": "Photoluminescence page",
-    "updated": "2026-11-17T23:22:06"
+    "updated": "2026-11-18T00:50:59"
    }
   }
  },

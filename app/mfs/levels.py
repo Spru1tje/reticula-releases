@@ -59,19 +59,45 @@ def opt_in(label: str, key: str, help: str | None = None) -> bool:
     return bool(st.toggle(label, value=False, key=f"optin|{key}", help=help))
 
 
+LEVEL_COLOUR = {"Standard": "#16A34A", "Advanced": "#2563EB", "Developer": "#9333EA"}
+LEVEL_ICON = {"Standard": "🟢", "Advanced": "🔵", "Developer": "🟣"}
+
+
 def sidebar(page: str | None = None):
-    """The level switch in the sidebar: global level + an override for the current module (kept in st.session_state['_lv'], a project-global key)."""
+    """The level switch at the top of the sidebar: a coloured box with the three levels as buttons (global) and an override for the current module
+    underneath (kept in st.session_state['_lv'], a project-global key)."""
     d = _store()
+    w = st.session_state.get("lv_global")                    # the button pressed in THIS run is already in the widget state: use it for the colours
+    if w in LEVELS:
+        d["global"] = w
+    wm = st.session_state.get(f"lv_mod|{page or _page()}")
+    if wm in (USE_GLOBAL,) + LEVELS and (page or _page()) and (page or _page()) != "Home":
+        d[page or _page()] = wm
     page = page or _page()
-    with st.sidebar.expander(f"🎚️ Detail level: {level_name(page)}", expanded=False):
-        d["global"] = st.selectbox("All modules", LEVELS, index=LEVELS.index(d.get("global", "Standard")), key="lv_global",
-                                   help="Standard = bare essentials; Advanced = more details; Developer = all functions.")
+    cur = level_name(page)
+    col = LEVEL_COLOUR[cur]
+    st.sidebar.markdown(
+        "<style>"
+        ".st-key-lv_box{background:linear-gradient(135deg,#17386B 0%,#0F2A52 100%);border:2px solid " + col + ";border-radius:14px;"
+        "padding:.7rem .85rem .55rem;margin:.2rem 0 .8rem;box-shadow:0 2px 10px rgba(0,0,0,.35)}"
+        ".st-key-lv_box p,.st-key-lv_box label,.st-key-lv_box span{color:#E2E8F0}"
+        ".st-key-lv_box [data-testid='stSegmentedControl'] button{font-weight:700}"
+        ".lv-pill{display:inline-block;padding:2px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:.8rem;vertical-align:middle;background:" + col + "}"
+        ".st-key-lv_box .lv-title{font-weight:800;color:#FFFFFF;font-size:1rem}"
+        "</style>", unsafe_allow_html=True)
+    with st.sidebar.container(border=False, key="lv_box"):
+        st.markdown(f"<span class='lv-title'>🎚️ Detail level</span>&nbsp;&nbsp;<span class='lv-pill'>{cur}</span>", unsafe_allow_html=True)
+        v = st.segmented_control("All modules", LEVELS, default=d.get("global", "Standard"), key="lv_global", label_visibility="collapsed",
+                                 format_func=lambda x: f"{LEVEL_ICON[x]} {x}", help="Standard = bare essentials; Advanced = more details; Developer = all functions.")
+        if v in LEVELS:
+            d["global"] = v
+        st.caption(HELP[level_name(page)])
         if page and page != "Home":
             opts = (USE_GLOBAL,) + LEVELS
-            cur = d.get(page, USE_GLOBAL)
-            d[page] = st.selectbox(f"This module ({page})", opts, index=opts.index(cur if cur in opts else USE_GLOBAL), key=f"lv_mod|{page}",
-                                   format_func=lambda x: "same as all modules" if x == USE_GLOBAL else x)
-        st.caption(HELP[level_name(page)])
+            cur_o = d.get(page, USE_GLOBAL)
+            with st.expander(f"Only for this module: {page}", expanded=cur_o != USE_GLOBAL):
+                d[page] = st.selectbox(f"Level of {page}", opts, index=opts.index(cur_o if cur_o in opts else USE_GLOBAL), key=f"lv_mod|{page}",
+                                       format_func=lambda x: "same as all modules" if x == USE_GLOBAL else f"{LEVEL_ICON[x]} {x}")
 
 
 # ------------------------------------------------------------------------------------------------ gated blocks
