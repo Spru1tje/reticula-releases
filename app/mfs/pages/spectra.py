@@ -278,6 +278,20 @@ def _use_ident(labels):
     st.session_state["rv_phases"] = list(labels)
 
 
+def _rv_progress(bar):
+    """v2.17: progress bar of a refinement with the elapsed time and an estimate of the time left (from the fraction done)."""
+    import time as _tm
+    t0 = _tm.time()
+
+    def cb(f, text):
+        f = min(max(float(f), 0.0), 1.0)
+        el = _tm.time() - t0
+        left = el * (1 - f) / f if f > 0.05 else None
+        tail = f" · {el:.0f} s elapsed" + (f" · about {left:.0f} s left" if left is not None and f < 0.99 else "")
+        bar.progress(f, text=text + tail)
+    return cb
+
+
 def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     """v2.15: Rietveld / Le Bail refinement - pick phases, press Refine. Opt-in (shown only after a click)."""
     import math
@@ -404,7 +418,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
             for ph_, (name, _s) in zip(ph, phases_src):
                 ph_.po_axis = _axis(po_txt.get(name, ""))
             res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,
-                                  mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_),
+                                  mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=_rv_progress(bar),
                                   refine_structure=mode_l.startswith("Rietveld + refine"), restraint_scale=rscale)
             store[nm] = res
             bar.empty()

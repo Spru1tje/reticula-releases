@@ -12,7 +12,7 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-18T18:00:52",
+    "updated": "2026-11-18T18:05:56",
     "files": [
      "aspirin_300_XWIN35.zip (bundled example)",
      "naphtoic_500_TS35_dspfvs12.zip (bundled example)"
@@ -37,7 +37,16 @@
      "S_ext": 25.236259861125152
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:56:04"
+    "updated": "2026-11-18T18:05:45",
+    "files": [
+     "MOF801Hf_3Flex_full_report_EXAMPLE.xls (bundled example)",
+     "MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "PM_3Flex_MicroActive.xlsx (bundled example)",
+     "Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2@Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2_3Flex_MicroActive.xlsx (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
@@ -57,7 +66,16 @@
      "S_ext": 41.087791611216176
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:56:04"
+    "updated": "2026-11-18T18:05:45",
+    "files": [
+     "MOF801Hf_3Flex_full_report_EXAMPLE.xls (bundled example)",
+     "MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "PM_3Flex_MicroActive.xlsx (bundled example)",
+     "Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2@Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2_3Flex_MicroActive.xlsx (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "tga": {
     "values": {
@@ -73,7 +91,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T17:56:07",
+    "updated": "2026-11-18T18:05:57",
     "files": [
      "MOF801_Netzsch.txt (bundled example)",
      "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
@@ -87,7 +105,11 @@
      "cp_100C": 0.7385646145917613
     },
     "source": "DSC cp",
-    "updated": "2026-11-18T00:55:47"
+    "updated": "2026-11-18T18:05:58",
+    "files": [
+     "MOF-PEG_TA-TRIOS_EXAMPLE.txt (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "kinetics": {
     "values": {
@@ -100,7 +122,11 @@
      "label": "MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:55:48"
+    "updated": "2026-11-18T18:06:01",
+    "files": [
+     "GlyGly_hydrolysis_60C_pD7.4.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "icp": {
     "values": {
@@ -117,7 +143,11 @@
      "xrf_S_per_M_sd": 0.0
     },
     "source": "ICP page",
-    "updated": "2026-11-18T00:55:49"
+    "updated": "2026-11-18T18:05:56",
+    "files": [
+     "ICP-OES_Syngistix_export.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "xps": {
     "values": {
@@ -125,13 +155,13 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T02:25:40",
+    "updated": "2026-11-18T18:05:56",
     "files": [
      "MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "ZrO2@Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)"
     ],
-    "version": "2.15.1"
+    "version": "2.16.0"
    },
    "pxrd": {
     "values": {
@@ -142,13 +172,27 @@
      "MOF-801 (Zr) weight fraction (%)": 100.0
     },
     "source": "PXRD Rietveld",
-    "updated": "2026-11-18T18:02:18",
+    "updated": "2026-11-18T18:06:41",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",
      "Sulfo-MOF801_STOE.xy (bundled example)",
      "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
      "ZrO2_STOE.xy (bundled example)"
+    ],
+    "version": "2.16.0"
+   },
+   "dls": {
+    "values": {
+     "z_avg_nm": 286.90000000000003,
+     "pdi": 0.204,
+     "zeta_mV": 19.076666666666668,
+     "n_runs": 3
+    },
+    "source": "Zeta / DLS page",
+    "updated": "2026-11-18T18:06:03",
+    "files": [
+     "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
     ],
     "version": "2.16.0"
    }
@@ -170,7 +214,16 @@
      "S_ext": 36.51588069459394
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:56:04"
+    "updated": "2026-11-18T18:05:45",
+    "files": [
+     "MOF801Hf_3Flex_full_report_EXAMPLE.xls (bundled example)",
+     "MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "PM_3Flex_MicroActive.xlsx (bundled example)",
+     "Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2@Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2_3Flex_MicroActive.xlsx (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "kinetics": {
     "values": {
@@ -183,7 +236,11 @@
      "label": "PM"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:55:48"
+    "updated": "2026-11-18T18:06:01",
+    "files": [
+     "GlyGly_hydrolysis_60C_pD7.4.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "icp": {
     "values": {
@@ -200,7 +257,11 @@
      "xrf_S_per_M_sd": 0.0023493795479097917
     },
     "source": "ICP page",
-    "updated": "2026-11-18T00:55:49"
+    "updated": "2026-11-18T18:05:56",
+    "files": [
+     "ICP-OES_Syngistix_export.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "pxrd": {
     "values": {
@@ -219,6 +280,20 @@
      "ZrO2_STOE.xy (bundled example)"
     ],
     "version": "2.15.1"
+   },
+   "dls": {
+    "values": {
+     "z_avg_nm": 296.56666666666666,
+     "pdi": 0.397,
+     "zeta_mV": -9.843333333333334,
+     "n_runs": 3
+    },
+    "source": "Zeta / DLS page",
+    "updated": "2026-11-18T18:06:03",
+    "files": [
+     "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
@@ -238,7 +313,16 @@
      "S_ext": 38.483724927891984
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:56:04"
+    "updated": "2026-11-18T18:05:45",
+    "files": [
+     "MOF801Hf_3Flex_full_report_EXAMPLE.xls (bundled example)",
+     "MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "PM_3Flex_MicroActive.xlsx (bundled example)",
+     "Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2@Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2_3Flex_MicroActive.xlsx (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "tga": {
     "values": {
@@ -254,7 +338,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T17:56:14",
+    "updated": "2026-11-18T18:05:57",
     "files": [
      "MOF801_Netzsch.txt (bundled example)",
      "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
@@ -273,7 +357,11 @@
      "label": "Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:55:48"
+    "updated": "2026-11-18T18:06:01",
+    "files": [
+     "GlyGly_hydrolysis_60C_pD7.4.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "icp": {
     "values": {
@@ -290,7 +378,11 @@
      "xrf_S_per_M_sd": 0.0013754594240809794
     },
     "source": "ICP page",
-    "updated": "2026-11-18T00:55:49"
+    "updated": "2026-11-18T18:05:56",
+    "files": [
+     "ICP-OES_Syngistix_export.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "xps": {
     "values": {
@@ -298,13 +390,13 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T02:25:40",
+    "updated": "2026-11-18T18:05:56",
     "files": [
      "MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "ZrO2@Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)"
     ],
-    "version": "2.15.1"
+    "version": "2.16.0"
    },
    "pxrd": {
     "values": {
@@ -323,6 +415,20 @@
      "ZrO2_STOE.xy (bundled example)"
     ],
     "version": "2.15.1"
+   },
+   "dls": {
+    "values": {
+     "z_avg_nm": 320.3666666666666,
+     "pdi": 0.24266666666666667,
+     "zeta_mV": -24.733333333333334,
+     "n_runs": 3
+    },
+    "source": "Zeta / DLS page",
+    "updated": "2026-11-18T18:06:03",
+    "files": [
+     "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
@@ -342,7 +448,16 @@
      "S_ext": 45.5987139873979
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:56:04"
+    "updated": "2026-11-18T18:05:45",
+    "files": [
+     "MOF801Hf_3Flex_full_report_EXAMPLE.xls (bundled example)",
+     "MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "PM_3Flex_MicroActive.xlsx (bundled example)",
+     "Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2@Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2_3Flex_MicroActive.xlsx (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "tga": {
     "values": {
@@ -358,7 +473,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T17:56:14",
+    "updated": "2026-11-18T18:05:57",
     "files": [
      "MOF801_Netzsch.txt (bundled example)",
      "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
@@ -377,7 +492,11 @@
      "label": "ZrO2@Sulfo-MOF-801(Hf)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:55:48"
+    "updated": "2026-11-18T18:06:01",
+    "files": [
+     "GlyGly_hydrolysis_60C_pD7.4.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "icp": {
     "values": {
@@ -394,7 +513,11 @@
      "xrf_S_per_M_sd": 0.0007071992563601338
     },
     "source": "ICP page",
-    "updated": "2026-11-18T00:55:49"
+    "updated": "2026-11-18T18:05:56",
+    "files": [
+     "ICP-OES_Syngistix_export.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "xps": {
     "values": {
@@ -402,13 +525,13 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T02:25:40",
+    "updated": "2026-11-18T18:05:56",
     "files": [
      "MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "ZrO2@Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)"
     ],
-    "version": "2.15.1"
+    "version": "2.16.0"
    },
    "pxrd": {
     "values": {
@@ -427,6 +550,20 @@
      "ZrO2_STOE.xy (bundled example)"
     ],
     "version": "2.15.1"
+   },
+   "dls": {
+    "values": {
+     "z_avg_nm": 326.73333333333335,
+     "pdi": 0.27299999999999996,
+     "zeta_mV": 6.386666666666667,
+     "n_runs": 3
+    },
+    "source": "Zeta / DLS page",
+    "updated": "2026-11-18T18:06:03",
+    "files": [
+     "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
@@ -446,7 +583,16 @@
      "S_ext": 74.37863399132486
     },
     "source": "N2 sorption page",
-    "updated": "2026-11-18T00:56:04"
+    "updated": "2026-11-18T18:05:45",
+    "files": [
+     "MOF801Hf_3Flex_full_report_EXAMPLE.xls (bundled example)",
+     "MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "PM_3Flex_MicroActive.xlsx (bundled example)",
+     "Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2@Sulfo-MOF801_3Flex_MicroActive.xlsx (bundled example)",
+     "ZrO2_3Flex_MicroActive.xlsx (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "kinetics": {
     "values": {
@@ -459,7 +605,11 @@
      "label": "ZrO2"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:55:48"
+    "updated": "2026-11-18T18:06:01",
+    "files": [
+     "GlyGly_hydrolysis_60C_pD7.4.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "icp": {
     "values": {
@@ -476,7 +626,11 @@
      "xrf_S_per_M_sd": 0.0
     },
     "source": "ICP page",
-    "updated": "2026-11-18T00:55:49"
+    "updated": "2026-11-18T18:05:56",
+    "files": [
+     "ICP-OES_Syngistix_export.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    },
    "pxrd": {
     "values": {
@@ -495,6 +649,20 @@
      "ZrO2_STOE.xy (bundled example)"
     ],
     "version": "2.15.1"
+   },
+   "dls": {
+    "values": {
+     "z_avg_nm": 11.9,
+     "pdi": 0.18733333333333335,
+     "zeta_mV": 30.52666666666667,
+     "n_runs": 3
+    },
+    "source": "Zeta / DLS page",
+    "updated": "2026-11-18T18:06:03",
+    "files": [
+     "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
@@ -512,7 +680,11 @@
      "label": "Blank (no catalyst)"
     },
     "source": "Kinetics page",
-    "updated": "2026-11-18T00:55:48"
+    "updated": "2026-11-18T18:06:01",
+    "files": [
+     "GlyGly_hydrolysis_60C_pD7.4.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
@@ -528,7 +700,11 @@
      "sigmaT_Tmin_K": 0.2053595220017044
     },
     "source": "Photoluminescence page",
-    "updated": "2026-11-18T00:50:59"
+    "updated": "2026-11-18T18:05:52",
+    "files": [
+     "PL_thermometry_Er_upconversion_EXAMPLE.csv (bundled example)"
+    ],
+    "version": "2.16.0"
    }
   }
  },
