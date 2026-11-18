@@ -50,13 +50,13 @@ TECHNIQUE_METHODS = {
 # These are starting points: check the current author guidelines of the journal before submitting.
 SI_STYLES = {
     "ACS": {"name": "ACS (J. Am. Chem. Soc., Chem. Mater.)", "heading": "Experimental Section", "label": "Data processing",
-            "software": "Data were processed and plotted with Figuryte{v} (open source; figure settings are stored in the figure files and in the Supporting Information)."},
+            "software": "Data were processed and plotted with Reticula{v} (open source; figure settings are stored in the figure files and in the Supporting Information)."},
     "Wiley-VCH": {"name": "Wiley-VCH (Adv. Mater., Angew. Chem.)", "heading": "Experimental Section", "label": "Data evaluation",
-                  "software": "Data evaluation and figures were made with Figuryte{v} (open-source software; settings are given in the Supporting Information)."},
+                  "software": "Data evaluation and figures were made with Reticula{v} (open-source software; settings are given in the Supporting Information)."},
     "RSC": {"name": "RSC (J. Mater. Chem. A, Chem. Sci.)", "heading": "Experimental", "label": "Data analysis",
-            "software": "Data were analysed and plotted using Figuryte{v} (open source). Figure settings are provided in the ESI."},
+            "software": "Data were analysed and plotted using Reticula{v} (open source). Figure settings are provided in the ESI."},
     "Elsevier": {"name": "Elsevier (Microporous Mesoporous Mater., Chem. Eng. J.)", "heading": "Materials and methods", "label": "Data processing",
-                 "software": "Data were processed and plotted with Figuryte{v} (open source); the settings are given in the Supplementary material."},
+                 "software": "Data were processed and plotted with Reticula{v} (open source); the settings are given in the Supplementary material."},
 }
 DEFAULT_SI_STYLE = "ACS"
 
@@ -133,9 +133,9 @@ def summary_notes(store: dict, sections=None):
             if sections and sec not in sections:
                 continue
             lab = chr(ord("a") + len(notes)) if len(notes) < 26 else f"a{len(notes)}"
-            tx = (f"{rec.get('name', sid)}, {TECH_NAMES.get(sec, sec)}: {d.get('source') or 'Figuryte'}"
+            tx = (f"{rec.get('name', sid)}, {TECH_NAMES.get(sec, sec)}: {d.get('source') or 'Reticula'}"
                   + (f", file(s) {'; '.join(d.get('files') or [])}" if d.get("files") else "") + (f", {d.get('updated', '')[:16].replace('T', ' ')}" if d.get("updated") else "")
-                  + (f", Figuryte {d.get('version')}" if d.get("version") else ""))
+                  + (f", Reticula {d.get('version')}" if d.get("version") else ""))
             notes.append((lab, tx))
             ref[(rec.get("name", sid), sec)] = lab
     return notes, ref

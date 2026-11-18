@@ -20,8 +20,8 @@ import streamlit as st
 
 from . import pagestate as PS
 
-EXT = ".figuryte"
-OPEN_EXTS = (".figuryte", ".reticula", ".zip")   # .reticula: projects saved before the rename
+EXT = ".reticula"
+OPEN_EXTS = (".reticula", ".zip")
 FORMAT = 1
 GLOBAL_KEYS = ("_lv", "schemes", "ps_templates", "band_user", "nmr_lib_user", "series_colours", "si_collect", "sample_store", "def_in", "store_persist", "undo_limit")
 GLOBAL_PREFIX = ("gs_",)            # global figure style widgets (M7)
@@ -58,7 +58,7 @@ def export_bytes(current_page: str | None = None, version: str = "", ss=None) ->
             if snap["widgets"] or snap["uploads"] or snap["extra"]:
                 PS._write_snapshot(snap, str(ws)); pages.append(page)
         (tmp / "globals.json").write_text(json.dumps(_jsonable_globals(ss), ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-        man = {"app": "Figuryte", "format": FORMAT, "version": version, "created": _dt.datetime.now().isoformat(timespec="seconds"),
+        man = {"app": "Reticula", "format": FORMAT, "version": version, "created": _dt.datetime.now().isoformat(timespec="seconds"),
                "page": current_page, "pages": pages}
         (tmp / "manifest.json").write_text(json.dumps(man, indent=1), encoding="utf-8")
         bio = io.BytesIO()
@@ -74,8 +74,8 @@ def export_bytes(current_page: str | None = None, version: str = "", ss=None) ->
 def read_manifest(data: bytes) -> dict:
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         man = json.loads(z.read("manifest.json"))
-    if man.get("app") not in ("Figuryte", "Reticula"):
-        raise ValueError("not a Figuryte project file")
+    if man.get("app") not in ("Reticula", "Reticula"):
+        raise ValueError("not a Reticula project file")
     return man
 
 
@@ -150,7 +150,7 @@ def open_from_argv():
 def sidebar(current_page, version):
     """📁 Project box: save the whole session to a .reticula file / open one."""
     ss = st.session_state
-    with st.sidebar.expander("📁 Project (.figuryte)", expanded=False):
+    with st.sidebar.expander("📁 Project (.reticula)", expanded=False):
         op = ss.get("_proj_opened")
         if op:
             st.caption(f"Opened **{op['name']}** (saved {str(op.get('created', ''))[:16].replace('T', ' ')}, {op.get('app', '?')} {op.get('version', '?')}, "
@@ -164,7 +164,7 @@ def sidebar(current_page, version):
                            file_name=(nm or "project").strip().replace(" ", "_") + EXT, mime="application/zip",
                            key="_proj_save", width="stretch",
                            help="Every page's settings, uploaded files, sample store and figure style in one file.")
-        up = st.file_uploader("Open a project", type=["figuryte", "reticula", "zip"], key="_proj_up")
+        up = st.file_uploader("Open a project", type=["reticula", "zip"], key="_proj_up")
         if up is not None:
             def _go(up=up):
                 try:

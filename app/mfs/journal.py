@@ -243,5 +243,5 @@ def figure_data_xlsx(figs: dict, version: str = "") -> bytes:
         for col, w in zip("ABCDEF", (28, 18, 34, 28, 8, 60)):
             ws.column_dimensions[col].width = w
         xw.book.move_sheet("Index", offset=-len(xw.book.sheetnames) + 1)
-        xw.book.properties.creator = f"Figuryte {version}".strip()
+        xw.book.properties.creator = f"Reticula {version}".strip()
     return buf.getvalue()

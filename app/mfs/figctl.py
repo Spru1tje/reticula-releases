@@ -69,7 +69,7 @@ def house_style(cfg):
     """Only the parts that make sense across figures (no axis labels, ranges or legend entry names)."""
     h = {k: copy.deepcopy(cfg[k]) for k in HOUSE_KEYS if k in cfg}
     h["legend"] = {k: cfg["legend"][k] for k in HOUSE_LEGEND_KEYS if k in cfg.get("legend", {})}
-    h["kind"] = "Figuryte house style"
+    h["kind"] = "Reticula house style"
     return h
 
 

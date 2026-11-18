@@ -486,7 +486,7 @@ def si_pdf(sp, mults, mol, groups, imp, acs, name, solvent, mhz, purity=None):
     with PdfPages(b) as pdf:
         fig = plt.figure(figsize=(8.27, 11.69))
         fig.text(0.07, 0.96, f"¹H NMR — {name}", fontsize=13, weight="bold")
-        fig.text(0.07, 0.94, f"{mhz:.0f} MHz, {solvent or ''}, 298 K; processed in Figuryte ({sp.ref_note})", fontsize=8,
+        fig.text(0.07, 0.94, f"{mhz:.0f} MHz, {solvent or ''}, 298 K; processed in Reticula ({sp.ref_note})", fontsize=8,
                  color="#46607F")
         ax = fig.add_axes([0.07, 0.6, 0.86, 0.32])
         F.draw(ax, sp, mults, mol, groups, imp)

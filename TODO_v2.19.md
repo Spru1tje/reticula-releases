@@ -15,4 +15,4 @@ Open for the next version:
   - Automated browser tests for the editor are missing.
 - Test environment: Playwright is not installed on the development PC, so 8 browser tests (test_v212_e2e_browser, test_v29_e2e_browser) have not been run.
 - PyInstaller build (Windows and macOS) has not been run with the v2.18 changes.
-- Rename of technical names to Figuryte, with the release: installer file name (Reticula_Setup), macOS app name and bundle identifier, data folder Documents\Reticula, GitHub release names and update check. Changing them breaks existing installs and the update check, so they need a planned migration.
+- Rename of technical names to Reticula, with the release: installer file name (Reticula_Setup), macOS app name and bundle identifier, data folder Documents\Reticula, GitHub release names and update check. Changing them breaks existing installs and the update check, so they need a planned migration.

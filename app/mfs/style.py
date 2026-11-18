@@ -296,18 +296,18 @@ def export(fig, fmt: str, dpi: int = 600, prov: dict | None = None) -> bytes:
     if fmt in ("png", "tiff", "tif"):
         kw["dpi"] = dpi
     if fmt == "png" and ptxt:
-        kw["metadata"] = {"Software": "Figuryte", "Reticula-provenance": ptxt}
+        kw["metadata"] = {"Software": "Reticula", "Reticula-provenance": ptxt}
     if fmt in ("tiff", "tif"):
         kw["pil_kwargs"] = {"compression": "tiff_lzw"}
         if ptxt:
             kw["pil_kwargs"]["description"] = ptxt
         fmt = "tiff"
     if fmt == "pdf":
-        kw["metadata"] = {"CreationDate": None, "Creator": "Figuryte"}
+        kw["metadata"] = {"CreationDate": None, "Creator": "Reticula"}
         if ptxt:
             kw["metadata"]["Subject"] = "Reticula provenance: " + ptxt
     elif fmt == "svg":
-        kw["metadata"] = {"Date": None, "Creator": "Figuryte"}
+        kw["metadata"] = {"Date": None, "Creator": "Reticula"}
         if ptxt:
             kw["metadata"]["Description"] = ptxt
     fig.savefig(buf, format=fmt, **kw)

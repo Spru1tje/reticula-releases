@@ -8,7 +8,7 @@ def test_methods_and_summary():
     skip = ("Home", "Figure composer", "Batch processing", "SI export bundle", "Sample database", "Export guide", "Schemes & Icons")
     assert all(p in M.TECHNIQUE_METHODS for p in ui.PAGES if p not in skip), "a technique has no methods text"
     t = M.methods_text(["PXRD", "TGA", "PXRD", "Home"], "2.15.0")
-    assert t.count("**PXRD.**") == 1 and "Figuryte 2.15.0" in t and "Home" not in t
+    assert t.count("**PXRD.**") == 1 and "Reticula 2.15.0" in t and "Home" not in t
     store = {"a": {"name": "MOF_1", "sections": {"tga": {"values": {"residue": 41.25, "x": {"y": 2}}}}},
              "b": {"name": "MOF 2", "sections": {"n2": {"values": {"bet": 1050.0}}}}}
     df = M.sample_summary(store)

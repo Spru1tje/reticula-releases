@@ -90,7 +90,7 @@ def pdf_report(res, path):
     inp = res["input"]; cons = res["consensus"]
     with PdfPages(path) as pdf:
         pg = _Page(pdf, f"Defect analysis report - {inp.sample}")
-        pg.text(f"Generated {datetime.datetime.now():%Y-%m-%d %H:%M} by Figuryte. Framework {inp.framework} "
+        pg.text(f"Generated {datetime.datetime.now():%Y-%m-%d %H:%M} by Reticula. Framework {inp.framework} "
                 f"(CN = {inp.cn()}, topicity t = {inp.t()}, ideal L0 = {inp.L0():g}); metal {inp.metal} (f_Hf = {inp.fhf():.3f})"
                 + ("; extra-framework Zr treated as ZrO2" if inp.extraframework_Zr else "") + ".")
         if cons:

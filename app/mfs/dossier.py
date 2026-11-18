@@ -56,7 +56,7 @@ def build_dossier(material: str, rendered: dict, store: dict, version: str = "",
         z.writestr("cross_checks.md", f"# {material} - cross-checks between techniques\n\n" + XC.as_markdown(XC.check(store_for(material, store))))
         if provenance:
             z.writestr("provenance.json", json.dumps(provenance, indent=1, ensure_ascii=False, default=str))
-        z.writestr("README.txt", f"Figuryte {version} - dossier of '{material}'\n{len(rendered)} figure(s) from: {', '.join(sorted({p for p in pages if p}))}.\n"
+        z.writestr("README.txt", f"Reticula {version} - dossier of '{material}'\n{len(rendered)} figure(s) from: {', '.join(sorted({p for p in pages if p}))}.\n"
                                  "figures/ and data/ as in the SI bundle; figure_data.xlsx = all plotted data (a sheet per figure); methods.md = starting text "
                                  "for the Methods (fill the [brackets]); sample_summary.* = results of this material from the sample store.\n")
     return buf.getvalue()

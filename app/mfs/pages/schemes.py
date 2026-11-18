@@ -101,7 +101,7 @@ def page_schemes():
     st.caption("Drag icons from the library onto the canvas, add arrows and text, then export to SVG, PDF, PNG or TIFF at the width and DPI of your journal. "
                "The icons are CC0 and bundled: nothing is downloaded.")
     if not LV.opt_in("Open the scheme editor (loads the icon library)", "schemes"):
-        st.info("The editor and the icon library (about 800 icons) load only when you open them, so the rest of Figuryte stays fast.")
+        st.info("The editor and the icon library (about 800 icons) load only when you open them, so the rest of Reticula stays fast.")
         return
 
     store = SC.scenes()

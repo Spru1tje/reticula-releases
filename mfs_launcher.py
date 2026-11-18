@@ -155,7 +155,7 @@ def stop_old_instances(log=print):
                 continue
             name = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"], capture_output=True, text=True,
                                   creationflags=0x08000000, timeout=15).stdout
-            if "figuryte" in name.lower() or "reticula" in name.lower() or "mof_figure_studio" in name.lower() or "moffigure" in name.lower():
+            if "reticula" in name.lower() or "reticula" in name.lower() or "mof_figure_studio" in name.lower() or "moffigure" in name.lower():
                 if _kill_pid(pid):
                     log(f"stopped an older Reticula server (PID {pid})")
     except Exception as e:
@@ -383,7 +383,7 @@ def serve(port, ppid):
 def project_arg(argv):
     """v2.11: a .reticula project passed on the command line (double-click / 'Open with') -> absolute path or None."""
     for a in argv[1:]:
-        if not a.startswith("--") and a.lower().endswith((".figuryte", ".reticula", ".zip")) and os.path.isfile(a):
+        if not a.startswith("--") and a.lower().endswith((".reticula", ".reticula", ".zip")) and os.path.isfile(a):
             return os.path.abspath(a)
     return None
 

@@ -9,7 +9,7 @@ def test_every_style_changes_heading_and_software_sentence():
     assert len(set(texts.values())) == len(SUM.SI_STYLES)
     for k, t in texts.items():
         assert t.startswith("### " + SUM.SI_STYLES[k]["heading"])
-        assert "Figuryte 2.17.0" in t and "**TGA.**" in t and "**PXRD.**" in t
+        assert "Reticula 2.17.0" in t and "**TGA.**" in t and "**PXRD.**" in t
         assert "  " not in t
 
 
@@ -20,5 +20,5 @@ def test_default_style_and_unknown_style_fall_back_to_acs():
 
 def test_no_version_gives_no_double_space_and_no_pages_gives_empty():
     t = SUM.methods_text(["TGA"], "", "RSC")
-    assert "Figuryte (open" in t and "  " not in t
+    assert "Reticula (open" in t and "  " not in t
     assert SUM.methods_text(["Unknown page"], "2.17.0", "ACS") == ""

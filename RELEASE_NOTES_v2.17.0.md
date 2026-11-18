@@ -13,7 +13,7 @@
 - **SI export**: choose the journal style for the Methods heading and wording: ACS, Wiley-VCH, RSC or Elsevier.
 - **Simple mode** (black graph style), more visible work tabs, NMR figure first with literature-style proton labels.
 - **Zetasizer .dts**: files of software version 8.02 are read (sample names and size distribution).
-- **Project files** are `.figuryte` (same zip format). Projects saved as `.reticula` still open. The start page can open and save them.
+- **Project files** are `.reticula` (zip format). The start page can open and save them.
 
 **Limits, stated plainly**
 - Zetasizer 8.02: Z-average and PDI are not calculated for 8.02; use the software's export. ζ is not read from `.dts`.

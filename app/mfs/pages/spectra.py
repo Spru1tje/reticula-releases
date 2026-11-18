@@ -352,7 +352,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     _lk1, _lk2 = box.columns([1, 2], vertical_alignment="center")
     _lk1.link_button("🔗 Open ICSD (licensed)", "https://icsd.fiz-karlsruhe.de/", width="stretch",
                      help="Opens ICSD in your browser. Search there with your own login, then download the CIF and upload it below.")
-    _lk2.caption("Figuryte never searches ICSD for you: each query is paid, so search there yourself and upload the CIF here "
+    _lk2.caption("Reticula never searches ICSD for you: each query is paid, so search there yourself and upload the CIF here "
                  "(also CSD, COD or any CIF file).")
     ups = box.file_uploader("…and / or your own CIF file(s)", type=["cif"], accept_multiple_files=True, key="rv_cifs")
     rad = c3.selectbox("Radiation", list(RV.RADIATION), key="rv_rad", help="Kα1 only = monochromated beam (e.g. STOE); Kα1 + Kα2 = Kβ filter (e.g. Rigaku, Bruker).")

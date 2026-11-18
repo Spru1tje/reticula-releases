@@ -370,7 +370,7 @@ def page_dsc():
             best = min(mine, key=lambda r: abs((r["peak (°C)"] or 0) - (rep.get("peak_C") or 0))) if mine else None
             st.info(f"**{nm}** – values reported by {d['meta']['vendor']}: "
                     + ", ".join(f"{k.replace('_C', ' (°C)').replace('_Jg', ' (J/g)').replace('_mJ', ' (mJ)').replace('_', ' ')} {v:g}" for k, v in rep.items())
-                    + (f".  Figuryte: onset {best['onset (°C)']:.2f} °C, peak {best['peak (°C)']:.2f} °C, ΔH {best['ΔH (J/g)']:.2f} J/g." if best and best["ΔH (J/g)"] is not None else ""))
+                    + (f".  Reticula: onset {best['onset (°C)']:.2f} °C, peak {best['peak (°C)']:.2f} °C, ΔH {best['ΔH (J/g)']:.2f} J/g." if best and best["ΔH (J/g)"] is not None else ""))
     ylab = {"W/g (= mW/mg)": "Heat flow (W g$^{-1}$)", "mW/mg": "Heat flow (mW mg$^{-1}$)", "mW": "Heat flow (mW)"}[yunit]
     pk_ = peaks if do_pk else None
     if any(c.get("seg") for _, c, _ in items) and do_pk:

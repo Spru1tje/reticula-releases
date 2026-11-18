@@ -359,7 +359,7 @@ def page_defects():
         sit = SI.defect_rows(st.session_state.get("sample_store", {}))
         if len(sit):
             st.dataframe(SI._round(sit), width="stretch", hide_index=True)
-            notes = ("Defect analysis per node (Figuryte " + __version__ + "). L = linkers per node (median of the methods listed), "
+            notes = ("Defect analysis per node (Reticula " + __version__ + "). L = linkers per node (median of the methods listed), "
                      "x = missing linkers, caps = monocarboxylate modulators, open sites = 2x - caps. TGA in air; S_BET from the "
                      "Rouquerol-consistent range (ISO 9277); V_total at p/p0 = 0.95.")
             q1, q2 = st.columns(2)

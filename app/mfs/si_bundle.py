@@ -55,7 +55,7 @@ def build(figs: dict, store: dict, version: str = "", include=("pdf", "png", "sv
             z.writestr("SI_Table_defects.docx", SI.to_docx(df)); z.writestr("SI_Table_defects.xlsx", SI.to_xlsx(df))
     except Exception as e:
         z.writestr("SI_Table_defects_ERROR.txt", str(e))
-    z.writestr("README.txt", f"Figuryte {version} SI bundle – {datetime.datetime.now():%Y-%m-%d %H:%M}\n"
+    z.writestr("README.txt", f"Reticula {version} SI bundle – {datetime.datetime.now():%Y-%m-%d %H:%M}\n"
                f"{len(figs)} figure(s): figures/ (PDF vector, PNG, SVG), data/ (plotted data as CSV).\n"
                "SI_parameters.xlsx: Figures (list), Parameters (analysis settings on the page when the figure was captured + "
                "figure customisation), Results per sample (sample store).\nSI_Table_defects.docx/.xlsx: defect table for all samples "

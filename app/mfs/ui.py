@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64, functools, os
 import streamlit as st
 
-NAME = "Figuryte"
+NAME = "Reticula"
 TAGLINE = "Publication figures for framework materials"
 TEAL, INDIGO = "#0F766E", "#312E81"
 
