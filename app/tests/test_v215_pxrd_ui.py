@@ -149,3 +149,20 @@ def test_structure_refinement_in_the_app_with_3d_tables_and_cif():
     assert sd["atoms"] and sd["bond_rms_deviation"] < 0.15 and sd["bonds"] and not sd.get("report_error")
     assert any("Refined structure" in str(m.value) for m in at.markdown)
     assert [t.label for t in at.tabs if "3D structure" in t.label] and [t.label for t in at.tabs if "Output" in t.label]
+
+
+def test_phase_identification_in_the_pxrd_page():
+    from streamlit.testing.v1 import AppTest
+    warnings.filterwarnings("ignore")
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
+    at.session_state["_lv"] = {"global": "Standard"}
+    at.run()
+    at.sidebar.radio[0].set_value("PXRD").run()
+    [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    [b for b in at.button if b.key == "rv_ident"][0].click().run()
+    assert not at.exception, at.exception
+    name, res = at.session_state["rv_ident_res"]
+    assert res and res[0]["name"].startswith("MOF-801")
+    [b for b in at.button if b.key == "rv_use_ident"][0].click().run()
+    assert not at.exception, at.exception
+    assert any("MOF-801" in x for x in at.session_state["rv_phases"])

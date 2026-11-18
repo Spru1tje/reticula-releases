@@ -266,6 +266,11 @@ def _crystal_size_ui(traces, lo, hi):
                    "Williamson–Hall analysis of ≥ 3 reflections; uncertainties are from the weighted regression.")
 
 
+def _use_ident(labels):
+    """Callback of 'Use these phases': the identified phases become the selection of the refinement."""
+    st.session_state["rv_phases"] = list(labels)
+
+
 def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     """v2.15: Rietveld / Le Bail refinement - pick phases, press Refine. Opt-in (shown only after a click)."""
     import math
@@ -277,10 +282,29 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     ss = st.session_state
     c1, c2, c3 = box.columns([2, 3, 2])
     nm = c1.selectbox("Pattern", list(raws), key="rv_sample")
-    bundled = {"UiO-66 (bundled CIF, COD 4512074)": "UiO-66_Zr_COD4512074.cif", "MOF-801 (bundled CIF, COD 4121459)": "MOF-801_Zr_COD4121459.cif"}
+    from mfs import phaseid as PID
+    _lib = PID.library()
+    bundled = {f"{e['name']} ({e['source']})": e["path"] for e in _lib}
     dflt = [k for k in bundled if ("801" in k and "801" in ref_mode) or ("UiO" in k and "UiO" in ref_mode)]
     pick = c2.multiselect("Phases in the sample", list(bundled), default=dflt, key="rv_phases",
                           help="Choose every crystalline phase that is present. A missing phase shows up as extra peaks in the difference curve.")
+    with box.expander("🔎 Don't know the phases? Identify them automatically", expanded=False):
+        st.caption(f"Compares the peaks of the pattern with {len(_lib)} reference structures (MOFs, oxides, standards, minerals; COD) – with a small search over the cell size and "
+                   "the zero shift – and proposes the phases. The refinement afterwards decides.")
+        if st.button("🔎 Identify the phases", key="rv_ident"):
+            _x, _y = raws[nm]
+            with st.spinner("Searching the library …"):
+                ss["rv_ident_res"] = (nm, PID.match(_x, _y, RV.RADIATION[rad][0][0], progress=None))
+        _ir = ss.get("rv_ident_res")
+        if _ir and _ir[0] == nm:
+            if not _ir[1]:
+                st.warning("No phase of the library matches this pattern well – the sample is probably something else (upload its CIF below), or a mixture with many unknown peaks.")
+            else:
+                st.dataframe(pd.DataFrame([{"phase": r_["name"], "confidence": r_["confidence"], "score": round(r_["score"], 2),
+                                             "reflections found": f"{r_['n_matched']}/{r_['n_expected']}", "cell vs library (%)": round(r_["cell_change_pct"], 2),
+                                             "pattern explained (%)": round(100 * r_.get("explained", 0), 0)} for r_ in _ir[1]]), hide_index=True, width="stretch")
+                st.button("➕ Use these phases", key="rv_use_ident", type="primary", on_click=_use_ident, args=([f"{r_['name']} ({r_['source']})" for r_ in _ir[1]],))
+                st.caption("The cell change shows how far the measured cell is from the library cell (solid solution, another metal, temperature …).")
     ups = box.file_uploader("…and / or your own CIF file(s)", type=["cif"], accept_multiple_files=True, key="rv_cifs")
     rad = c3.selectbox("Radiation", list(RV.RADIATION), key="rv_rad", help="Kα1 only = monochromated beam (e.g. STOE); Kα1 + Kα2 = Kβ filter (e.g. Rigaku, Bruker).")
     d1, d2, d3 = box.columns([3, 2, 2])
@@ -299,7 +323,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         mono = e2.number_input("Monochromator 2θ (° – 0 = none, 26.6 = graphite)", 0.0, 60.0, 0.0, 0.1, key="rv_mono")
         offm = box.radio("Instrument offset", ["sample displacement (reflection geometry – default)", "zero shift (transmission / capillary / calibrated)", "both (only with a measured standard)"],
                          key="rv_off", horizontal=True, help="Zero shift and displacement are strongly correlated; refining both biases the cell (≈ 0.05 % on a real pattern).")
-    phases_src = [(k.split(" (")[0], os.path.join(REF, bundled[k])) for k in pick]
+    phases_src = [(k.rsplit(" (", 1)[0], bundled[k]) for k in pick]
     for u in ups or []:
         phases_src.append((os.path.splitext(u.name)[0], u.getvalue()))
     po_txt = {}

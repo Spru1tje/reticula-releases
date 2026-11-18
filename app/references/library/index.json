@@ -1,0 +1,290 @@
+[
+ {
+  "file": "corundum_Al2O3.cif",
+  "name": "Corundum α-Al₂O₃",
+  "kind": "oxide / standard (NIST SRM 676)",
+  "source": "COD 1000017",
+  "formula": "Al2O3",
+  "n_sites": 30,
+  "cell": [
+   4.7606,
+   4.7606,
+   12.994,
+   90.0,
+   90.0,
+   120.0
+  ]
+ },
+ {
+  "file": "zincite_ZnO.cif",
+  "name": "Zincite ZnO",
+  "kind": "oxide / standard",
+  "source": "COD 2300112",
+  "formula": "ZnO",
+  "n_sites": 4,
+  "cell": [
+   3.2494,
+   3.2494,
+   5.2054,
+   90.0,
+   90.0,
+   120.0
+  ]
+ },
+ {
+  "file": "anatase_TiO2.cif",
+  "name": "Anatase TiO₂",
+  "kind": "oxide",
+  "source": "COD 1526931",
+  "formula": "TiO2",
+  "n_sites": 12,
+  "cell": [
+   3.771,
+   3.771,
+   9.43,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "fluorite_CaF2.cif",
+  "name": "Fluorite CaF₂",
+  "kind": "halide / standard",
+  "source": "COD 1000043",
+  "formula": "CaF2",
+  "n_sites": 12,
+  "cell": [
+   5.462,
+   5.462,
+   5.462,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "LaB6.cif",
+  "name": "LaB₆ (NIST SRM 660)",
+  "kind": "line-profile standard",
+  "source": "COD 2104736",
+  "formula": "LaB6",
+  "n_sites": 7,
+  "cell": [
+   4.1571,
+   4.1571,
+   4.1571,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "fluorapatite.cif",
+  "name": "Fluorapatite Ca₅(PO₄)₃F",
+  "kind": "phosphate",
+  "source": "COD 9001878",
+  "formula": "Ca5P3O12F",
+  "n_sites": 42,
+  "cell": [
+   9.394,
+   9.394,
+   6.8967,
+   90.0,
+   90.0,
+   120.0
+  ]
+ },
+ {
+  "file": "HKUST-1.cif",
+  "name": "HKUST-1 Cu₃(BTC)₂",
+  "kind": "MOF",
+  "source": "COD 2300380",
+  "formula": "Cu2H4(C3O2)5",
+  "n_sites": 752,
+  "cell": [
+   26.3034,
+   26.3034,
+   26.3034,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "MIL-53_Cr.cif",
+  "name": "MIL-53(Cr)",
+  "kind": "MOF",
+  "source": "COD 1502688",
+  "formula": "CrH4C8O5",
+  "n_sites": 72,
+  "cell": [
+   16.772,
+   13.145,
+   6.847,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "Si.cif",
+  "name": "Silicon Si (NIST SRM 640)",
+  "kind": "line-profile standard",
+  "source": "textbook structure, a = 5.43102 Å",
+  "formula": "Si",
+  "n_sites": 8,
+  "cell": [
+   5.431,
+   5.431,
+   5.431,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "NaCl.cif",
+  "name": "Halite NaCl",
+  "kind": "halide / standard",
+  "source": "textbook structure, a = 5.6402 Å",
+  "formula": "NaCl",
+  "n_sites": 8,
+  "cell": [
+   5.6402,
+   5.6402,
+   5.6402,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "CeO2.cif",
+  "name": "Ceria CeO₂ (NIST SRM 674b)",
+  "kind": "oxide / standard",
+  "source": "textbook structure, a = 5.4113 Å",
+  "formula": "CeO2",
+  "n_sites": 12,
+  "cell": [
+   5.4113,
+   5.4113,
+   5.4113,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "MgO.cif",
+  "name": "Periclase MgO",
+  "kind": "oxide / standard",
+  "source": "textbook structure, a = 4.2117 Å",
+  "formula": "MgO",
+  "n_sites": 8,
+  "cell": [
+   4.2117,
+   4.2117,
+   4.2117,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "rutile_TiO2.cif",
+  "name": "Rutile TiO₂",
+  "kind": "oxide",
+  "source": "textbook structure, a = 4.5937, c = 2.9587 Å, x(O) = 0.3048",
+  "formula": "TiO2",
+  "n_sites": 6,
+  "cell": [
+   4.5937,
+   4.5937,
+   2.9587,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "Cu.cif",
+  "name": "Copper Cu",
+  "kind": "metal",
+  "source": "textbook structure, a = 3.6150 Å",
+  "formula": "Cu",
+  "n_sites": 4,
+  "cell": [
+   3.615,
+   3.615,
+   3.615,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "Au.cif",
+  "name": "Gold Au",
+  "kind": "metal",
+  "source": "textbook structure, a = 4.0782 Å",
+  "formula": "Au",
+  "n_sites": 4,
+  "cell": [
+   4.0782,
+   4.0782,
+   4.0782,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "Pt.cif",
+  "name": "Platinum Pt",
+  "kind": "metal",
+  "source": "textbook structure, a = 3.9231 Å",
+  "formula": "Pt",
+  "n_sites": 4,
+  "cell": [
+   3.9231,
+   3.9231,
+   3.9231,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "../MOF-801_Zr_COD4121459.cif",
+  "name": "MOF-801 (Zr)",
+  "kind": "MOF",
+  "source": "COD 4121459",
+  "formula": "Zr3H6(C3O4)4",
+  "n_sites": 328,
+  "cell": [
+   17.8348,
+   17.8348,
+   17.8348,
+   90.0,
+   90.0,
+   90.0
+  ]
+ },
+ {
+  "file": "../UiO-66_Zr_COD4512074.cif",
+  "name": "UiO-66 (Zr)",
+  "kind": "MOF",
+  "source": "COD 4512074",
+  "formula": "Zr24H68.544C137.088O128",
+  "n_sites": 568,
+  "cell": [
+   20.7465,
+   20.7465,
+   20.7465,
+   90.0,
+   90.0,
+   90.0
+  ]
+ }
+]
