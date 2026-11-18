@@ -323,7 +323,9 @@ function drawUI(){
     L.ui.appendChild(el("rect", {class:"marq", x:x0, y:y0, width:Math.abs(marquee.p1.x - marquee.p0.x), height:Math.abs(marquee.p1.y - marquee.p0.y)})); }
   if (drag && drag.snap){ const q = anchorPoint(byId(drag.snap.item), drag.snap.anchor);
     L.ui.appendChild(el("circle", {cx:q.x, cy:q.y, r:9, fill:"none", stroke:"#EC4899", "stroke-width":2.5})); }
-  if (mode === "arrow"){ for (const ic of scene.items.filter(i => i.type === "icon")){
+  const showAnchors = mode === "arrow" ? scene.items.filter(i => i.type === "icon")
+    : (mode === "select" && hoverId && !drag && byId(hoverId) && byId(hoverId).type === "icon" ? [byId(hoverId)] : []);   // select mode: only the hovered icon
+  if (showAnchors.length){ for (const ic of showAnchors){
       for (const a of anchorsOf(ic)){ const p = anchorPoint(ic, a.id);
         L.ui.appendChild(el("circle", {class:"anchor", cx:p.x, cy:p.y, r: a.id === "center" ? 3.5 : 4.5, "data-item":ic.id, "data-anchor":a.id})); } }
     if (pending){ const p = endPoint(pending); L.ui.appendChild(el("circle", {cx:p.x, cy:p.y, r:7, fill:"none", stroke:"#EC4899", "stroke-width":2})); }
@@ -358,11 +360,15 @@ cv.addEventListener("pointerdown", ev => {
     drag = {kind:"move", it:it0, p0:p, o:JSON.parse(JSON.stringify(it0)), others}; cv.setPointerCapture(ev.pointerId); }
   drawUI(); inspector();
 });
+let hoverId = null;                            // icon under the pointer (shows its connection points in select mode)
 cv.addEventListener("pointermove", ev => {
+  if (!drag && !marquee){ const g = ev.target.closest && ev.target.closest("[data-id]"); const h = g ? g.dataset.id : null;
+    if (h !== hoverId){ hoverId = h; if (mode === "select") drawUI(); } }
   if (marquee){ marquee.p1 = svgPt(ev); drawUI(); return; }
   if (!drag) return; const p = svgPt(ev);
   if (raf) return; raf = requestAnimationFrame(() => { raf = 0; applyDrag(p, ev.shiftKey); });
 });
+cv.addEventListener("pointerleave", () => { if (hoverId){ hoverId = null; if (mode === "select") drawUI(); } });
 cv.addEventListener("pointerup", () => {
   if (marquee){ const m = marquee; marquee = null;
     if (m.p1){ const x0 = Math.min(m.p0.x, m.p1.x), x1 = Math.max(m.p0.x, m.p1.x), y0 = Math.min(m.p0.y, m.p1.y), y1 = Math.max(m.p0.y, m.p1.y);
