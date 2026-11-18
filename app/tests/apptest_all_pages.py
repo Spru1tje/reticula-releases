@@ -3,7 +3,7 @@ import os, sys, time
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(HERE)
 from streamlit.testing.v1 import AppTest
-PAGES = ["Home", "PXRD", "FTIR / Raman", "1H NMR (digest)", "N2 sorption (BET/PSD)", "TGA", "DSC", "Defect calculator",
+PAGES = ["Home", "Schemes & Icons", "PXRD", "FTIR / Raman", "1H NMR (digest)", "N2 sorption (BET/PSD)", "TGA", "DSC", "Defect calculator",
          "Kinetics & adsorption", "ICP-OES / XRF", "SEM / TEM / EDX", "SDS-PAGE (Image Lab)", "Zeta / DLS", "XPS", "Figure composer", "Export guide"]
 
 

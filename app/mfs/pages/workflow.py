@@ -272,7 +272,7 @@ def page_si():
                 d["csv"] = f["data"].to_csv(index=False).encode("utf-8-sig")
             out[k] = d
         return SB.build(out, st.session_state.get("sample_store", {}), __version__, inc)
-    dl(c1, f"⬇️ SI bundle ({len(sel)} figures)", _bundle, "Reticula_SI_bundle.zip", "si_zip")
+    dl(c1, f"⬇️ SI bundle ({len(sel)} figures)", _bundle, "Figuryte_SI_bundle.zip", "si_zip")
     _assign = {r.figure: r.material for r in tab.itertuples() if r.include}
     _groups = DOS.group_by_material({k: figs[k] for k in sel}, _assign)
     with st.expander(f"📁 Dossier per material ({len(_groups)} material{'s' if len(_groups) != 1 else ''})", expanded=bool(_groups)):
@@ -295,14 +295,14 @@ def page_si():
             for _m, _fg in _groups.items():
                 dl(st, f"⬇️ {_m} ({len(_fg)} figure{'s' if len(_fg) != 1 else ''})",
                    (lambda _m=_m, _fg=_fg: DOS.build_dossier(_m, {k: _render(k) for k in _fg}, st.session_state.get("sample_store", {}), __version__, inc)),
-                   f"Reticula_dossier_{re.sub(r'[^A-Za-z0-9._@+-]+', '_', _m)}.zip", "si_dos_" + re.sub(r"[^A-Za-z0-9]+", "_", _m))
+                   f"Figuryte_dossier_{re.sub(r'[^A-Za-z0-9._@+-]+', '_', _m)}.zip", "si_dos_" + re.sub(r"[^A-Za-z0-9]+", "_", _m))
             if len(_groups) > 1:
                 dl(st, "⬇️ All materials (one folder each)",
                    lambda: DOS.build_all({m_: {k: _render(k) for k in fg_} for m_, fg_ in _groups.items()}, st.session_state.get("sample_store", {}), __version__, inc),
-                   "Reticula_dossiers_all.zip", "si_dos_all")
+                   "Figuryte_dossiers_all.zip", "si_dos_all")
     from mfs import journal as J
     dl(c1, "⬇️ All figure data in ONE Excel (a sheet per figure)",
-       lambda: J.figure_data_xlsx({k: figs[k] for k in sel}, __version__), "Reticula_figure_data.xlsx", "si_xlsx")
+       lambda: J.figure_data_xlsx({k: figs[k] for k in sel}, __version__), "Figuryte_figure_data.xlsx", "si_xlsx")
     from mfs import summary as SUM
     from mfs import crosscheck as XC
     _fnd = XC.check(st.session_state.get("sample_store", {}))
@@ -316,22 +316,27 @@ def page_si():
             (st.warning if f_["level"] == "warn" else st.info if f_["level"] == "info" else st.success)(
                 f"**{f_['sample']} – {f_['title']}.** {f_['text']}" + (f"\n\n*{f_['advice']}*" if f_["advice"] else ""))
     with st.expander("📝 Methods text for the techniques used (edit the [brackets])", expanded=False):
-        st.text_area("Methods", SUM.methods_text([figs[k].get("page", "") for k in sel], __version__), height=300, key="si_methods",
+        _style_keys = list(SUM.SI_STYLES)
+        _style = st.selectbox("Journal style", _style_keys, index=_style_keys.index(SUM.DEFAULT_SI_STYLE), key="si_style",
+                              format_func=lambda k: SUM.SI_STYLES[k]["name"],
+                              help="Wording of the heading and the software sentence. Templates only: check the author guidelines of your journal.")
+        st.text_area("Methods", SUM.methods_text([figs[k].get("page", "") for k in sel], __version__, _style), height=300,
+                     key=f"si_methods_{_style}",
                      help="Starting text for the Methods / SI: only the processing is described, the experiment is left in [brackets].")
     _sm = SUM.sample_summary(st.session_state.get("sample_store", {}))
     if len(_sm):
         with st.expander(f"🧾 Sample summary table ({len(_sm)} samples)", expanded=False):
             st.dataframe(_sm, hide_index=True, width="stretch")
             _cc = st.columns(3)
-            dl(_cc[0], "⬇️ Excel", lambda: _xlsx_bytes(_sm), "Reticula_sample_summary.xlsx", "si_sum_x")
-            dl(_cc[1], "⬇️ CSV", lambda: _sm.to_csv(index=False).encode("utf-8-sig"), "Reticula_sample_summary.csv", "si_sum_c")
-            dl(_cc[2], "⬇️ LaTeX", lambda: SUM.summary_latex(_sm).encode("utf-8"), "Reticula_sample_summary.tex", "si_sum_t")
+            dl(_cc[0], "⬇️ Excel", lambda: _xlsx_bytes(_sm), "Figuryte_sample_summary.xlsx", "si_sum_x")
+            dl(_cc[1], "⬇️ CSV", lambda: _sm.to_csv(index=False).encode("utf-8-sig"), "Figuryte_sample_summary.csv", "si_sum_c")
+            dl(_cc[2], "⬇️ LaTeX", lambda: SUM.summary_latex(_sm).encode("utf-8"), "Figuryte_sample_summary.tex", "si_sum_t")
             _c2 = st.columns(2)
             _store_now = st.session_state.get("sample_store", {})
             dl(_c2[0], "⬇️ Excel with the source of every number", lambda: _xlsx_sources(SUM.sample_summary(_store_now), SUM.summary_long(_store_now)),
-               "Reticula_sample_summary_with_sources.xlsx", "si_sum_xs",
+               "Figuryte_sample_summary_with_sources.xlsx", "si_sum_xs",
                help="Sheet *Summary* (one row per sample) and sheet *Sources* (one row per number: page, data files, time, program version).")
-            dl(_c2[1], "⬇️ LaTeX with source footnotes", lambda: SUM.summary_latex_sourced(_store_now).encode("utf-8"), "Reticula_sample_summary_sourced.tex", "si_sum_ts",
+            dl(_c2[1], "⬇️ LaTeX with source footnotes", lambda: SUM.summary_latex_sourced(_store_now).encode("utf-8"), "Figuryte_sample_summary_sourced.tex", "si_sum_ts",
                help="Every value carries a footnote letter that names its page, data files and time.")
     with st.expander("📏 Journal check – will the figures be readable at the final size?", expanded=False):
         jn = st.selectbox("Journal / column", list(J.JOURNALS), key="si_journal")

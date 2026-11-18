@@ -40,7 +40,7 @@ def angles_table(sd: dict) -> pd.DataFrame:
 def methods_paragraph(res: dict, phase: dict, version: str, radiation: str) -> str:
     sd = phase["structure"]
     st_ = res["stats"]
-    return (f"The crystal structure of {phase['name']} was refined from the powder diffraction pattern by the Rietveld method with Reticula {version} "
+    return (f"The crystal structure of {phase['name']} was refined from the powder diffraction pattern by the Rietveld method with Figuryte {version} "
             f"({radiation}, {res['x'].min():.1f}–{res['x'].max():.1f}° 2θ). The starting model was taken from the crystallographic information file of the phase; "
             f"the space group {sd['spacegroup']} (No. {sd['sg_number']}) was kept and the atom positions were refined within the freedom allowed by the site symmetry, "
             f"together with one isotropic displacement parameter per element, the lattice parameters, the zero / displacement offset, a Chebyshev background "

@@ -85,16 +85,44 @@ def _tile_css(key: str, colour: str) -> str:
             f'background:linear-gradient(135deg,{colour}14 0%,#FFFFFF 55%) !important}}</style>')
 
 
+def _project_box(version: str):
+    """v2.18: continue a saved project (.figuryte) straight from the home page, or save the current work to one."""
+    from mfs import project as PRJ
+    ss = st.session_state
+    with st.container(border=True):
+        st.markdown("**📂 Continue a project** · **💾 Save your work**")
+        c1, c2 = st.columns(2, gap="large")
+        with c1:
+            up = st.file_uploader("Open a .figuryte project", type=["figuryte", "reticula", "zip"], key="home_proj_up",
+                                  help="Replaces the current work with the saved project: every page, uploaded file and setting.")
+            if up is not None and st.button(f"📂 Open {up.name}", key="home_proj_open", type="primary", width="stretch"):
+                try:
+                    PRJ.request_open(up.getvalue(), up.name)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"{up.name}: {e}")
+        with c2:
+            nm = st.text_input("File name", ss.get("_proj_name", "my_project"), key="home_proj_name")
+            frozen = {k: ss[k] for k in list(ss.keys())}      # the download runs outside the script thread
+            cur = ss.get("nav")
+            st.download_button("💾 Save as .figuryte", data=lambda: PRJ.export_bytes(cur, version, frozen),
+                               file_name=(nm or "project").strip().replace(" ", "_") + PRJ.EXT, mime="application/zip",
+                               key="home_proj_save", width="stretch",
+                               help="Every page's settings, uploaded files, sample store and figure style in one file.")
+
+
 def render(here: str, version: str = ""):
     from mfs import levels as LV
     st.markdown(HOME_CSS, unsafe_allow_html=True)
     cur = LV.level_name("Home")
     st.markdown(f"""<div class="hm-hero">
-<h1>Reticula<span> · journal-ready figures</span></h1>
+<h1>Figuryte<span> · journal-ready figures</span></h1>
 <p>From the raw export of your instrument to a publication figure, the numbers for your Methods and a dossier per material. Powder diffraction, sorption,
 spectroscopy, thermal analysis, microscopy, NMR and more – with the journal style, the statistics and the provenance built in.</p>
 <span class="hm-pill">🔒 Runs on your computer</span><span class="hm-pill">🎨 ACS / Wiley-VCH style</span><span class="hm-pill">🧪 {len(UI.PAGES) - 1} tools</span>
 <span class="hm-pill">🧾 Every figure records how it was made</span><span class="hm-pill">v{version}</span></div>""", unsafe_allow_html=True)
+
+    _project_box(version)
 
     # ------------------------------------------------------------------ what do you want to do
     st.markdown('<div class="hm-h">👉 What do you want to do? <small>pick a starting point</small></div>', unsafe_allow_html=True)

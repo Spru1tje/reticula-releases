@@ -163,7 +163,7 @@ def banner(data_dir, current):
             return
         box = st.container(border=True, key="upd_ask")
         c1, c2, c3 = box.columns([5, 1.3, 1], vertical_alignment="center")
-        c1.markdown("🔔 **Check for Reticula updates when it starts?** It only reads the public release list on GitHub "
+        c1.markdown("🔔 **Check for Figuryte updates when it starts?** It only reads the public release list on GitHub "
                     "(no data is sent, nothing is installed). You can change this later under ℹ️ About.")
         if c2.button("Yes, check", key="upd_yes", type="primary", width="stretch"):
             cfg["opt_in"] = True; save_settings(data_dir, cfg); ss["_upd_asked"] = True; st.rerun()
@@ -183,7 +183,7 @@ def banner(data_dir, current):
         return
     box = st.container(border=True, key="upd_banner")
     c1, c2, c3, c4 = box.columns([4.6, 1.4, 0.9, 1.5], vertical_alignment="center")
-    c1.markdown(f"⬆️ **Reticula {r['version']} is available** (you have {current})."
+    c1.markdown(f"⬆️ **Figuryte {r['version']} is available** (you have {current})."
                 + (f"  \n<span style='opacity:.7'>{r['asset']}" + (f" · {r['size'] / 1e6:.0f} MB" if r.get("size") else "") + "</span>"
                    if r.get("asset") else ""), unsafe_allow_html=True)
     c2.link_button("⬇️ Download", r["url"], type="primary", width="stretch",

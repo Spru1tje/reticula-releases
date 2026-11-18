@@ -1,5 +1,68 @@
 # Changelog
 
+## 2.18.0 — unreleased
+
+### New name: Figuryte
+- The program is called **Figuryte** in the window, the start page, the menus, the exports, the methods texts and the provenance.
+- **Project files are `.figuryte`** (the same zip format as before). Projects saved as `.reticula` still open.
+- Double-click or *Open with* works for `.figuryte` files (Windows installer and macOS bundle register the new extension too).
+- **Start page: continue or save a project.** *Continue a project* opens a `.figuryte` file directly from the home page; *Save as .figuryte* saves the whole work from there as well.
+- Not yet renamed (technical, to be done with the release): the installer file name `Reticula_Setup`, the macOS app name and bundle identifier, the data folder `Documents\Reticula`, the GitHub release names and the update check. These keep working; changing them would break existing installs and the update check.
+
+## 2.17.0 — unreleased (not yet tagged)
+
+### Across the program
+- **Tabs more visible**: every technique's tab bar has the app colours, bold labels and a clear bar.
+- **Simple mode** (Style tab): full black graph; samples are told apart by their own point symbol.
+- **SI export – journal style**: choose ACS, Wiley-VCH, RSC or Elsevier for the Methods heading and the software sentence. These are templates; check the author guidelines of your journal.
+- **Progress with time left**: the Rietveld refinement shows elapsed time and an estimate of the remaining time.
+
+### NMR
+- *Unassigned & impurities* is the first figure; the molecule picture no longer overlaps the spectrum.
+- Protons are labelled with numbers (literature-style locants) instead of letters.
+
+### Rietveld / structures
+- **ICSD import**: manual only. A button opens the ICSD login page; the query is yours (queries are paid), Reticula sends nothing.
+- **CIF picture**: centred on the molecule; labels have a white background, so they do not run through the molecule.
+
+### Defect calculator (TGA)
+- **Plateau point** for the defect calculation is chosen automatically at the flattest part of the mass-loss curve between the last low-temperature step and the linker combustion, or picked on the graph (double-click resets).
+- The results table says how the point was chosen: *automatic (flat)*, *picked on graph* or *automatic – no clear plateau*.
+- The plateau values of MOF-801(Hf) and the consensus changed by a few degrees; the baseline test was updated for these two keys only.
+
+### Zetasizer `.dts` (known limits)
+- Files of software version **8.02** are read: sample names and the intensity size distribution.
+- **Z-average and PDI are not calculated for 8.02 yet.** On the 8.02 test files the calculation gives impossible values (negative PDI, Z-averages that disagree between runs). They are only calculated for 7.11. For 8.02 use the Excel / CSV export from the software.
+- ζ-potential is still not read from `.dts`; use the export.
+
+### Schemes & Icons (new module, 🎨 in the menu)
+- **Scheme editor** with the Reticon icon library (about 800 CC0 icons, bundled, offline): search in EN/NL/FR/DE, icon families (6 variants per icon), drag and drop, snapping, arrows that stay attached to icon anchors (straight, elbow or curved, both heads, dashed, label), text, panel boxes, undo / redo.
+- **Multi-select**: drag on empty canvas or Shift-click; move, delete, duplicate and nudge the whole selection.
+- **Align** (left, centre, right, top, middle, bottom), **distribute** (horizontally or vertically) and **group / ungroup** (clicking one grouped item selects the group).
+- **Copy / paste** (Ctrl+C / Ctrl+V, Ctrl+D duplicates): also between schemes.
+- **Arrow ends**: drag an end dot onto another icon's anchor to re-attach the arrow.
+- **Subscript and superscript** in text: `H_{2}O`, `CO^{2}`; the same in the export.
+- **Recently used** icons at the top of the picker; **keyboard shortcut list** with the ? key.
+- **Export** of the scheme to PDF (vector), SVG, PNG or TIFF at the width of a single column, 1.5 column, double column or TOC graphic, at 300, 600 or 1200 dpi; warnings for thin lines and non-vector icons.
+- Schemes are saved with the project file. Start from a template or an empty canvas, or import a scheme as JSON.
+
+### Schemes & Icons: arrows, content from Reticula and the combined figure
+- **Arrow bends**: add a bend, drag a bend to move it, or **Route around icons** (an automatic route that avoids the other icons, stored as bends so the export matches the screen).
+- **Embedded figures**: a plot of your own data (x, y text file), a molecule from a SMILES, or a crystal structure from a CIF become vector icons in a scheme.
+- **Methods schematic**: one click makes a flow from a sample and the techniques it went through.
+- **Scheme in the combined figure**: adds the scheme as a panel next to the graphs of the other techniques.
+- **Style and theme per icon** (Advanced/Developer layers of the export): Style and Theme in the inspector.
+- **Periodic table view** of the 118 element tiles in the picker.
+
+### Known limits (summary)
+- The browser preview shows each icon in its default style; the export (PDF, SVG, PNG, TIFF) uses the chosen style and theme.
+- The scheme panel in the combined figure is an image at 600 dpi, so that one panel is not vector.
+- The automatic route works on an 8 px grid around the icon boxes; check the result after routing.
+- The editor was tested by hand in a browser; automated browser tests are not in the repository yet.
+- The PyInstaller build has not been run with these changes.
+- TGA plateau: the Supporting Information table was not checked against the rule (see the defect calculator section).
+- Zetasizer 8.02: Z-average and PDI are not calculated for 8.02 yet (see the .dts section).
+
 ## 2.16.0 — 2026-11-18
 
 ### PXRD: from a pattern to a refined, checked structure (almost automatic)

@@ -52,12 +52,12 @@ def _wait_done():
 
 def test_asks_once_then_banner_later_skip(tmp_path, monkeypatch, feed):
     at = _app(tmp_path, monkeypatch, feed); at.run()
-    assert any("Check for Reticula updates" in m.value for m in at.markdown)
+    assert any("Check for Figuryte updates" in m.value for m in at.markdown)
     at.button(key="upd_yes").click().run()
     assert json.load(open(tmp_path / "update.json", encoding="utf-8"))["opt_in"] is True
     _wait_done(); at.run()
     assert not at.exception, [e.value for e in at.exception][:1]
-    assert any("Reticula 9.1.0 is available" in m.value for m in at.markdown)
+    assert any("Figuryte 9.1.0 is available" in m.value for m in at.markdown)
     at.button(key="upd_later").click().run()
     assert not any("is available" in m.value for m in at.markdown)
     b = _app(tmp_path, monkeypatch, feed); U._STATE.update(t=0.0); b.run(); _wait_done(); b.run()
@@ -65,7 +65,7 @@ def test_asks_once_then_banner_later_skip(tmp_path, monkeypatch, feed):
     b.button(key="upd_skip").click().run()
     assert json.load(open(tmp_path / "update.json", encoding="utf-8"))["skip"] == "9.1.0"
     assert not any("is available" in m.value for m in b.markdown)
-    assert not any("Check for Reticula updates" in m.value for m in b.markdown)   # never asked again
+    assert not any("Check for Figuryte updates" in m.value for m in b.markdown)   # never asked again
 
 
 def test_offline_is_silent(tmp_path, monkeypatch):
@@ -79,7 +79,7 @@ def test_declined_never_fetches(tmp_path, monkeypatch, feed):
     (tmp_path / "update.json").write_text(json.dumps({"opt_in": False}))
     at = _app(tmp_path, monkeypatch, feed); at.run()
     assert not U.status()["running"] and U.status()["url"] is None
-    assert not any("Check for Reticula updates" in m.value for m in at.markdown)
+    assert not any("Check for Figuryte updates" in m.value for m in at.markdown)
 
 
 def test_pick_asset_macos_arch_v212():

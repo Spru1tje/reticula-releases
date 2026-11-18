@@ -58,13 +58,13 @@ def build(session, page: str, version: str, sources=None, note: str = "") -> byt
     figs = [{"figure": k, "page": r.get("page"), "title": r.get("title"), "rows": r.get("n_rows")} for k, r in (session.get("si_figs") or {}).items()]
     store = {sid: sorted((rec.get("sections") or {})) for sid, rec in (session.get("sample_store") or {}).items()}
     lv = session.get("_lv") or {}
-    rep = {"program": "Reticula", "version": version, "created": datetime.datetime.now().isoformat(timespec="seconds"),
+    rep = {"program": "Figuryte", "version": version, "created": datetime.datetime.now().isoformat(timespec="seconds"),
            "page": page, "detail_level": lv.get(page) if lv.get(page) not in (None, "global") else lv.get("global"),
            "platform": platform.platform(), "python": sys.version.split()[0], "frozen": bool(getattr(sys, "frozen", False)),
            "libraries": _versions(), "loaded_files": [_anon(s) for s in (sources or [])][:60], "settings_on_this_page": params,
            "figures_made": figs, "sample_store_sections": store, "last_error": session.get("_last_error"),
            "user_note": note.strip()[:4000]}
-    md = (f"# Reticula problem report\n\nVersion {version} · page **{page}** · {rep['created']}\n\n"
+    md = (f"# Figuryte problem report\n\nVersion {version} · page **{page}** · {rep['created']}\n\n"
           f"**What the user was doing:** {note.strip() or '(not given)'}\n\n")
     err = session.get("_last_error")
     if err:

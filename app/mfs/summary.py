@@ -46,12 +46,29 @@ TECHNIQUE_METHODS = {
 }
 
 
-def methods_text(pages, version: str = "") -> str:
-    """A Methods paragraph per technique for the given page names (unknown pages are skipped) + the software sentence."""
+# Journal wording templates. They set only the heading and the software sentence; the experimental text above stays the same.
+# These are starting points: check the current author guidelines of the journal before submitting.
+SI_STYLES = {
+    "ACS": {"name": "ACS (J. Am. Chem. Soc., Chem. Mater.)", "heading": "Experimental Section", "label": "Data processing",
+            "software": "Data were processed and plotted with Figuryte{v} (open source; figure settings are stored in the figure files and in the Supporting Information)."},
+    "Wiley-VCH": {"name": "Wiley-VCH (Adv. Mater., Angew. Chem.)", "heading": "Experimental Section", "label": "Data evaluation",
+                  "software": "Data evaluation and figures were made with Figuryte{v} (open-source software; settings are given in the Supporting Information)."},
+    "RSC": {"name": "RSC (J. Mater. Chem. A, Chem. Sci.)", "heading": "Experimental", "label": "Data analysis",
+            "software": "Data were analysed and plotted using Figuryte{v} (open source). Figure settings are provided in the ESI."},
+    "Elsevier": {"name": "Elsevier (Microporous Mesoporous Mater., Chem. Eng. J.)", "heading": "Materials and methods", "label": "Data processing",
+                 "software": "Data were processed and plotted with Figuryte{v} (open source); the settings are given in the Supplementary material."},
+}
+DEFAULT_SI_STYLE = "ACS"
+
+
+def methods_text(pages, version: str = "", style: str = DEFAULT_SI_STYLE) -> str:
+    """A Methods paragraph per technique for the given page names (unknown pages are skipped) + the software sentence, worded for the chosen journal style."""
+    st_ = SI_STYLES.get(style, SI_STYLES[DEFAULT_SI_STYLE])
     out = [f"**{p}.** {TECHNIQUE_METHODS[p]}" for p in dict.fromkeys(pages) if p in TECHNIQUE_METHODS]
     if out:
-        out.append(f"**Data processing.** Data were processed and plotted with Reticula {version}".rstrip() +
-                   " (open source; the settings of each figure are stored in the figure files and in the Supporting Information).")
+        out.append(f"**{st_['label']}.** " + st_["software"].format(v=(" " + version.strip()) if version.strip() else ""))
+    if out:
+        out.insert(0, f"### {st_['heading']}")
     return "\n\n".join(out)
 
 
@@ -116,9 +133,9 @@ def summary_notes(store: dict, sections=None):
             if sections and sec not in sections:
                 continue
             lab = chr(ord("a") + len(notes)) if len(notes) < 26 else f"a{len(notes)}"
-            tx = (f"{rec.get('name', sid)}, {TECH_NAMES.get(sec, sec)}: {d.get('source') or 'Reticula'}"
+            tx = (f"{rec.get('name', sid)}, {TECH_NAMES.get(sec, sec)}: {d.get('source') or 'Figuryte'}"
                   + (f", file(s) {'; '.join(d.get('files') or [])}" if d.get("files") else "") + (f", {d.get('updated', '')[:16].replace('T', ' ')}" if d.get("updated") else "")
-                  + (f", Reticula {d.get('version')}" if d.get("version") else ""))
+                  + (f", Figuryte {d.get('version')}" if d.get("version") else ""))
             notes.append((lab, tx))
             ref[(rec.get("name", sid), sec)] = lab
     return notes, ref

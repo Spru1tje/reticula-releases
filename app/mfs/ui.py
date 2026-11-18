@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64, functools, os
 import streamlit as st
 
-NAME = "Reticula"
+NAME = "Figuryte"
 TAGLINE = "Publication figures for framework materials"
 TEAL, INDIGO = "#0F766E", "#312E81"
 
@@ -16,7 +16,7 @@ NAV = [("Home", "🏠", None),
        ("TGA", "🔥", "Thermal"), ("DSC", "🌡️", None),
        ("SEM / TEM / EDX", "🔬", "Microscopy"),
        ("Kinetics & adsorption", "⏱️", "Kinetics / Bio"), ("SDS-PAGE (Image Lab)", "🧬", None), ("Zeta / DLS", "⚡", None),
-       ("Defect calculator", "🧮", "Tools"), ("Figure composer", "🧩", None), ("Batch processing", "🗂️", None),
+       ("Defect calculator", "🧮", "Tools"), ("Figure composer", "🧩", None), ("Schemes & Icons", "🎨", None), ("Batch processing", "🗂️", None),
        ("SI export bundle", "📦", None), ("Sample database", "🗃️", None), ("Export guide", "📘", None)]
 PAGES = [p for p, _, _ in NAV]
 ICON = {p: i for p, i, _ in NAV}
@@ -31,6 +31,7 @@ GALLERY = [("01_PXRD_stacked", "PXRD", "Stacked patterns + simulated CIF referen
            ("10_SEM_panel", "SEM / TEM / EDX", "SEM/TEM panels with editable scale bars"),
            ("07_GlyGly_kinetics", "Kinetics & adsorption", "GlyGly hydrolysis kinetics"),
            ("13_XPS_Hf4f_Zr3d", "XPS", "Hf 4f / Zr 3d fits"),
+           ("22_schemes", "Schemes & Icons", "Scheme with lab icons, exported as vector PDF"),
            ("09_ICP_bars", "ICP-OES / XRF", "Metal / S content bars"),
            ("11_SDS-PAGE_bands", "SDS-PAGE (Image Lab)", "Protein cleavage from gel bands"),
            ("12_Zeta_DLS", "Zeta / DLS", "Zeta potential and DLS")]

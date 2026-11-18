@@ -48,8 +48,8 @@ def write_cif(phase_res: dict, model, name: str = "refined", radiation_wavelengt
               "c": ce.get("c") if "c" in ce else (ce.get("a") if phase_res["system"] in ("cubic", "rhombohedral") else None), "alpha": ce.get("alpha"),
               "beta": ce.get("beta"), "gamma": ce.get("gamma")}
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in name)
-    L = [f"data_{safe}", "#" + "-" * 70, f"# Refined with Reticula {version}".rstrip() + f" on {datetime.date.today().isoformat()} (Rietveld refinement of powder data)", "#" + "-" * 70,
-         "_audit_creation_method 'Reticula Rietveld refinement'", f"_chemical_name_common '{name}'", f"_symmetry_space_group_name_H-M '{st['spacegroup']}'",
+    L = [f"data_{safe}", "#" + "-" * 70, f"# Refined with Figuryte {version}".rstrip() + f" on {datetime.date.today().isoformat()} (Rietveld refinement of powder data)", "#" + "-" * 70,
+         "_audit_creation_method 'Figuryte Rietveld refinement'", f"_chemical_name_common '{name}'", f"_symmetry_space_group_name_H-M '{st['spacegroup']}'",
          f"_symmetry_Int_Tables_number {st['sg_number']}"]
     for k, n in enumerate(names):
         key = {"a": "length_a", "b": "length_b", "c": "length_c", "alpha": "angle_alpha", "beta": "angle_beta", "gamma": "angle_gamma"}[n]

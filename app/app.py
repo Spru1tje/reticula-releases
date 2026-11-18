@@ -68,7 +68,7 @@ R = _CachedReaders(R, skip=("read_sem",))
 EX = os.path.join(HERE, "example_data")
 REF = os.path.join(HERE, "references")
 _ICON = os.path.join(HERE, "assets", "reticula_icon.png")
-st.set_page_config(page_title="Reticula", layout="wide", page_icon=_ICON if os.path.exists(_ICON) else "📈")
+st.set_page_config(page_title="Figuryte", layout="wide", page_icon=_ICON if os.path.exists(_ICON) else "📈")
 from mfs import pagestate as PS   # v2.9: keep every page's work across navigation + unsaved-work dialog
 PS.configure(os.path.join(os.path.dirname(os.environ.get("MFS_STORE") or os.path.join(os.path.dirname(
     os.environ.get("MFS_EXPORT_DIR") or os.path.join(HERE, "exports")), "sample_store.json")), "workspace"))
@@ -207,7 +207,7 @@ def provenance(stem, cfg=None):
         st_cfg = json.loads(json.dumps(cfg, default=str)) if cfg is not None else None
     except Exception:
         st_cfg = None
-    return {"program": "Reticula", "version": __version__, "page": page, "figure": safe_name(stem), "sources": list(dict.fromkeys(SOURCES)),
+    return {"program": "Figuryte", "version": __version__, "page": page, "figure": safe_name(stem), "sources": list(dict.fromkeys(SOURCES)),
             "export": {"width_in": WIDTH, "aspect": ASPECT, "font": FONT, "dpi": DPI}, "customisation": st_cfg,
             "created": datetime.datetime.now().isoformat(timespec="seconds")}
 
@@ -575,10 +575,11 @@ from mfs.pages.microscopy import page_sem
 from mfs.pages.bioassays import page_sds, page_zeta, page_xps
 from mfs.pages.structure import page_structure
 from mfs.pages.workflow import page_composer, page_batch, page_si, page_db, page_guide
+from mfs.pages.schemes import page_schemes
 PG.bind(globals())                 # hand the helpers and this run's sidebar values (WIDTH, FONT …) to the page modules
 _PAGEFN = {"Home": page_home, "PXRD": page_pxrd, "FTIR / Raman": page_ftir, "1H NMR (digest)": page_nmr, "N2 sorption (BET/PSD)": page_sorption,
  "TGA": page_tga, "DSC": page_dsc, "Defect calculator": page_defects, "Kinetics & adsorption": page_kinetics, "ICP-OES / XRF": page_icp, "SEM / TEM / EDX": page_sem,
- "SDS-PAGE (Image Lab)": page_sds, "Zeta / DLS": page_zeta, "XPS": page_xps, "Figure composer": page_composer, "Batch processing": page_batch,
+ "SDS-PAGE (Image Lab)": page_sds, "Zeta / DLS": page_zeta, "XPS": page_xps, "Figure composer": page_composer, "Schemes & Icons": page_schemes, "Batch processing": page_batch,
  "SI export bundle": page_si, "Sample database": page_db, "Structure (CIF)": page_structure, "UV/Vis": page_uvvis, "Photoluminescence": page_pl, "Export guide": page_guide}
 try:
     if os.environ.get("MFS_PROFILE"):        # dev: cProfile of the page function -> <MFS_PROFILE>_<page>.prof
@@ -616,7 +617,7 @@ finally:
         st.caption("Creates a small ZIP with the version, your settings and the last error - **no data**. Send it to the developer.")
         _note = st.text_area("What were you doing? (optional)", key="_pr_note", height=70)
         dl(st, "⬇️ Create the problem report", lambda: _PR.build(st.session_state, page, __version__, SOURCES, _note),
-           f"Reticula_problem_report_{datetime.datetime.now():%Y%m%d_%H%M}.zip", "_pr_dl", width="stretch")
+           f"Figuryte_problem_report_{datetime.datetime.now():%Y%m%d_%H%M}.zip", "_pr_dl", width="stretch")
     with st.sidebar.expander("💾 Saved page work", expanded=False):
         sp = PS.saved_pages()
         st.caption("Saved with the dialog or 💾 Save; restored on the next start. " + (", ".join(f"{k} ({v[5:16].replace('T', ' ')})"

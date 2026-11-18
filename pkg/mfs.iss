@@ -31,7 +31,7 @@ ChangesAssociations=yes
 DisableProgramGroupPage=yes
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: checkedonce
-Name: "assoc"; Description: "Open .reticula project files with Reticula"; Flags: checkedonce
+Name: "assoc"; Description: "Open .figuryte project files with Figuryte"; Flags: checkedonce
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourcePath}\README_Windows.txt"; DestDir: "{app}"; Flags: ignoreversion
@@ -40,6 +40,7 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\Reticula.exe"; IconFilename:
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Reticula.exe"; Tasks: desktopicon
 [Registry]
 ; v2.11: .reticula project files (per user, no admin rights needed)
+Root: HKA; Subkey: "Software\Classes\.figuryte"; ValueType: string; ValueName: ""; ValueData: "Figuryte.Project"; Flags: uninsdeletevalue; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\.reticula"; ValueType: string; ValueName: ""; ValueData: "Reticula.Project"; Flags: uninsdeletevalue; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\Reticula.Project"; ValueType: string; ValueName: ""; ValueData: "Reticula project"; Flags: uninsdeletekey; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\Reticula.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\Reticula.exe,0"; Tasks: assoc
