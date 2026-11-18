@@ -864,6 +864,36 @@ function numberSel(){
   renderAll(); commit();
 }
 
+/* Style copy: the look of one item (colours, weight, line style) onto others of the same kind. Geometry and text are never copied. */
+const STYLE_KEYS = {icon:["liquid","style","theme"], text:["color","weight","size","anchor"], box:["fill","radius"], arrow:["color","width","dash","head","route"]};
+let styleClip = null;                          // {type, props}
+function copyStyle(){
+  const it = selectedIds().map(byId).find(x => x && STYLE_KEYS[x.type]); if (!it) return;
+  const props = {}; for (const k of STYLE_KEYS[it.type]) if (it[k] !== undefined) props[k] = JSON.parse(JSON.stringify(it[k]));
+  styleClip = {type: it.type, props};
+  toast(`Style copied from a ${it.type}`, "", null);
+}
+function pasteStyle(){
+  if (!styleClip) return;
+  const targets = selectedIds().map(byId).filter(x => x && x.type === styleClip.type);
+  if (!targets.length) return toast("Select items of the same kind to paste the style on", "", null);
+  snapshot(); for (const t of targets) Object.assign(t, JSON.parse(JSON.stringify(styleClip.props)));
+  renderAll(); commit();
+}
+
+/* Centre on the page: the selection's bounding box goes to the middle of the page on one axis. Arrows follow their icons. */
+function centreOnPage(axis){
+  const items = selectedIds().map(byId).filter(x => x && x.type !== "arrow");
+  const bs = items.map(bbox).filter(Boolean);
+  if (!bs.length) return;
+  const lo = Math.min(...bs.map(b => axis === "x" ? b.x : b.y));
+  const hi = Math.max(...bs.map(b => axis === "x" ? b.x + b.w : b.y + b.h));
+  const shift = (axis === "x" ? scene.width : scene.height) / 2 - (lo + hi) / 2;
+  snapshot();
+  for (const it of items){ it[axis] = Math.round((it[axis] + shift) * 10) / 10; }
+  renderAll(); commit();
+}
+
 /* Line up: a row in the order picked, equal gaps, vertically centred on the first item. */
 function lineUp(){
   const its = selectedIds().map(byId).filter(x => x && x.type !== "arrow");
@@ -887,6 +917,10 @@ const FBAR_ACTIONS = {
   alignR: {label:"Align R",   title:"Align right edges",                     run:() => alignSel("r")},
   del:    {label:"Delete",    title:"Delete (Del)",                          run:() => deleteSel(), danger:true},
   dup:    {label:"Duplicate", title:"Duplicate the selection (Ctrl+D)",      run:() => { copyItems(selectedIds()); pasteItems(); }},
+  copyStyle:{label:"Copy style", title:"Copy the look of this item (colour, weight, line style)", run:() => copyStyle()},
+  pasteStyle:{label:"Paste style", title:"Paste the copied look onto the selected items of the same kind", run:() => pasteStyle()},
+  pageH:  {label:"Page ↔", title:"Centre the selection horizontally on the page", run:() => centreOnPage("x")},
+  pageV:  {label:"Page ↕", title:"Centre the selection vertically on the page", run:() => centreOnPage("y")},
   repeat: {label:"Repeat →", title:"Repeat the selection to the right, one step further each time (series)", run:() => repeatRight()},
   num:    {label:"Number", title:"Number the selected items 1, 2, 3 in the order you picked them", run:() => numberSel()},
   line:   {label:"Line up", title:"Place the selected items in a row, in the order you picked, with equal gaps", run:() => lineUp()},
@@ -918,7 +952,9 @@ function fbarSet(ids){                       // which actions for this selection
   const k = [];
   if (hasIcon) k.push("flip");
   k.push("front", "back", "dup");
-  if (items.some(x => x.type !== "arrow")) k.push("repeat", "num");
+  if (items.some(x => x.type !== "arrow")) k.push("pageH", "pageV", "repeat", "num");
+  if (items.length === 1 || multiSel) k.push("copyStyle");
+  if (styleClip) k.push("pasteStyle");
   if (multiSel && items.filter(x => x.type === "icon").length > 1) k.push("same");
   if (multiSel) k.push("line", "alignL", "alignC", "alignR", "group");
   if (items.some(x => x.group)) k.push("ungroup");
