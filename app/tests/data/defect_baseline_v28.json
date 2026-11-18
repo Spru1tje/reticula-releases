@@ -460,13 +460,13 @@
    "key": "a",
    "status": "ok",
    "semi-quantitative": "False",
-   "linkers/node L": 5.22,
-   "missing linkers/node x": 0.78,
+   "linkers/node L": 5.2,
+   "missing linkers/node x": 0.8,
    "caps/node m": 0.0,
    "Cl/node": 0.0,
-   "open sites/node": 1.57,
-   "M (g/mol per node)": 1852.8,
-   "formula": "Hf6O4(OH)4(OH)1.57(Fumarate)5.22(H2O)1.57",
+   "open sites/node": 1.6,
+   "M (g/mol per node)": 1852.2,
+   "formula": "Hf6O4(OH)4(OH)1.60(Fumarate)5.20(H2O)1.60",
    "note": ""
   },
   {
@@ -502,13 +502,13 @@
    "key": "c",
    "status": "ok",
    "semi-quantitative": "False",
-   "linkers/node L": 5.22,
-   "missing linkers/node x": 0.78,
+   "linkers/node L": 5.2,
+   "missing linkers/node x": 0.8,
    "caps/node m": 0.83,
    "Cl/node": 0.0,
-   "open sites/node": 0.74,
-   "M (g/mol per node)": 1861.1,
-   "formula": "Hf6O4(OH)4(OH)0.74(Fumarate)5.22(Formate)0.83(H2O)0.74",
+   "open sites/node": 0.77,
+   "M (g/mol per node)": 1860.5,
+   "formula": "Hf6O4(OH)4(OH)0.77(Fumarate)5.20(Formate)0.83(H2O)0.77",
    "note": ""
   },
   {
@@ -586,21 +586,21 @@
    "key": "consensus",
    "status": "ok",
    "semi-quantitative": "False",
-   "linkers/node L": 5.22,
-   "missing linkers/node x": 0.78,
+   "linkers/node L": 5.2,
+   "missing linkers/node x": 0.8,
    "caps/node m": 0.83,
    "Cl/node": 0.0,
-   "open sites/node": 0.74,
-   "M (g/mol per node)": 1861.1,
-   "formula": "Hf6O4(OH)4(OH)0.74(Fumarate)5.22(Formate)0.83(H2O)0.74",
-   "note": "L range 5.20–5.55, SD 0.17"
+   "open sites/node": 0.77,
+   "M (g/mol per node)": 1860.5,
+   "formula": "Hf6O4(OH)4(OH)0.77(Fumarate)5.20(Formate)0.83(H2O)0.77",
+   "note": "L range 5.20–5.55, SD 0.18"
   }
  ],
  "pulled::consensus": [
-  "Linkers / node (median)=5.22",
-  "Missing linkers / node=0.78",
+  "Linkers / node (median)=5.20",
+  "Missing linkers / node=0.80",
   "Caps / node=0.83",
-  "Open sites / node=0.74",
-  "M per node (g mol⁻¹)=1861.1"
+  "Open sites / node=0.77",
+  "M per node (g mol⁻¹)=1860.5"
  ]
 }

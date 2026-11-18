@@ -310,12 +310,49 @@ def tga_analysis(T, w, smooth_window=21):
     dtg = -np.gradient(ws, Tg)
     pk, props = find_peaks(dtg, prominence=max(dtg.max() * 0.05, 1e-4))
     W = lambda t: float(np.interp(t, Tg, ws))
-    # plateau = minimum |DTG| between 250 and 480 °C (before the linker combustion)
-    m = (Tg > 250) & (Tg < 480)
-    T_plat = float(Tg[m][np.argmin(dtg[m])]) if m.any() else None
+    T_plat, info = flat_plateau(Tg, dtg, pk)
     return {"T": Tg, "w": ws, "dtg": dtg, "peaks": Tg[pk], "W200": W(200) if Tg.max() > 200 else None,
             "T_plateau": T_plat, "W_plateau": W(T_plat) if T_plat else None, "W_end": float(ws[-20:].mean()),
-            "W_initial": float(ws[0])}
+            "W_initial": float(ws[0]), "plateau_info": info}
+
+
+def flat_plateau(Tg, dtg, peak_idx, half_width=25.0, slope_tol=None):
+    """v2.17: the FLATTEST stretch of the TGA curve between the solvent / dehydroxylation steps and the first linker-combustion step.
+
+    Window: from the end of the last step below ~300 °C (or 200 °C) up to the start of the first DTG peak above 300 °C (or 480 °C).
+    Within it, every temperature is scored by the mean |DTG| over +/- half_width °C (the local slope of the mass curve): the plateau is the
+    point with the smallest local slope, and it must be flat in absolute terms (the local slope below slope_tol, default 0.05 %/°C).
+    Returns (T_plateau or None, info dict with the window, the local slope and a flatness verdict)."""
+    Tg = np.asarray(Tg, float); dtg = np.asarray(dtg, float)
+    peaks = np.asarray(peak_idx, int)
+    # the linker combustion = the largest DTG peak above 380 °C (or nothing: the window then ends at 480 °C)
+    lo, hi = 150.0, 480.0
+    if len(peaks):
+        T_pk = Tg[peaks]
+        big = [i for i, t in zip(peaks, T_pk) if t >= 380]
+        if big:
+            L = max(big, key=lambda i: dtg[i])
+            hi = min(hi, float(Tg[L]) - 2 * half_width)
+        before = [Tg[i] for i in peaks if Tg[i] < hi]
+        if before:
+            lo = max(lo, max(before) + 1.5 * half_width)     # the last step below the window (dehydroxylation / solvent) is over
+    if hi - lo < 2 * half_width:
+        return None, {"window": (float(lo), float(hi)), "slope_pct_per_C": None, "flat": False,
+                      "reason": "the steps leave no flat stretch (window narrower than 2 x the averaging width)"}
+    # the plateau must lie INSIDE the window: the edges of a window are the steps themselves, not a plateau
+    m = (Tg >= lo + half_width) & (Tg <= hi - half_width)
+    if m.sum() < 5:
+        return None, {"window": (float(lo), float(hi)), "slope_pct_per_C": None, "flat": False, "reason": "no plateau inside the window"}
+    dx = float(np.median(np.diff(Tg)))
+    k = max(1, int(round(half_width / dx)))
+    absd = np.abs(dtg)
+    local = np.convolve(absd, np.ones(2 * k + 1) / (2 * k + 1), mode="same")
+    idx = np.nonzero(m)[0]
+    j = idx[int(np.argmin(local[idx]))]
+    tol = 0.05 if slope_tol is None else slope_tol
+    flat = bool(local[j] <= tol)
+    return float(Tg[j]), {"window": (float(lo), float(hi)), "slope_pct_per_C": float(local[j]), "flat": flat,
+                          "half_width": half_width, "reason": "" if flat else "the mass still changes here (no clear plateau in this window)"}
 
 
 def renormalise_to_end(w, W_end):

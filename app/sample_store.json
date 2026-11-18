@@ -81,8 +81,8 @@
     "values": {
      "W_initial": 99.84960579333702,
      "W200": 92.79758173259121,
-     "W_plateau": 88.50845080418327,
-     "T_plateau": 373.0,
+     "W_plateau": 88.44206882968183,
+     "T_plateau": 405.0,
      "W_end": 62.99586971771779,
      "DTG_peaks": [
       83.0,
@@ -91,7 +91,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T18:05:57",
+    "updated": "2026-11-18T18:51:50",
     "files": [
      "MOF801_Netzsch.txt (bundled example)",
      "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
@@ -190,7 +190,7 @@
      "n_runs": 3
     },
     "source": "Zeta / DLS page",
-    "updated": "2026-11-18T18:06:03",
+    "updated": "2026-11-18T18:49:08",
     "files": [
      "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
     ],
@@ -289,7 +289,7 @@
      "n_runs": 3
     },
     "source": "Zeta / DLS page",
-    "updated": "2026-11-18T18:06:03",
+    "updated": "2026-11-18T18:49:08",
     "files": [
      "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
     ],
@@ -328,8 +328,8 @@
     "values": {
      "W_initial": 100.01710812704812,
      "W200": 92.3132491849089,
-     "W_plateau": 83.29466964821353,
-     "T_plateau": 413.0,
+     "W_plateau": 83.31418466863278,
+     "T_plateau": 406.5,
      "W_end": 61.02707415733024,
      "DTG_peaks": [
       80.5,
@@ -338,7 +338,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T18:05:57",
+    "updated": "2026-11-18T18:51:50",
     "files": [
      "MOF801_Netzsch.txt (bundled example)",
      "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
@@ -424,7 +424,7 @@
      "n_runs": 3
     },
     "source": "Zeta / DLS page",
-    "updated": "2026-11-18T18:06:03",
+    "updated": "2026-11-18T18:49:08",
     "files": [
      "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
     ],
@@ -463,8 +463,8 @@
     "values": {
      "W_initial": 100.0137250813801,
      "W200": 92.52043299497922,
-     "W_plateau": 84.78955081770498,
-     "T_plateau": 402.5,
+     "W_plateau": 84.78631120680083,
+     "T_plateau": 407.0,
      "W_end": 65.3093831139931,
      "DTG_peaks": [
       82.0,
@@ -473,7 +473,7 @@
      ]
     },
     "source": "TGA page",
-    "updated": "2026-11-18T18:05:57",
+    "updated": "2026-11-18T18:51:50",
     "files": [
      "MOF801_Netzsch.txt (bundled example)",
      "Sulfo-MOF801_TA_UniversalAnalysis.txt (bundled example)",
@@ -559,7 +559,7 @@
      "n_runs": 3
     },
     "source": "Zeta / DLS page",
-    "updated": "2026-11-18T18:06:03",
+    "updated": "2026-11-18T18:49:08",
     "files": [
      "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
     ],
@@ -658,7 +658,7 @@
      "n_runs": 3
     },
     "source": "Zeta / DLS page",
-    "updated": "2026-11-18T18:06:03",
+    "updated": "2026-11-18T18:49:08",
     "files": [
      "Zetasizer_export_pD7.4_D2O.csv (bundled example)"
     ],

@@ -54,7 +54,50 @@ def page_tga():
             t = R.read_tga(f, f.name); a = A.tga_analysis(t["T"], t["w"], win); res.append((nm, a))
         except Exception as e:
             st.error(f"{f.name}: {e}")
+    # v2.17: the plateau point is automatic (the flattest stretch between the steps) or picked on the graph below
+    ov = st.session_state.setdefault("tga_plat_ov", {})
+    for nm, a_ in res:
+        info = a_.get("plateau_info") or {}
+        if nm in ov:
+            a_["T_plateau"] = float(ov[nm])
+            a_["W_plateau"] = float(np.interp(ov[nm], a_["T"], a_["w"]))
+            a_["plateau_source"] = "picked on graph"
+        else:
+            a_["plateau_source"] = "automatic (flat)" if info.get("flat") else "automatic – no clear plateau"
+    with st.expander("🎯 Plateau point for the defect calculation – automatic, or pick it on the graph", expanded=False):
+        st.caption("The point is taken from the flattest stretch between the solvent / dehydroxylation steps and the first linker-combustion step. "
+                   "Click the curve to choose another point for that sample (the mass there is used for R_exp).")
+        sel = st.selectbox("Sample", [nm for nm, _ in res], key="tga_plat_sample") if res else None
+        if sel:
+            a_sel = dict(res)[sel]
+            import altair as alt
+            df_p = pd.DataFrame({"T (°C)": a_sel["T"][::max(1, len(a_sel["T"]) // 900)], "mass (%)": a_sel["w"][::max(1, len(a_sel["T"]) // 900)]})
+            pick = alt.selection_point(name="tga_pick", fields=["T (°C)"], nearest=True, on='click', clear="dblclick")
+            ch = (alt.Chart(df_p).mark_line(color="#0F766E").encode(x=alt.X("T (°C):Q"), y=alt.Y("mass (%):Q", scale=alt.Scale(zero=False)),
+                  tooltip=["T (°C)", "mass (%)"]).add_params(pick).properties(height=260))
+            lo_w, hi_w = a_sel["plateau_info"].get("window", (None, None)) if a_sel.get("plateau_info") else (None, None)
+            if lo_w:
+                band = alt.Chart(pd.DataFrame({"a": [lo_w], "b": [hi_w]})).mark_rect(color="#14B8A6", opacity=0.12).encode(x="a:Q", x2="b:Q")
+                ch = band + ch
+            ev = st.altair_chart(ch, on_select="rerun", key=f"tga_pick_chart_{sel}", width="stretch")
+            try:
+                pts = ev.selection.get("tga_pick", {}).get("T (°C)", [])
+                if pts:
+                    t_pick = float(pts[0])
+                    if abs(t_pick - float(ov.get(sel, -1e9))) > 0.5:
+                        ov[sel] = t_pick
+                        st.rerun()
+            except Exception:
+                pass
+            c_a, c_b = st.columns([1, 3])
+            if c_a.button("↺ Use the automatic point", key="tga_plat_reset"):
+                ov.pop(sel, None); st.rerun()
+            info_s = a_sel.get("plateau_info") or {}
+            c_b.caption(f"Window {info_s.get('window', ('–', '–'))[0]}–{info_s.get('window', ('–', '–'))[1]} °C · "
+                        + (f"local slope {info_s['slope_pct_per_C']:.4f} % per °C" if info_s.get("slope_pct_per_C") is not None else "")
+                        + (f" · {info_s['reason']}" if info_s.get("reason") else "") + f" · now: {a_sel['plateau_source']}")
     tab = pd.DataFrame([{"sample": nm, "W(200 °C) %": round(a["W200"], 2) if a["W200"] else None, "plateau T (°C)": round(a["T_plateau"], 0) if a["T_plateau"] else None,
+                         "plateau point": a.get("plateau_source", ""),
                          "W(plateau) %": round(a["W_plateau"], 2) if a["W_plateau"] else None, "W(end) %": round(a["W_end"], 2),
                          "plateau/end": round(a["W_plateau"] / a["W_end"], 4) if a["W_plateau"] else None,
                          "DTG peaks (°C)": ", ".join(f"{p:.0f}" for p in a["peaks"])} for nm, a in res])
