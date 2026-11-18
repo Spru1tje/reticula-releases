@@ -25,6 +25,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 .tile{border:1px solid transparent;border-radius:10px;padding:4px;text-align:center;cursor:grab;background:#fff}
 .tile:hover{border-color:var(--line);background:#F8FAFC}
 .tile svg{width:58px;height:58px;display:block;margin:0 auto}
+.tile{content-visibility:auto;contain-intrinsic-size:82px 82px}   /* tiles off screen are not laid out or painted */
 .tile div{font-size:10px;line-height:1.15;height:24px;overflow:hidden}
 .tile{position:relative}.tile .nv{position:absolute;top:3px;right:4px;font-size:9px;color:#64748B;background:#EEF2F6;border-radius:6px;padding:0 4px}
 #family{border-top:1px solid var(--line);padding:6px 8px 8px;display:none}
@@ -99,7 +100,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
       <button data-al="help" title="Keyboard shortcuts (?)">?</button>
     </span>
     <span class="sep"></span>
-    <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content">Fit</button><button id="grid">Grid</button>
+    <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content (0)">Fit</button><button id="zlabel" title="Click to reset to 100% (1)">100%</button><button id="grid" title="Show the grid (G)">Grid</button><button id="snapbtn" class="on" title="Snap to grid and guides (S). Hold Shift to snap the other way.">Snap</button>
     <select id="theme" title="Colour theme"></select>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
@@ -139,7 +140,8 @@ let scene = {version:1,width:960,height:540,background:"#FFFFFF",theme:"default"
 let sel = null, mode = "select", zoom = 1, showGrid = false, pending = null;
 let multi = new Set(), marquee = null;      // multi-selection (ids) and the rubber-band rectangle in progress
 const hist = [], redoStack = [];
-let spaceDown = false, lastNudge = 0;        // space held = pan mode; nudges within 0.7 s form one undo step
+let spaceDown = false, lastNudge = 0;
+let snapOn = true, pasteN = 0, draftT = 0, baseSig = "";   // snap on/off (S), paste cascade count, draft timer, fingerprint of the loaded scene        // space held = pan mode; nudges within 0.7 s form one undo step
 const $ = id => document.getElementById(id);
 const L = {box:$("L_box"), arrow:$("L_arrow"), icon:$("L_icon"), svgart:$("L_icon"), text:$("L_text"), ui:$("L_ui")};
 const el = (tag, attrs={}) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
@@ -339,7 +341,7 @@ cv.addEventListener("pointerdown", ev => {
   }
   if (mode === "text"){ snapshot(); const id = newId("t"); scene.items.push({id, type:"text", x:Math.round(p.x), y:Math.round(p.y), text:"Text", size:16}); sel = id; setMode("select"); renderAll(); commit(); return; }
   if (mode === "box"){ snapshot(); const id = newId("b"); scene.items.push({id, type:"box", x:Math.round(p.x), y:Math.round(p.y), w:240, h:160, fill:"#F1F5F9", radius:14, title:""}); sel = id; setMode("select"); renderAll(); commit(); return; }
-  if (t.dataset && t.dataset.h){ const it = byId(sel); snapshot(); drag = {kind:t.dataset.h, it, p0:p, o:JSON.parse(JSON.stringify(it))}; cv.setPointerCapture(ev.pointerId); return; }
+  if (t.dataset && t.dataset.h && !(byId(sel) || {}).locked){ const it = byId(sel); snapshot(); drag = {kind:t.dataset.h, it, p0:p, o:JSON.parse(JSON.stringify(it))}; cv.setPointerCapture(ev.pointerId); return; }
   const g = t.closest && t.closest("[data-id]"); const id = g && g.dataset.id;
   if (!id){ if (!ev.shiftKey){ multi = new Set(); sel = null; }
     marquee = {p0:p, p1:null}; cv.setPointerCapture(ev.pointerId); drawUI(); inspector(); return; }
@@ -348,7 +350,7 @@ cv.addEventListener("pointerdown", ev => {
   if (!multi.has(id)) multi = new Set(groupMembers(it0));          // clicking a grouped item selects the whole group
   sel = id;
   { const si = sel && byId(sel); if (si && si.type === "icon") showFamily(si.icon, si.shape || "base"); }
-  if (it0.type !== "arrow"){ snapshot();
+  if (it0.type !== "arrow" && !it0.locked){ snapshot();
     const others = [...multi].filter(x => x !== id).map(byId).filter(x => x && x.type !== "arrow").map(x => ({it:x, o:JSON.parse(JSON.stringify(x))}));
     drag = {kind:"move", it:it0, p0:p, o:JSON.parse(JSON.stringify(it0)), others}; cv.setPointerCapture(ev.pointerId); }
   drawUI(); inspector();
@@ -369,9 +371,11 @@ cv.addEventListener("pointerup", () => {
 
 function applyDrag(p, free){
   const {it, o, p0, kind} = drag, dx = p.x - p0.x, dy = p.y - p0.y;
+  if (it.locked) return;                         // a locked item cannot be moved, resized, rotated or re-routed by drag
+  const snapping = snapOn !== free;              // snap is on by default; Shift flips it for one drag
   if (kind === "move"){
     let nx = o.x + dx, ny = o.y + dy; guides = [];
-    if (!free){ const snap = 4; nx = Math.round(nx / snap) * snap; ny = Math.round(ny / snap) * snap;
+    if (snapping){ const snap = 4; nx = Math.round(nx / snap) * snap; ny = Math.round(ny / snap) * snap;
       const b = bbox(Object.assign({}, it, {x:nx, y:ny})), cx = b.x + b.w/2, cy = b.y + b.h/2;
       for (const other of scene.items){ if (other.id === it.id || other.type === "arrow" || other.type === "text") continue;
         const q = bbox(other), ox = q.x + q.w/2, oy = q.y + q.h/2;
@@ -385,7 +389,7 @@ function applyDrag(p, free){
     else { it.w = Math.max(40, Math.round(o.w + dx)); it.h = Math.max(30, Math.round(o.h + dy)); }
   } else if (kind === "rotate"){
     const c = {x: it.x + it.size/2, y: it.y + it.size/2}; let a = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI + 90;
-    if (!free) a = Math.round(a / 15) * 15; it.rotate = ((Math.round(a) % 360) + 360) % 360;
+    if (snapping) a = Math.round(a / 15) * 15; it.rotate = ((Math.round(a) % 360) + 360) % 360;
   } else if (kind.startsWith("end-")){ drag.snap = nearestAnchor(p); }
   else if (kind.startsWith("wp-")){ const i = +kind.slice(3); if (it.waypoints && it.waypoints[i]) it.waypoints[i] = [Math.round(p.x), Math.round(p.y)]; }
   drawItem(it); for (const a of arrowsOf(it.id)) drawItem(a); drawUI();
@@ -478,6 +482,7 @@ function copyItems(ids){
   const set = new Set(ids);
   const items = scene.items.filter(i => set.has(i.id) || (i.type === "arrow" && set.has(i.from.item) && set.has(i.to.item)));
   try { localStorage.setItem("reticula_clip", JSON.stringify(items)); } catch (e) {}
+  pasteN = 0;                                  // a new copy restarts the paste cascade
 }
 function pasteItems(){
   let clip = []; try { clip = JSON.parse(localStorage.getItem("reticula_clip") || "[]"); } catch (e) { clip = []; }
@@ -485,11 +490,13 @@ function pasteItems(){
   snapshot(); const map = {}, gmap = {}, added = [];
   for (const it of clip){ if (it.type === "arrow") continue;
     const c = JSON.parse(JSON.stringify(it)); c.id = newId(it.type[0]); map[it.id] = c.id;
-    c.x = (c.x || 0) + 24; c.y = (c.y || 0) + 24;
+    const off = 24 * (pasteN + 1);             // each paste lands a step further, so repeated pastes do not stack
+    c.x = (c.x || 0) + off; c.y = (c.y || 0) + off;
     if (c.group){ gmap[c.group] = gmap[c.group] || newGroupId(); c.group = gmap[c.group]; }
     scene.items.push(c); added.push(c.id); }
   for (const it of clip){ if (it.type !== "arrow" || !map[it.from.item] || !map[it.to.item]) continue;
     const a = JSON.parse(JSON.stringify(it)); a.id = newId("a"); a.from.item = map[it.from.item]; a.to.item = map[it.to.item]; scene.items.push(a); }
+  pasteN++;
   multi = new Set(added); sel = added[added.length - 1] || null;
   renderAll(); commit(); inspector();
 }
@@ -575,6 +582,8 @@ document.addEventListener("keydown", ev => {
   if (k === "escape"){ closeCtx(); pending = null; sel = null; multi = new Set(); setMode("select"); renderAll(); return; }
   if (k === " " && !mod){ ev.preventDefault(); spaceDown = true; $("stage").classList.add("pan"); return; }
   if (!mod && k === "0"){ fitContent(); return; }
+  if (!mod && k === "s"){ toggleSnap(); return; }
+  if (!mod && k === "g"){ $("grid").click(); return; }
   if (!mod && k === "1"){ setZoom(1); return; }
   if (!mod && k === "v") setMode("select"); if (!mod && k === "a") setMode("arrow"); if (!mod && k === "t") setMode("text"); if (!mod && k === "b") setMode("box");
   const ids = selectedIds();
@@ -606,7 +615,23 @@ $("stage").addEventListener("wheel", ev => { if (!(ev.ctrlKey || ev.metaKey)) re
   const px = (st.scrollLeft + cx - ox) / zoom, py = (st.scrollTop + cy - oy) / zoom;   // page point under the cursor
   setZoom(zoom * (ev.deltaY < 0 ? 1.1 : 1 / 1.1));
   st.scrollLeft = px * zoom + ox - cx; st.scrollTop = py * zoom + oy - cy; }, {passive: false});
-cv.addEventListener("dblclick", () => { const f = $("ilab"); if (f){ f.focus(); f.select(); } });
+cv.addEventListener("dblclick", ev => {
+  const g = ev.target.closest && ev.target.closest("[data-id]"); const it = g && byId(g.dataset.id);
+  if (it && it.type === "text" && !it.locked) return editText(it, g);     // text: edit in place
+  const f = $("ilab"); if (f){ f.focus(); f.select(); } });        // icon: jump to its label field
+function editText(it, g){                       // an input placed over the text, Enter keeps, Esc drops, blur keeps
+  const r = g.getBoundingClientRect(), inp = document.createElement("input");
+  inp.value = it.text || "";
+  inp.style.cssText = `position:fixed;left:${r.left - 4}px;top:${r.top - 6}px;min-width:${Math.max(140, r.width + 24)}px;` +
+    `font:${Math.max(12, (it.size || 14) * zoom)}px Helvetica,Arial,sans-serif;z-index:30;border:1px solid #2563EB;border-radius:4px;padding:2px 4px;background:#fff`;
+  document.body.appendChild(inp); inp.focus(); inp.select();
+  let done = false;
+  const finish = keep => { if (done) return; done = true;
+    if (keep && inp.value !== it.text){ snapshot(); it.text = inp.value; renderAll(); commit(); }
+    inp.remove(); };
+  inp.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); else if (e.key === "Escape") finish(false); });
+  inp.addEventListener("blur", () => finish(true));
+}
 
 /* ------------------------------------------------------------------ inspector */
 function field(label, html){ return `<label>${label}</label>${html}`; }
@@ -616,6 +641,7 @@ function inspector(){
     Drag any of them to move the whole selection. Del deletes all. Ctrl+C / Ctrl+V copies them to another scheme too.</div>`; return; }
   if (!it){ R.innerHTML = `<h3>Page</h3>${field("Size (px)", `<div class="row"><input id="pw" type="number" value="${scene.width}"><input id="ph" type="number" value="${scene.height}"></div>`)}
     ${field("Background", `<input id="pbg" type="color" value="${scene.background||"#ffffff"}">`)}
+    ${offPageHint()}
     <div class="hint">Drag an icon from the left onto the page. Arrow mode (A): click a dot on one icon, then on another.<br>
     Del · Ctrl+D duplicate · Ctrl+Z / Y · arrows nudge (Shift ×10) · H flip · [ ] back / front · Shift while dragging = no snapping · 0 fit · 1 100% · Space + drag pans.</div>`;
     bind("pw", v => scene.width = +v); bind("ph", v => scene.height = +v); bind("pbg", v => scene.background = v); return; }
@@ -627,11 +653,13 @@ function inspector(){
       ${field("Liquid / sample colour", `<input id="iliq" type="color" value="${it.liquid||"#F39AB4"}"><div class="sw">${OKABE.map(c => `<b style="background:${c}" data-c="${c}"></b>`).join("")}</div>`)}
       ${field("Position X / Y", `<div class="row"><input id="ix" type="number" value="${Math.round(it.x)}"><input id="iy" type="number" value="${Math.round(it.y)}"></div>`)}
       ${field("Size / rotation", `<div class="row"><input id="isz" type="number" value="${it.size}"><input id="irot" type="number" value="${it.rotate||0}"></div>`)}
+      <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input id="ilock" type="checkbox" style="width:auto"> Locked (cannot be dragged or resized)</label>
       <div class="hint">H = flip · [ ] = layer order</div>`;
     famStrip($("ifam"), it.icon, it.shape||"base", k => { snapshot(); it.shape = k; renderAll(); commit(); inspector(); });
     bind("ilab", v => { it.label = v; }); bind("iliq", v => { it.liquid = v; });
     bind("isz", v => { it.size = Math.max(16, +v); }); bind("irot", v => { it.rotate = +v; });
     bind("ix", v => { it.x = +v || 0; }); bind("iy", v => { it.y = +v || 0; });
+    const lk = $("ilock"); if (lk){ lk.checked = !!it.locked; lk.onchange = () => { snapshot(); it.locked = lk.checked; commit(); inspector(); }; }
     R.querySelectorAll(".sw b").forEach(b => b.onclick = () => { snapshot(); it.liquid = b.dataset.c; renderAll(); commit(); });
     R.insertAdjacentHTML("beforeend", field("Style (export)", sel3("istyle", ["illustration","shaded","flat","line","solid","duotone"], it.style || "illustration"))
       + field("Theme (export)", sel3("ithm", ["(scheme theme)", ...(CAT.themes || ["default"])], it.theme || "(scheme theme)")));
@@ -673,7 +701,9 @@ function buildPicker(){
   const cats = {}; Object.values(CAT.icons).forEach(i => cats[i.category] = 1);
   $("cat").innerHTML = `<option value="">All categories</option>` + Object.keys(cats).sort().map(c => `<option value="${c}">${(CAT.categories||{})[c] || c}</option>`).join("");
   (CAT.themes || ["default"]).forEach(t => $("theme").insertAdjacentHTML("beforeend", `<option>${t}</option>`));
-  $("q").oninput = $("cat").onchange = fillTiles; fillTiles();
+  let qTimer = 0;                               // search waits 120 ms after the last key: fewer tile rebuilds while typing
+$("q").oninput = () => { clearTimeout(qTimer); qTimer = setTimeout(fillTiles, 120); };
+$("cat").onchange = fillTiles; fillTiles();
 }
 function expand(t){ const out = new Set([t]);
   for (const [canon, tr] of Object.entries(CAT.synonyms || {})){ const words = [canon, ...Object.values(tr).flat()];
@@ -843,7 +873,10 @@ function fitContent(){       // zoom so every item fits the visible stage, then 
 }
 $("grid").onclick = () => { showGrid = !showGrid; $("grid").classList.toggle("on", showGrid); drawUI(); };
 $("theme").onchange = () => { scene.theme = $("theme").value; commit(); };
-function setZoom(z){ zoom = Math.max(.25, Math.min(4, z)); $("paper").style.transform = `scale(${zoom})`; }
+function setZoom(z){ zoom = Math.max(.25, Math.min(4, z)); $("paper").style.transform = `scale(${zoom})`; $("zlabel").textContent = Math.round(zoom * 100) + "%"; }
+$("zlabel").onclick = () => setZoom(1);
+function toggleSnap(){ snapOn = !snapOn; $("snapbtn").classList.toggle("on", snapOn); }
+$("snapbtn").onclick = toggleSnap;
 function download(name, text, type){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); }
 $("expj").onclick = () => download("scheme.json", JSON.stringify(scene, null, 1), "application/json");
 $("exps").onclick = () => { const c = cv.cloneNode(true); c.querySelector("#L_ui").remove();
@@ -860,14 +893,35 @@ const inFrame = window.parent !== window;
 function send(type, data){ if (inFrame) window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, data), "*"); }
 let dirty = false;
 function setDirty(v){ dirty = v; const b = $("save"); if (b) b.textContent = v ? "💾 Save ●" : "💾 Saved"; }
-function commit(){ setDirty(true); $("undo").title = `Undo (${hist.length} step${hist.length === 1 ? "" : "s"}, Ctrl+Z)`; }   // local edit only: no Streamlit rerun, so selection and scroll stay put
+function commit(){ setDirty(true); $("undo").title = `Undo (${hist.length} step${hist.length === 1 ? "" : "s"}, Ctrl+Z)`; scheduleDraft(); }
+/* Draft: an unsaved scheme is kept in this browser, so a reload does not lose work. Only offered again for the same loaded scene. */
+function scheduleDraft(){ clearTimeout(draftT); draftT = setTimeout(() => {
+  try { localStorage.setItem("reticula_draft", JSON.stringify({ts: Date.now(), base: baseSig, scene})); } catch (e) {} }, 800); }
+function offPageHint(){                         // items that stick out of the page would be cut off in the export
+  const n = scene.items.filter(i => { if (i.type === "arrow") return false; const b = bbox(i);
+    return b && (b.x < 0 || b.y < 0 || b.x + b.w > scene.width || b.y + b.h > scene.height); }).length;
+  return n ? `<div class="hint" style="color:#B45309">⚠ ${n} item${n === 1 ? "" : "s"} reach outside the page: the export cuts them off.</div>` : "";
+}
+function hashStr(s){ let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); }
+function offerDraft(){
+  let d = null; try { d = JSON.parse(localStorage.getItem("reticula_draft") || "null"); } catch (e) { d = null; }
+  if (!d || d.base !== baseSig || JSON.stringify(d.scene) === JSON.stringify(scene)) return;
+  const bar = document.createElement("div");
+  bar.id = "draftbar";
+  bar.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:40;background:#FFFBEB;border:1px solid #F59E0B;border-radius:8px;padding:8px 12px;font:13px Helvetica,Arial,sans-serif;box-shadow:0 6px 18px rgba(15,23,42,.18)";
+  bar.innerHTML = `Unsaved changes from ${new Date(d.ts).toLocaleTimeString()} were found. <button id="dr-ok">Restore</button> <button id="dr-no">Discard</button>`;
+  document.body.appendChild(bar);
+  $("dr-ok").onclick = () => { snapshot(); loadScene(JSON.parse(JSON.stringify(d.scene))); sel = null; renderAll(); commit(); bar.remove(); };
+  $("dr-no").onclick = () => { localStorage.removeItem("reticula_draft"); bar.remove(); };
+}   // local edit only: no Streamlit rerun, so selection and scroll stay put
 function commitSoon(){ commit(); }
-function saveScene(){ clearTimeout(tmr); send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"}); setDirty(false); }
+function saveScene(){ clearTimeout(tmr); clearTimeout(draftT); try { localStorage.removeItem("reticula_draft"); } catch (e) {}
+  send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"}); setDirty(false); }
 let tmr = 0;
 let lastSig = null;
 window.addEventListener("message", ev => { const d = ev.data; if (!d || d.type !== "streamlit:render") return;
   const A = d.args || {}; if (A.scene){ const s = typeof A.scene === "string" ? A.scene : JSON.stringify(A.scene);
-    if (s !== lastSig && s !== JSON.stringify(scene) && !dirty){ lastSig = s; loadScene(JSON.parse(s)); sel = null; renderAll(); setDirty(false); } }
+    if (s !== lastSig && s !== JSON.stringify(scene) && !dirty){ lastSig = s; baseSig = hashStr(s); loadScene(JSON.parse(s)); sel = null; renderAll(); setDirty(false); offerDraft(); } }
   send("streamlit:setFrameHeight", {height: A.height || 760}); });
 
 /* ------------------------------------------------------------------ boot */
