@@ -18,7 +18,7 @@ def test_onset_is_where_the_mass_starts_to_fall():
     assert a["T_onset"] is not None
     # the foot of the peak at 450 °C (sigma 18 °C): the mass starts to fall around 400-420 °C
     assert 390 <= a["T_onset"] <= 430
-    assert a["W_onset"] > 98.0
+    assert 90.0 < a["W_onset"] < 99.0      # the tangent crosses the plateau where the mass has just started to fall
 
 
 def test_onset_differs_from_the_flattest_point_rule_is_an_explicit_choice():

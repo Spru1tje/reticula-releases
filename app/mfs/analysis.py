@@ -311,7 +311,7 @@ def tga_analysis(T, w, smooth_window=21):
     pk, props = find_peaks(dtg, prominence=max(dtg.max() * 0.05, 1e-4))
     W = lambda t: float(np.interp(t, Tg, ws))
     T_plat, info = flat_plateau(Tg, dtg, pk)
-    T_on, info_on = onset_plateau(Tg, dtg, pk)
+    T_on, info_on = onset_plateau(Tg, dtg, pk, w=ws)
     return {"T": Tg, "w": ws, "dtg": dtg, "peaks": Tg[pk], "W200": W(200) if Tg.max() > 200 else None,
             "T_plateau": T_plat, "W_plateau": W(T_plat) if T_plat else None, "W_end": float(ws[-20:].mean()),
             "W_initial": float(ws[0]), "plateau_info": info,
@@ -357,7 +357,7 @@ def flat_plateau(Tg, dtg, peak_idx, half_width=25.0, slope_tol=None):
                           "half_width": half_width, "reason": "" if flat else "the mass still changes here (no clear plateau in this window)"}
 
 
-def onset_plateau(Tg, dtg, peak_idx, half_width=25.0, tol=0.05):
+def onset_plateau(Tg, dtg, peak_idx, half_width=25.0, tol=0.05, w=None):
     """EJIC 2020 rule (Lázaro et al., doi:10.1002/ejic.202000656): R_exp uses the mass at the START of the decomposition profile,
     i.e. where the linker starts to lose mass after the flat stretch, not the flattest point. Same window as flat_plateau;
     the onset is the first temperature in that window where the local mass slope exceeds tol (%/°C).
@@ -373,12 +373,23 @@ def onset_plateau(Tg, dtg, peak_idx, half_width=25.0, tol=0.05):
     # until the mass slope is back at the plateau level (tol). Without such a peak, the first fall inside the window counts.
     peaks = np.asarray(peak_idx, int)
     big = [i for i in peaks if Tg[i] >= 380]
+    if big and w is not None:
+        # tangent rule (what an analyst does by hand): the tangent at the steepest point of the linker step, extended back to the
+        # plateau level. Its crossing with the plateau is the start of the decomposition; it is close to the hand-picked onset.
+        iL = max(big, key=lambda j: dtg[j])
+        base = float(np.interp(T_flat if T_flat else lo + half_width, Tg, w))
+        slope = float(dtg[iL])
+        if slope > 0:
+            T_on = float(Tg[iL] + (float(np.interp(Tg[iL], Tg, w)) - base) / slope)
+            T_on = min(max(T_on, lo), float(Tg[iL]))
+            return T_on, {"rule": "start of decomposition (EJIC 2020)", "method": "tangent at the steepest point, to the plateau",
+                          "window": (float(lo), float(hi)), "slope_pct_per_C": slope, "plateau_mass": base, "reason": ""}
     if big:
         i = max(big, key=lambda j: dtg[j])
         while i > 0 and local[i] > tol and Tg[i] > lo:
             i -= 1
-        return float(Tg[i]), {"rule": "start of decomposition (EJIC 2020)", "window": (float(lo), float(hi)),
-                              "slope_pct_per_C": float(local[i]), "reason": ""}
+        return float(Tg[i]), {"rule": "start of decomposition (EJIC 2020)", "method": "foot of the peak",
+                              "window": (float(lo), float(hi)), "slope_pct_per_C": float(local[i]), "reason": ""}
     m = np.nonzero((Tg >= lo + half_width) & (Tg <= hi - half_width))[0]
     falling = [i for i in m if local[i] > tol]
     if not falling:
