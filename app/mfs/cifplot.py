@@ -156,10 +156,15 @@ def draw(ax, S, sites, bonds, style="ortep", prob=0.5, labels="non-H", hbonds=()
         for p, q in [(0, 1), (0, 2), (0, 4), (1, 3), (1, 5), (2, 3), (2, 6), (3, 7), (4, 5), (4, 6), (5, 7), (6, 7)]:
             ax.plot(*C[[p, q], :2].T, color="#777777", lw=0.5, zorder=0.5)
     ax.set_aspect("equal"); ax.set_axis_off()
-    allp = P[:, :2] if len(P) else np.zeros((1, 2))
-    if show_cell:
-        allp = np.vstack([allp, C[:, :2]])
-    lo, hi = allp.min(0) - 1.2, allp.max(0) + 1.2
+    # v2.17: centre the view on the MOLECULE (its atoms), not on the cell corners, so the picture sits in the middle of the frame
+    atoms2 = P[:, :2] if len(P) else np.zeros((1, 2))
+    mid = (atoms2.min(0) + atoms2.max(0)) / 2
+    half = float(np.max(np.abs(atoms2 - mid))) + 1.2
+    if show_cell:                                  # keep the whole cell only when it stays close to the molecule
+        cc = C[:, :2]
+        if float(np.max(np.abs(cc - mid))) < 1.6 * half:
+            half = max(half, float(np.max(np.abs(cc - mid))) + 0.6)
+    lo, hi = mid - half, mid + half
     ax.set_xlim(lo[0], hi[0]); ax.set_ylim(lo[1], hi[1])
     # labels on top: placed away from the bonded neighbours, then a repel pass (labels vs labels and vs atoms)
     if labels != "none":
@@ -172,8 +177,10 @@ def draw(ax, S, sites, bonds, style="ortep", prob=0.5, labels="non-H", hbonds=()
             dx, dy = (label_offsets or {}).get(sites[i]["label"], (0.0, 0.0))
             if np.linalg.norm(pos[j] - P[i, :2]) > 1.6:          # pushed far away: thin leader line
                 ax.plot([P[i, 0], pos[j, 0] + dx], [P[i, 1], pos[j, 1] + dy], color="#888888", lw=0.3, zorder=4)
-            ax.text(pos[j, 0] + dx, pos[j, 1] + dy, t, fontsize=label_fs if sites[i]["el"] != "H" else label_fs * 0.8, zorder=5,
-                    color="k", ha="center", va="center")
+            # v2.17: a white halo under every label, so bonds never run through the text
+            ax.text(pos[j, 0] + dx, pos[j, 1] + dy, t, fontsize=label_fs if sites[i]["el"] != "H" else label_fs * 0.8, zorder=7,
+                    color="k", ha="center", va="center",
+                    bbox=dict(boxstyle="round,pad=0.12", fc="white", ec="none", alpha=0.85))
     if triad:
         L = 0.09 * max(hi - lo); o2 = lo + 0.06 * (hi - lo)
         for j, (nm, col) in enumerate(zip("abc", ("#D62728", "#2CA02C", "#1F77B4"))):
