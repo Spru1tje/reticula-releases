@@ -455,6 +455,7 @@ class Refinement:
         return s, bg_c, calc, A
 
     restraint_sigma = 0.0          # Å; > 0 switches the distance restraints on (set by the structure stages)
+    restraint_scale = 1.0          # multiplies the restraint widths: < 1 tighter (trust the starting geometry), > 1 looser
 
     def _restraints(self, v):
         """Soft distance restraints (d - d0) / sigma of the bonded pairs of the starting structure; d0 follows the refined cell (isotropic scale)."""
@@ -655,7 +656,7 @@ class Refinement:
                           if self.mode == "rietveld" else []), 0.85))
         for nm, names, frac in stages:
             prog(frac, nm)
-            self.restraint_sigma = 0.06 if "soft" in nm else (0.025 if ("tight" in nm or "Fine" in nm) else 0.0)
+            self.restraint_sigma = self.restraint_scale * (0.06 if "soft" in nm else (0.025 if ("tight" in nm or "Fine" in nm) else 0.0))
             if "Fine" in nm and any(self._struct_mode(i) for i in range(n_ph)):
                 names = names + [f"sB{i}.{e}" for i in range(n_ph) if self._struct_mode(i) for e in self.phases[i].model.elements] \
                     + [f"sx{i}.{k}" for i in range(n_ph) if self._struct_mode(i) for k in range(self.phases[i].model.n_pos)]
@@ -808,6 +809,8 @@ class Refinement:
             out.update(self.structure_report(i))
         except Exception as e:                                       # the statistics must never cost the refinement result
             out["report_error"] = str(e)[:200]
+        out["cn"] = {c["atom"]: c["CN"] for c in out.get("coordination", [])}
+        out["_state"] = {"model": mdl, "p": p.copy(), "cell": self.cell(i, v), "B": self._B_atoms(i, v), "labels": labs}
         if ph.bond_arr is not None:
             bi, bj, bn, d0 = ph.bond_arr
             cell = self.cell(i, v)
@@ -884,7 +887,7 @@ class Refinement:
         return n
 
 
-def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None, refine_structure=False):
+def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None, refine_structure=False, restraint_scale=1.0):
     """One call: cifs = list of CIF paths / bytes (or Phase objects). Returns the result dict of Refinement.run()."""
     x = np.asarray(x, float)
     y = np.asarray(y, float)
@@ -900,6 +903,7 @@ def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None
         if ax_ is not None and k < len(phases):
             phases[k].po_axis = tuple(int(v) for v in ax_)
     R = Refinement(x, y, phases, radiation, bg_order, mode, mono_2theta, progress=progress, offset=offset)
+    R.restraint_scale = float(restraint_scale)
     return R.run()
 
 

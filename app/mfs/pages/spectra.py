@@ -285,12 +285,16 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     rad = c3.selectbox("Radiation", list(RV.RADIATION), key="rv_rad", help="Kα1 only = monochromated beam (e.g. STOE); Kα1 + Kα2 = Kβ filter (e.g. Rigaku, Bruker).")
     d1, d2, d3 = box.columns([3, 2, 2])
     rng = d1.slider("2θ range used (°)", float(lo - 2 if lo > 4 else 2.0), 120.0, (float(lo), float(max(hi, lo + 10))), 0.5, key="rv_rng")
-    mode_l = d2.radio("Method", ["Rietveld (structure known)", "Le Bail (cell + peak shape only)"], key="rv_mode",
-                      help="Rietveld uses the intensities of the CIF; Le Bail lets every intensity free – use it when the structure is not right.")
+    mode_l = d2.radio("Method", ["Rietveld (structure known)", "Rietveld + refine the atoms (structure)", "Le Bail (cell + peak shape only)"], key="rv_mode",
+                      help="Rietveld uses the intensities of the CIF. 'Refine the atoms' also refines the atom positions (within the site symmetry) and one displacement "
+                           "parameter per element, with soft bond restraints, and gives bond lengths, angles, a 3D view and a CIF. Le Bail lets every intensity free – "
+                           "use it when the structure is not right.")
     hf = d3.checkbox("Replace Zr by Hf", subst.startswith("Hf"), key="rv_hf", help="For Hf analogues of the bundled Zr structures.")
-    bgo, mono, offm = 6, 0.0, "sample displacement"
+    bgo, mono, offm, rscale = 6, 0.0, "sample displacement", 1.0
     if LV.at_least("Advanced"):
         e1, e2 = box.columns(2)
+        rscale = box.slider("Bond restraints (structure refinement)", 0.3, 3.0, 1.0, 0.1, key="rv_rscale",
+                            help="< 1 tighter: keep the bond lengths of the starting structure; > 1 looser: let the data decide. 1 = default (0.06 → 0.025 Å).")
         bgo = e1.slider("Background polynomial order", 2, 14, 6, key="rv_bg")
         mono = e2.number_input("Monochromator 2θ (° – 0 = none, 26.6 = graphite)", 0.0, 60.0, 0.0, 0.1, key="rv_mono")
         offm = box.radio("Instrument offset", ["sample displacement (reflection geometry – default)", "zero shift (transmission / capillary / calibrated)", "both (only with a measured standard)"],
@@ -324,7 +328,8 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
             for ph_, (name, _s) in zip(ph, phases_src):
                 ph_.po_axis = _axis(po_txt.get(name, ""))
             res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,
-                                  mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_))
+                                  mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=lambda f, t_: bar.progress(min(float(f), 1.0), text=t_),
+                                  refine_structure=mode_l.startswith("Rietveld + refine"), restraint_scale=rscale)
             store[nm] = res
             bar.empty()
         except Exception as e:
@@ -374,6 +379,10 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
             if np.isfinite(res["size_nm_apparent"]) and res["size_nm_apparent"] < 1000:
                 st.caption(f"Apparent size from the Lorentzian width: {res['size_nm_apparent']:.0f} nm, apparent strain {100 * res['strain_apparent']:.2f} % "
                            "(instrument broadening included – a lower limit for the size).")
+    for _i, _p in enumerate(res["phases"]):                   # v2.16: refined structure (3D, tables, figure, CIF)
+        if _p.get("structure"):
+            from mfs import struct_ui as SU
+            SU.render(res, _i, nm, {"show": show, "newfig": newfig, "dl": dl}, __version__)
     _fn = re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)
     dl(st, "⬇️ Rietveld report (Excel: summary, phases, profile, pattern, notes)", lambda: RV.report_xlsx(res, nm), f"Rietveld_{_fn}.xlsx", "rv_xlsx")
     _dom = max(res["phases"], key=lambda p_: p_["weight_fraction"] if p_["weight_fraction"] == p_["weight_fraction"] else 0)

@@ -121,12 +121,14 @@ def report(model, p, cell_metric_fn, cov=None, names=None, base=None, labels=Non
                 rec = {"atom1": la, "centre": li, "atom2": lb, "angle": ang, "esd": e}
                 seen_a[key] = rec
                 angles.append(rec)
-        cn = len(lst)
-        coord.append({"atom": li, "CN": cn, "mean_d": float(np.mean([d for _, _, d in lst]))})
+        wts = [float(model.atom_occ[j]) for (j, n, d) in lst]               # a partially occupied neighbour counts with its occupancy
+        cn = round(sum(wts), 2)
+        cn = int(cn) if abs(cn - round(cn)) < 1e-6 else cn
+        coord.append({"atom": li, "CN": cn, "mean_d": float(np.average([d for _, _, d in lst], weights=np.maximum(wts, 1e-9)))})
         el = model.atom_el[i]
         if el in BV_R0:
             R0, ox = BV_R0[el]
-            s = sum(math.exp((R0 - d) / BV_B) for (j, n, d) in lst if model.atom_el[j] == "O")
+            s = sum(float(model.atom_occ[j]) * math.exp((R0 - d) / BV_B) for (j, n, d) in lst if model.atom_el[j] == "O")
             if s > 0:
                 bvs.append({"atom": li, "BVS": s, "formal": ox, "deviation_pct": 100.0 * (s - ox) / ox})
     return {"bonds": bonds, "angles": angles, "coordination": coord, "bvs": bvs}

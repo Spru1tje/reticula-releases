@@ -12,7 +12,7 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-18T01:49:01",
+    "updated": "2026-11-18T02:05:23",
     "files": [
      "aspirin_300_XWIN35.zip (bundled example)",
      "naphtoic_500_TS35_dspfvs12.zip (bundled example)"
@@ -119,7 +119,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T01:48:56",
+    "updated": "2026-11-18T02:05:18",
     "files": [
      "MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
@@ -136,7 +136,7 @@
      "MOF-801 weight fraction (%)": 100.0
     },
     "source": "PXRD Rietveld",
-    "updated": "2026-11-18T01:48:53",
+    "updated": "2026-11-18T02:05:16",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",
@@ -204,7 +204,7 @@
      "microstrain_WH_percent": -0.022767786836609398
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-18T01:48:53",
+    "updated": "2026-11-18T02:05:15",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",
@@ -286,7 +286,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T01:48:56",
+    "updated": "2026-11-18T02:05:18",
     "files": [
      "MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
@@ -302,7 +302,7 @@
      "microstrain_WH_percent": -0.02310848760362531
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-18T01:48:53",
+    "updated": "2026-11-18T02:05:15",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",
@@ -384,7 +384,7 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T01:48:56",
+    "updated": "2026-11-18T02:05:18",
     "files": [
      "MOF801_Hf4f_CasaXPS.csv (bundled example)",
      "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
@@ -400,7 +400,7 @@
      "microstrain_WH_percent": -0.019387993651604492
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-18T01:48:53",
+    "updated": "2026-11-18T02:05:15",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",
@@ -468,7 +468,7 @@
      "microstrain_WH_percent": null
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-18T01:48:53",
+    "updated": "2026-11-18T02:05:15",
     "files": [
      "MOF801_STOE.xy (bundled example)",
      "PM_STOE.xy (bundled example)",

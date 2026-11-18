@@ -131,3 +131,21 @@ def test_pl_extras_panels_exist_and_run():
     at = _page("Photoluminescence", "Standard")
     assert not at.exception, at.exception
     assert not any("CIE 1931" in e.label for e in at.expander)
+
+
+def test_structure_refinement_in_the_app_with_3d_tables_and_cif():
+    from streamlit.testing.v1 import AppTest
+    warnings.filterwarnings("ignore")
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=900)
+    at.session_state["_lv"] = {"global": "Advanced"}
+    at.run()
+    at.sidebar.radio[0].set_value("PXRD").run()
+    [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    [r for r in at.radio if r.key == "rv_mode"][0].set_value("Rietveld + refine the atoms (structure)").run()
+    [b for b in at.button if b.key == "rv_go"][0].click().run()
+    assert not at.exception, at.exception
+    res = next(iter(at.session_state["rv_res"].values()))
+    sd = res["phases"][0]["structure"]
+    assert sd["atoms"] and sd["bond_rms_deviation"] < 0.15 and sd["bonds"] and not sd.get("report_error")
+    assert any("Refined structure" in str(m.value) for m in at.markdown)
+    assert [t.label for t in at.tabs if "3D structure" in t.label] and [t.label for t in at.tabs if "Output" in t.label]

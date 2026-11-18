@@ -47,6 +47,8 @@ def is_metal(el):
 def is_bond(e1: str, e2: str, d: float, ionic_extra: float = 0.55, covalent_extra: float = 0.30) -> bool:
     """Chemically sensible bond test: metal-anion (O, F, N, S, halides) within the covalent radii + 0.55 Å, covalent bonds between non-metals within +0.30 Å.
     Never: metal-metal, metal-P/Si/B/C/H, O-O (beyond peroxide length), H-H. Used for the restraints and for the bond statistics."""
+    if d < 0.7:                          # two atoms that close are alternative positions of a disordered site, not a bond
+        return False
     m1, m2 = is_metal(e1), is_metal(e2)
     r = _covalent(e1) + _covalent(e2)
     if m1 and m2:
@@ -56,7 +58,7 @@ def is_bond(e1: str, e2: str, d: float, ionic_extra: float = 0.55, covalent_extr
         return other in ANIONS and d < r + ionic_extra
     if e1 == "H" and e2 == "H":
         return False
-    if e1 in ANIONS and e2 in ANIONS and e1 == e2 and d > 1.7:
+    if e1 in ANIONS and e2 in ANIONS and e1 == e2 and not (1.2 < d < 1.7):          # O-O only as a peroxide bond
         return False
     return d < r + covalent_extra
 
