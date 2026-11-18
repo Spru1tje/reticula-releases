@@ -1,4 +1,4 @@
-# To do for v2.19 (carried over from v2.18)
+# To do for v2.19 (carried over from v2.17.0)
 
 Accepted for v2.18 as they are (known limits, see CHANGELOG):
 - TGA plateau (defect calculator): the rule is based on the main text of the source paper. The SI tables are not checked against it.

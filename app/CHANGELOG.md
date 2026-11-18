@@ -1,8 +1,7 @@
 # Changelog
 
-## 2.18.0 — unreleased
 
-### New name: Figuryte
+### Name and project files: Figuryte
 - The program is called **Figuryte** in the window, the start page, the menus, the exports, the methods texts and the provenance.
 - **Project files are `.figuryte`** (the same zip format as before). Projects saved as `.reticula` still open.
 - Double-click or *Open with* works for `.figuryte` files (Windows installer and macOS bundle register the new extension too).
