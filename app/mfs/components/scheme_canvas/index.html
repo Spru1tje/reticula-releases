@@ -122,7 +122,8 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 </div>
 <div id="ctx"></div>
 <div id="help" hidden><b>Keyboard</b><br>
-V select · A arrow · T text · B box · Esc cancel<br>
+V select · A arrow · T text · B box · Esc clear selection and cancel · 0 fit content · 1 100%<br>
+Space + drag pans · Ctrl + wheel zooms at the cursor · double-click an icon to edit its label<br>
 Drag on empty canvas: select several · Shift-click: add / remove · Ctrl+G group · Ctrl+Shift+G ungroup<br>
 Ctrl+C / Ctrl+V copy and paste (also into another scheme) · Ctrl+D duplicate · Del delete<br>
 Arrows nudge (Shift ×10) · H flip · [ ] back / front · Ctrl+Z / Ctrl+Y undo / redo<br>
@@ -292,6 +293,12 @@ function drawUI(){
   L.ui.innerHTML = "";
   $("alignbar").hidden = !(sel || multi.size);   // align / group only appear when something is selected: less clutter in the bar
   syncFbar();
+  if (!scene.items.length){                    // empty canvas: a quiet hint instead of a blank page
+    const t = el("text", {x: scene.width / 2, y: scene.height / 2, "text-anchor": "middle", fill: "#94A3B8", "font-size": 18,
+      "font-family": "Helvetica,Arial,sans-serif", "pointer-events": "none"});
+    t.textContent = "Drag an icon from the left, or press A for arrows and T for text";
+    L.ui.appendChild(t);
+  }
   if (showGrid){ const gp = el("g", {opacity:.5}); for (let x = 0; x <= scene.width; x += 20) gp.appendChild(el("line", {x1:x,y1:0,x2:x,y2:scene.height,stroke:"#E2E8F0"}));
     for (let y = 0; y <= scene.height; y += 20) gp.appendChild(el("line", {x1:0,y1:y,x2:scene.width,y2:y,stroke:"#E2E8F0"})); L.ui.appendChild(gp); }
   for (const g of guides) L.ui.appendChild(el("line", Object.assign({class:"guide"}, g)));
@@ -610,7 +617,7 @@ function inspector(){
   if (!it){ R.innerHTML = `<h3>Page</h3>${field("Size (px)", `<div class="row"><input id="pw" type="number" value="${scene.width}"><input id="ph" type="number" value="${scene.height}"></div>`)}
     ${field("Background", `<input id="pbg" type="color" value="${scene.background||"#ffffff"}">`)}
     <div class="hint">Drag an icon from the left onto the page. Arrow mode (A): click a dot on one icon, then on another.<br>
-    Del · Ctrl+D duplicate · Ctrl+Z / Y · arrows nudge (Shift ×10) · H flip · [ ] back / front · Shift while dragging = no snapping.</div>`;
+    Del · Ctrl+D duplicate · Ctrl+Z / Y · arrows nudge (Shift ×10) · H flip · [ ] back / front · Shift while dragging = no snapping · 0 fit · 1 100% · Space + drag pans.</div>`;
     bind("pw", v => scene.width = +v); bind("ph", v => scene.height = +v); bind("pbg", v => scene.background = v); return; }
   if (it.type === "icon"){
     const ic = CAT.icons[it.icon], lab = it.label ? (typeof it.label === "string" ? it.label : it.label.text) : "";
@@ -769,6 +776,12 @@ const FBAR_ACTIONS = {
   del:    {label:"Delete",    title:"Delete (Del)",                          run:() => deleteSel(), danger:true},
   dup:    {label:"Duplicate", title:"Duplicate the selection (Ctrl+D)",      run:() => { copyItems(selectedIds()); pasteItems(); }},
   same:   {label:"Same size", title:"Give the selected icons the size of the first one", run:() => sameSize()},
+  route:  {label:"Route", title:"Cycle the arrow route: straight, elbow, curved", run:() => {
+    const a = selectedIds().map(byId).find(x => x && x.type === "arrow"); if (!a) return;
+    snapshot(); const order = ["straight", "elbow", "curved"]; a.route = order[(order.indexOf(a.route || "straight") + 1) % 3]; renderAll(); commit(); }},
+  rev:    {label:"Reverse", title:"Reverse the arrow direction (start and end swap)", run:() => {
+    const a = selectedIds().map(byId).find(x => x && x.type === "arrow"); if (!a) return;
+    snapshot(); const t = a.from; a.from = a.to; a.to = t; if (a.waypoints) a.waypoints = a.waypoints.slice().reverse(); renderAll(); commit(); }},
 };
 function selSize(){                         // width x height of the selection's bounding box
   const bs = selectedIds().map(byId).map(bbox).filter(Boolean);
@@ -784,6 +797,7 @@ function sameSize(){
 }
 function fbarSet(ids){                       // which actions for this selection
   const items = ids.map(byId).filter(Boolean);
+  if (items.length === 1 && items[0].type === "arrow") return ["route", "rev", "del"];
   const multiSel = items.length > 1;
   const hasIcon = items.some(x => x.type === "icon");
   const k = [];
@@ -799,7 +813,10 @@ function syncFbar(){
   const f = $("fbar");
   if (!f) return;
   const ids = selectedIds();
-  const bs = ids.map(id => byId(id)).map(bbox).filter(Boolean);
+  const bs = ids.map(id => byId(id)).map(it => {           // arrows have no box: the bar sits at their midpoint
+    if (!it) return null;
+    if (it.type === "arrow"){ const G = arrowGeom(it); return G && G.mid ? {x: G.mid[0], y: G.mid[1], w: 0, h: 0} : null; }
+    return bbox(it); }).filter(Boolean);
   if (!bs.length || mode !== "select" || pending){ f.hidden = true; return; }
   const x0 = Math.min(...bs.map(b => b.x)), x1 = Math.max(...bs.map(b => b.x + b.w)), y0 = Math.min(...bs.map(b => b.y));
   f.hidden = false;
