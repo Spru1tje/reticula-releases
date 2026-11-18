@@ -111,6 +111,10 @@ class Phase:
         self.mult = None
         self.F2 = None
         self.po_axis = None            # (h, k, l) of the preferred-orientation axis (March-Dollase), None = random powder
+        self.model = None              # StructureModel (symmetry-aware atoms) when the structure is refined
+        self.struct_refine = False
+        self._structure = None
+        self.bond_arr = None
 
     @classmethod
     def from_cif(cls, src, name=None, substitute=None):
@@ -143,7 +147,32 @@ class Phase:
                 occ.append(float(o))
                 el.append(sp.symbol)
                 mass += float(o) * float(sp.atomic_mass)
-        return cls(name or s.composition.reduced_formula, cell, detect_system(cell), frac, occ, el, mass, s.composition.reduced_formula)
+        obj = cls(name or s.composition.reduced_formula, cell, detect_system(cell), frac, occ, el, mass, s.composition.reduced_formula)
+        obj._structure = s
+        return obj
+
+    def enable_structure(self, symprec: float = 0.01, restraint_tol: float = 0.45):
+        """Switches the phase to structure refinement (atom positions, displacement parameters): builds the symmetry-aware model and the bond restraints."""
+        from mfs.structmodel import StructureModel
+        if self._structure is None:
+            raise ValueError("structure refinement needs the phase to be read from a CIF")
+        self.model = StructureModel(self._structure, symprec)
+        self.struct_refine = True
+        bonds = self.model.bond_list(tol=restraint_tol)
+        self.bond_arr = (np.array([b[0] for b in bonds], int), np.array([b[1] for b in bonds], int), np.array([b[2] for b in bonds], float),
+                         np.array([b[3] for b in bonds], float)) if bonds else None
+        if self.hkl is not None:
+            self._classify()
+        return self
+
+    def _classify(self):
+        """Reflection classes for the structure-factor evaluation (one |F|² per symmetry-equivalent class)."""
+        inv, reps, cnt = self.model.classify(self.m_hkl)
+        self.m_class = inv
+        self.cls_hkl = reps
+        self.cls_cnt = cnt.astype(float)
+        self.cls_group = np.zeros(len(reps), int)
+        self.cls_group[inv] = self.m_grp
 
     def build(self, dmin: float):
         """Reflections down to d = dmin (Å): half-space hkl, structure factors at B = 0, equivalents merged by d-spacing."""
@@ -182,6 +211,8 @@ class Phase:
         self.hkl = hk[first][keep]
         self.I0 = I0[keep]                      # multiplicity · |F|² (Friedel pairs counted)
         self.dmin = dmin
+        if self.model is not None:
+            self._classify()
         return self
 
     @property
@@ -270,7 +301,16 @@ class Refinement:
                 lo, hi = (v * 0.97, v * 1.03) if n != "alpha" and n != "beta" and n != "gamma" else (v - 3.0, v + 3.0)
                 P[f"c{i}.{n}"] = _P(f"c{i}.{n}", v, lo, hi, False, 0.002 * (1 if n in "abc" else 50), f"{ph.name}: {n}")
             P[f"B{i}"] = _P(f"B{i}", 1.0, 0.0, 12.0, False, 0.05, f"{ph.name}: B overall (Å²)")
+            if ph.model is not None and ph.struct_refine:
+                P[f"B{i}"].value = 0.0                                          # replaced by one B per element (sB)
             P[f"po{i}"] = _P(f"po{i}", 1.0, 0.3, 1.8, False, 0.02, f"{ph.name}: preferred orientation r (March-Dollase)")
+            if ph.model is not None and ph.struct_refine:
+                lim = 0.35 / max(ph.cell0[:3])                                 # a shift of at most 0.35 Å (fractional units)
+                labs = ph.model.labels()
+                for k, (r_, c_) in enumerate(ph.model.pos_params):
+                    P[f"sx{i}.{k}"] = _P(f"sx{i}.{k}", 0.0, -lim, lim, False, max(lim / 20, 5e-4), f"{ph.name}: {labs[r_]} shift {c_ + 1}")
+                for el in ph.model.elements:
+                    P[f"sB{i}.{el}"] = _P(f"sB{i}.{el}", 1.0, 0.05, 15.0, False, 0.1, f"{ph.name}: B({el}) (Å²)")
         if self.instrument:
             for k, v in self.instrument.items():
                 if k in ("U", "V", "W", "X", "Y"):
@@ -291,11 +331,40 @@ class Refinement:
         g = (lambda n: vals[f"c{i}.{n}"]) if vals else (lambda n: self.P[f"c{i}.{n}"].value)
         return cell_from_dof(ph.system, {n: g(n) for n in CELL_DOF[ph.system]}, ph.cell0)
 
+    def _struct_mode(self, i):
+        ph = self.phases[i]
+        return ph.model is not None and ph.struct_refine and getattr(ph, "cls_hkl", None) is not None
+
+    def _pos_vec(self, i, v):
+        ph = self.phases[i]
+        return np.array([v[f"sx{i}.{k}"] for k in range(ph.model.n_pos)])
+
+    def _B_atoms(self, i, v):
+        ph = self.phases[i]
+        return np.array([v[f"sB{i}.{e}"] for e in ph.model.atom_el])
+
+    def _class_F2(self, i, v):
+        ph = self.phases[i]
+        Gs = np.linalg.inv(_cell_metric(self.cell(i, v)))
+        s2 = np.einsum("ki,ij,kj->k", ph.cls_hkl, Gs, ph.cls_hkl) / 4.0
+        return ph.model.f2(ph.cls_hkl, s2, self._pos_vec(i, v), self._B_atoms(i, v))
+
+    def _dw(self, i, v, s2):
+        """Overall Debye-Waller factor of the intensities; with the structure model every atom carries its own B (already inside |F|²)."""
+        if self._struct_mode(i):
+            return 1.0
+        return np.exp(-2.0 * v[f"B{i}"] * s2)
+
     def _I0(self, i, v):
         """multiplicity · |F|² of the reflection groups of phase i; with a preferred-orientation axis every single reflection is weighted by the
         March-Dollase function (r² cos²α + sin²α / r)^(-3/2), α = angle between the reflection and the axis (r < 1 plate-like, r > 1 needle-like)."""
         ph = self.phases[i]
         r = v[f"po{i}"]
+        struct = self._struct_mode(i)
+        if struct:
+            F2c = self._class_F2(i, v)
+            if ph.po_axis is None:
+                return np.bincount(ph.cls_group, weights=2.0 * ph.cls_cnt * F2c, minlength=ph.n_ref)
         if ph.po_axis is None or ph.m_hkl is None:
             return ph.I0
         Gs = np.linalg.inv(_cell_metric(self.cell(i, v)))
@@ -305,7 +374,7 @@ class Refinement:
         n2 = float(h0 @ Gs @ h0)
         cos2 = np.clip(dot ** 2 / np.maximum(n1 * n2, 1e-30), 0.0, 1.0)
         w = (r * r * cos2 + (1.0 - cos2) / r) ** -1.5
-        return np.bincount(ph.m_grp, weights=ph.m_F2 * w, minlength=ph.n_ref)
+        return np.bincount(ph.m_grp, weights=(2.0 * F2c[ph.m_class] if struct else ph.m_F2) * w, minlength=ph.n_ref)
 
     def _values(self, theta=None):
         v = {n: p.value for n, p in self.P.items()}
@@ -325,7 +394,7 @@ class Refinement:
         if self.mode == "lebail":
             I = self.I_free[i].copy()
         else:
-            I = self._I0(i, v) * np.exp(-2.0 * v[f"B{i}"] * s2)
+            I = self._I0(i, v) * self._dw(i, v, s2)
         out = np.zeros_like(self.x)
         pk_pos, pk_I = [], []
         for lam, wl in self.rad:
@@ -385,10 +454,32 @@ class Refinement:
         calc = A @ s + self.T @ bg_c
         return s, bg_c, calc, A
 
-    def _residual(self, theta):
-        v = self._values(theta)
+    restraint_sigma = 0.0          # Å; > 0 switches the distance restraints on (set by the structure stages)
+
+    def _restraints(self, v):
+        """Soft distance restraints (d - d0) / sigma of the bonded pairs of the starting structure; d0 follows the refined cell (isotropic scale)."""
+        out = []
+        if self.restraint_sigma <= 0:
+            return np.zeros(0)
+        for i, ph in enumerate(self.phases):
+            if not self._struct_mode(i) or ph.bond_arr is None:
+                continue
+            bi, bj, bn, d0 = ph.bond_arr
+            cell = self.cell(i, v)
+            sc = float(np.mean(cell[:3]) / np.mean(ph.cell0[:3]))
+            d = ph.model.distances_metric(bi, bj, bn, self._pos_vec(i, v), _cell_metric(cell))
+            out.append((d - d0 * sc) / self.restraint_sigma)
+        return np.concatenate(out) if out else np.zeros(0)
+
+    def _data_residual(self, v):
         s, bgc, calc, _ = self._solve_linear(v)
         return np.sqrt(self.w) * (self.y - calc)
+
+    def _residual(self, theta):
+        v = self._values(theta)
+        r = self._data_residual(v)
+        rr = self._restraints(v)
+        return np.concatenate([r, rr]) if len(rr) else r
 
     # ------------------------------------------------------------------------------------------- statistics
     def stats(self, calc=None):
@@ -547,6 +638,14 @@ class Refinement:
         if self.mode == "rietveld":
             stages.append(("Atomic displacement (B)", off + ["U", "V", "W", "X", "Y"] + cell_names + [f"B{i}" for i in range(n_ph)], 0.70))
             po_names = [f"po{i}" for i, ph_ in enumerate(self.phases) if ph_.po_axis is not None]
+            struct_ph = [i for i in range(n_ph) if self._struct_mode(i)]
+            if struct_ph:
+                bn_ = [f"sB{i}.{e}" for i in struct_ph for e in self.phases[i].model.elements]
+                xn_ = [f"sx{i}.{k}" for i in struct_ph for k in range(self.phases[i].model.n_pos)]
+                base_ = off + ["U", "V", "W", "X", "Y"] + cell_names
+                stages.append(("Atomic displacement parameters (B per element)", base_ + bn_, 0.72))
+                stages.append(("Atom positions (soft bond restraints)", base_ + bn_ + xn_, 0.78))
+                stages.append(("Atom positions (tight restraints)", base_ + bn_ + xn_, 0.82))
             if po_names:
                 stages.append(("Preferred orientation", off + ["U", "V", "W", "X", "Y"] + cell_names + [f"B{i}" for i in range(n_ph)] + po_names, 0.76))
         low_angle = float(self.x.min()) < 20.0
@@ -556,6 +655,10 @@ class Refinement:
                           if self.mode == "rietveld" else []), 0.85))
         for nm, names, frac in stages:
             prog(frac, nm)
+            self.restraint_sigma = 0.06 if "soft" in nm else (0.025 if ("tight" in nm or "Fine" in nm) else 0.0)
+            if "Fine" in nm and any(self._struct_mode(i) for i in range(n_ph)):
+                names = names + [f"sB{i}.{e}" for i in range(n_ph) if self._struct_mode(i) for e in self.phases[i].model.elements] \
+                    + [f"sx{i}.{k}" for i in range(n_ph) if self._struct_mode(i) for k in range(self.phases[i].model.n_pos)]
             if nm.startswith("Preferred"):
                 self._po_scan()
             if self.mode == "lebail":
@@ -569,6 +672,7 @@ class Refinement:
             self._le_bail_extract(60)
         prog(0.95, "Statistics and uncertainties")
         res = self.result()
+        self.restraint_sigma = 0.0
         res["seconds"] = time.time() - t0
         prog(1.0, "Done")
         return res
@@ -592,12 +696,15 @@ class Refinement:
             cov = np.linalg.inv(J.T @ J)
         except np.linalg.LinAlgError:
             cov = np.linalg.pinv(J.T @ J)
-        dof = max(len(f0) - len(fn) - len(self.phases) - self.nb, 1)
-        red = float(f0 @ f0) / dof
+        n_data = len(self.y)
+        f_data = f0[:n_data]
+        dof = max(n_data - len(fn) - len(self.phases) - self.nb, 1)
+        red = float(f_data @ f_data) / dof
         # Bérar-Lelann: serial correlation of the residuals inflates the errors
         r = f0 - f0.mean()
         ac = float(np.dot(r[:-1], r[1:]) / max(np.dot(r, r), 1e-12))
         infl = max(1.0, math.sqrt(max((1 + max(ac, 0)) / (1 - min(max(ac, 0), 0.95)), 1.0)))
+        self._cov = (fn, cov * red * infl ** 2)
         return {n: float(math.sqrt(max(cov[k, k], 0) * red)) * infl for k, n in enumerate(fn)}
 
     def result(self):
@@ -622,6 +729,8 @@ class Refinement:
                            "B": self.P[f"B{i}"].value, "B_esd": esd.get(f"B{i}"), "po_r": self.P[f"po{i}"].value if ph.po_axis is not None else None,
                            "po_axis": ph.po_axis, "po_esd": esd.get(f"po{i}"), "scale": float(s[i]), "n_reflections": ph.n_ref, "ticks": pk_pos,
                            "formula": ph.formula})
+            if self._struct_mode(i):
+                phases[-1]["structure"] = self._structure_table(i, v, esd)
             zmv.append(float(s[i]) * ph.mass_cell * vol if self.mode == "rietveld" else 0.0)
         tot = sum(zmv)
         for i, ph in enumerate(phases):
@@ -642,6 +751,48 @@ class Refinement:
                 "size_nm_apparent": size, "strain_apparent": strain, "notes": notes, "bg_order": self.nb - 1,
                 "free": names_free, "lebail_I": {i: self.I_free[i] for i in self.I_free} if self.mode == "lebail" else None}
 
+    def _structure_table(self, i, v, esd):
+        """Refined atoms (label, element, x, y, z ± esd, B ± esd, occupancy, number of equivalent atoms in the cell, site-symmetry order) and the
+        restraint statistics."""
+        ph = self.phases[i]
+        mdl = ph.model
+        p = self._pos_vec(i, v)
+        xs = mdl.site_frac.copy()
+        for (r, c), val in zip(mdl.pos_params, p):
+            xs[r] = xs[r] + mdl.basis[r][:, c] * val
+        cov = None
+        if getattr(self, "_cov", None):
+            fn, C = self._cov
+            idx = {n: k for k, n in enumerate(fn)}
+        labs = mdl.labels()
+        atoms = []
+        for r in mdl.reps:
+            ks = [k for k, (rr, c) in enumerate(mdl.pos_params) if rr == r]
+            er = np.zeros(3)
+            if ks and getattr(self, "_cov", None):
+                names = [f"sx{i}.{k}" for k in ks]
+                if all(n in idx for n in names):
+                    Cs = C[np.ix_([idx[n] for n in names], [idx[n] for n in names])]
+                    Bm = np.array([mdl.basis[r][:, mdl.pos_params[k][1]] for k in ks]).T
+                    er = np.sqrt(np.maximum(np.diag(Bm @ Cs @ Bm.T), 0))
+            els = [mdl.atom_el[j] for j in np.nonzero(mdl.atom_site == r)[0]]
+            e0 = els[0]
+            atoms.append({"label": labs[r], "element": "/".join(sorted(set(els))), "x": float(xs[r][0]), "y": float(xs[r][1]), "z": float(xs[r][2]),
+                          "x_esd": float(er[0]), "y_esd": float(er[1]), "z_esd": float(er[2]), "B": float(v[f"sB{i}.{e0}"]), "B_esd": esd.get(f"sB{i}.{e0}"),
+                          "occupancy": float(mdl.atom_occ[np.nonzero(mdl.atom_site == r)[0][0]]), "n_equivalent": int(np.sum(mdl.site_rep == r)),
+                          "site_symmetry_order": int(mdl.site_sym_order[r]), "free_coordinates": len(ks)})
+        out = {"spacegroup": mdl.spacegroup, "sg_number": mdl.sg_number, "n_atoms_cell": mdl.n_atoms, "atoms": atoms}
+        if ph.bond_arr is not None:
+            bi, bj, bn, d0 = ph.bond_arr
+            cell = self.cell(i, v)
+            d = mdl.distances_metric(bi, bj, bn, p, _cell_metric(cell))
+            sc = float(np.mean(cell[:3]) / np.mean(ph.cell0[:3]))
+            dev = d - d0 * sc
+            out["bond_rms_deviation"] = float(np.sqrt(np.mean(dev ** 2)))
+            out["bond_max_deviation"] = float(np.max(np.abs(dev)))
+            out["n_bonds"] = int(len(d))
+        return out
+
     def _bragg_r(self, i, v, s, calc, bg):
         ph = self.phases[i]
         cell = self.cell(i, v)
@@ -649,7 +800,7 @@ class Refinement:
         inv_d2 = np.einsum("ki,ij,kj->k", ph.hkl, Gs, ph.hkl)
         d = 1.0 / np.sqrt(inv_d2)
         s2 = inv_d2 / 4.0
-        I = self._I0(i, v) * np.exp(-2.0 * v[f"B{i}"] * s2)
+        I = self._I0(i, v) * self._dw(i, v, s2)
         ycp = calc - bg
         ratio = np.where(ycp > 1e-9, np.clip(self.y - bg, 0, None) / np.maximum(ycp, 1e-9), 0.0)
         Ic_tot = 0.0
@@ -707,7 +858,7 @@ class Refinement:
         return n
 
 
-def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None):
+def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None, refine_structure=False):
     """One call: cifs = list of CIF paths / bytes (or Phase objects). Returns the result dict of Refinement.run()."""
     x = np.asarray(x, float)
     y = np.asarray(y, float)
@@ -715,6 +866,10 @@ def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None
         m = (x >= tt_range[0]) & (x <= tt_range[1])
         x, y = x[m], y[m]
     phases = [c if isinstance(c, Phase) else Phase.from_cif(c, (names or [None] * len(cifs))[k]) for k, c in enumerate(cifs)]
+    if refine_structure:
+        for ph_ in phases:
+            if ph_.model is None:
+                ph_.enable_structure()
     for k, ax_ in enumerate(po_axes or []):
         if ax_ is not None and k < len(phases):
             phases[k].po_axis = tuple(int(v) for v in ax_)
