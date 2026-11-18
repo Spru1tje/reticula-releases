@@ -33,12 +33,7 @@ def _sources(store: dict, pick: str):
             secs = list((recs[name].get("sections") or {}).keys())
             chosen = st.multiselect("Techniques to show", secs, default=secs, key="sch_meth_secs",
                                     format_func=lambda k: TECH_NAMES.get(k, k))
-            if st.button("Make the methods schematic", key="sch_meth_go", disabled=not chosen):
-                from mfs.reticon import scene as RS
-                sc = RS.methods_schematic(name, chosen)
-                new = SC.add_scene(f"methods {name}", sc)
-                st.session_state["sch_pick"] = new
-                st.rerun()
+            st.button("Make the methods schematic", key="sch_meth_go", disabled=not chosen, on_click=_methods_scheme, args=(name, chosen))
             st.caption("The sample and every technique it went through, as a flow with icons. Open it, then edit.")
 
     with t_data:
@@ -96,6 +91,25 @@ def _sources(store: dict, pick: str):
             st.toast(f"Added to the combined figure ({len(comp)} panel{'s' if len(comp) != 1 else ''}).", icon="🧩")
 
 
+def _new_scheme(tpl: str):
+    """Button callback: create a scheme and select it before the selectbox is drawn (setting a widget key after it is drawn raises)."""
+    base = SC.empty_scene() if tpl == "empty" else SC.templates()[tpl]
+    st.session_state["sch_pick"] = SC.add_scene(tpl.replace("_", " ") if tpl != "empty" else "scheme", base)
+
+
+def _methods_scheme(name: str, chosen: list):
+    from mfs.reticon import scene as RS
+    st.session_state["sch_pick"] = SC.add_scene(f"methods {name}", RS.methods_schematic(name, chosen))
+
+
+def _import_scheme(up):
+    try:
+        st.session_state["sch_pick"] = SC.add_scene(up.name.rsplit(".", 1)[0], SC.load_json_scene(up.getvalue()))
+        st.session_state["sch_import_err"] = ""
+    except (ValueError, UnicodeDecodeError) as e:
+        st.session_state["sch_import_err"] = f"Could not read this file: {e}"
+
+
 def page_schemes():
     st.header("Schemes & Icons – schemes with lab and materials icons")
     st.caption("Drag icons from the library onto the canvas, add arrows and text, then export to SVG, PDF, PNG or TIFF at the width and DPI of your journal. "
@@ -113,11 +127,7 @@ def page_schemes():
         tpl_names = list(SC.templates())
         tpl = st.selectbox("Start from", ["empty"] + tpl_names, key="sch_tpl",
                            format_func=lambda t: {"empty": "empty canvas"}.get(t, t.replace("_", " ")))
-        if st.button("➕ New scheme", key="sch_new", width="stretch"):
-            base = SC.empty_scene() if tpl == "empty" else SC.templates()[tpl]
-            name = SC.add_scene(tpl.replace("_", " ") if tpl != "empty" else "scheme", base)
-            st.session_state["sch_pick"] = name
-            st.rerun()
+        st.button("➕ New scheme", key="sch_new", width="stretch", on_click=_new_scheme, args=(tpl,))
 
     if pick not in store:
         st.caption("Create a scheme to start. Schemes are saved with the project file.")
@@ -125,13 +135,8 @@ def page_schemes():
 
     with st.expander("Import a scheme (JSON)", expanded=False):
         up = st.file_uploader("Scheme JSON", type=["json"], key="sch_up")
-        if up is not None and st.button("Import as a new scheme", key="sch_imp"):
-            try:
-                name = SC.add_scene(up.name.rsplit(".", 1)[0], SC.load_json_scene(up.getvalue()))
-                st.session_state["sch_pick"] = name
-                st.rerun()
-            except (ValueError, UnicodeDecodeError) as e:
-                st.error(f"Could not read this file: {e}")
+        if up is not None and st.button("Import as a new scheme", key="sch_imp", on_click=_import_scheme, args=(up,)):
+            pass
 
     edited = SC.canvas(store[pick], key=f"canvas_{pick}")
     if edited is not None and edited != store[pick]:
