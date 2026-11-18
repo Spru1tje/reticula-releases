@@ -12,7 +12,12 @@
      "impurities": "hexamethylbenzene"
     },
     "source": "¹H NMR characterisation",
-    "updated": "2026-11-18T00:55:43"
+    "updated": "2026-11-18T01:49:01",
+    "files": [
+     "aspirin_300_XWIN35.zip (bundled example)",
+     "naphtoic_500_TS35_dspfvs12.zip (bundled example)"
+    ],
+    "version": "2.15.1"
    }
   }
  },
@@ -114,17 +119,32 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T00:55:55"
+    "updated": "2026-11-18T01:48:56",
+    "files": [
+     "MOF801_Hf4f_CasaXPS.csv (bundled example)",
+     "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
+     "ZrO2@Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)"
+    ],
+    "version": "2.15.1"
    },
    "pxrd": {
     "values": {
      "MOF-801 cell a (Å)": 17.835562889731147,
      "MOF-801 volume (Å^3)": 5673.622818925648,
      "Rwp (%)": 10.630853207379541,
+     "density_g_cm3": 2.2047631193382533,
      "MOF-801 weight fraction (%)": 100.0
     },
     "source": "PXRD Rietveld",
-    "updated": "2026-11-17T23:51:28"
+    "updated": "2026-11-18T01:48:53",
+    "files": [
+     "MOF801_STOE.xy (bundled example)",
+     "PM_STOE.xy (bundled example)",
+     "Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2_STOE.xy (bundled example)"
+    ],
+    "version": "2.15.1"
    }
   }
  },
@@ -184,7 +204,15 @@
      "microstrain_WH_percent": -0.022767786836609398
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:51:27"
+    "updated": "2026-11-18T01:48:53",
+    "files": [
+     "MOF801_STOE.xy (bundled example)",
+     "PM_STOE.xy (bundled example)",
+     "Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2_STOE.xy (bundled example)"
+    ],
+    "version": "2.15.1"
    }
   }
  },
@@ -258,7 +286,13 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T00:55:55"
+    "updated": "2026-11-18T01:48:56",
+    "files": [
+     "MOF801_Hf4f_CasaXPS.csv (bundled example)",
+     "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
+     "ZrO2@Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)"
+    ],
+    "version": "2.15.1"
    },
    "pxrd": {
     "values": {
@@ -268,7 +302,15 @@
      "microstrain_WH_percent": -0.02310848760362531
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:51:27"
+    "updated": "2026-11-18T01:48:53",
+    "files": [
+     "MOF801_STOE.xy (bundled example)",
+     "PM_STOE.xy (bundled example)",
+     "Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2_STOE.xy (bundled example)"
+    ],
+    "version": "2.15.1"
    }
   }
  },
@@ -342,7 +384,13 @@
      "Hf/(Zr+Hf)": 1.0
     },
     "source": "XPS page",
-    "updated": "2026-11-18T00:55:55"
+    "updated": "2026-11-18T01:48:56",
+    "files": [
+     "MOF801_Hf4f_CasaXPS.csv (bundled example)",
+     "Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)",
+     "ZrO2@Sulfo-MOF801_Hf4f_CasaXPS.csv (bundled example)"
+    ],
+    "version": "2.15.1"
    },
    "pxrd": {
     "values": {
@@ -352,7 +400,15 @@
      "microstrain_WH_percent": -0.019387993651604492
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:51:27"
+    "updated": "2026-11-18T01:48:53",
+    "files": [
+     "MOF801_STOE.xy (bundled example)",
+     "PM_STOE.xy (bundled example)",
+     "Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2_STOE.xy (bundled example)"
+    ],
+    "version": "2.15.1"
    }
   }
  },
@@ -412,7 +468,15 @@
      "microstrain_WH_percent": null
     },
     "source": "PXRD crystallite size",
-    "updated": "2026-11-17T23:51:27"
+    "updated": "2026-11-18T01:48:53",
+    "files": [
+     "MOF801_STOE.xy (bundled example)",
+     "PM_STOE.xy (bundled example)",
+     "Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2@Sulfo-MOF801_STOE.xy (bundled example)",
+     "ZrO2_STOE.xy (bundled example)"
+    ],
+    "version": "2.15.1"
    }
   }
  },

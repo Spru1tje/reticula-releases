@@ -376,8 +376,11 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                            "(instrument broadening included – a lower limit for the size).")
     _fn = re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)
     dl(st, "⬇️ Rietveld report (Excel: summary, phases, profile, pattern, notes)", lambda: RV.report_xlsx(res, nm), f"Rietveld_{_fn}.xlsx", "rv_xlsx")
+    _dom = max(res["phases"], key=lambda p_: p_["weight_fraction"] if p_["weight_fraction"] == p_["weight_fraction"] else 0)
     for p in res["phases"]:
         vals = {f"{p['name']} cell a (Å)": p["cell"][0], f"{p['name']} volume (Å^3)": p["volume"], "Rwp (%)": 100 * rw}
+        if p is _dom:
+            vals["density_g_cm3"] = p["density"]
         if res["mode"] == "rietveld":
             vals[f"{p['name']} weight fraction (%)"] = 100 * p["weight_fraction"]
         store_put(nm, "pxrd", vals, "PXRD Rietveld" if res["mode"] == "rietveld" else "PXRD Le Bail")

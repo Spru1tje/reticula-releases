@@ -86,6 +86,9 @@ def page_zeta():
     zs = z["summary"].groupby("sample", sort=False).agg(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean"),
                                                          n_runs=("sample", "size")).reset_index()
     st.dataframe(zs, width="stretch")
+    for _r in zs.itertuples():                                   # v2.16: the cross-technique checks compare DLS with the image sizes
+        store_put(str(_r.sample), "dls", {"z_avg_nm": None if pd.isna(_r.z_avg) else float(_r.z_avg), "pdi": None if pd.isna(_r.pdi) else float(_r.pdi),
+                                          "zeta_mV": None if pd.isna(_r.zeta) else float(_r.zeta), "n_runs": int(_r.n_runs)}, "Zeta / DLS page")
     zs["label"] = zs["sample"].str.replace("ZrO2", "ZrO$_2$")
     zs_sd = z["summary"].groupby("sample", sort=False).agg(z_avg_sd=("z_avg", "std"), pdi_sd=("pdi", "std")).reset_index()
     zs = zs.merge(zs_sd, on="sample", how="left")

@@ -304,6 +304,17 @@ def page_si():
     dl(c1, "⬇️ All figure data in ONE Excel (a sheet per figure)",
        lambda: J.figure_data_xlsx({k: figs[k] for k in sel}, __version__), "Reticula_figure_data.xlsx", "si_xlsx")
     from mfs import summary as SUM
+    from mfs import crosscheck as XC
+    _fnd = XC.check(st.session_state.get("sample_store", {}))
+    _nw = sum(f["level"] == "warn" for f in _fnd)
+    with st.expander(f"🔎 Cross-checks between techniques ({len(_fnd)} finding{'s' if len(_fnd) != 1 else ''}" + (f", {_nw} warning{'s' if _nw != 1 else ''}" if _nw else "") + ")",
+                     expanded=bool(_nw)):
+        if not _fnd:
+            st.caption("Results of at least two techniques for the same sample are compared here (crystallite size vs particle size, BET vs particle size, defect methods, "
+                       "surface vs bulk metal ratio, DLS vs images). Open the pages and let them store their results.")
+        for f_ in _fnd:
+            (st.warning if f_["level"] == "warn" else st.info if f_["level"] == "info" else st.success)(
+                f"**{f_['sample']} – {f_['title']}.** {f_['text']}" + (f"\n\n*{f_['advice']}*" if f_["advice"] else ""))
     with st.expander("📝 Methods text for the techniques used (edit the [brackets])", expanded=False):
         st.text_area("Methods", SUM.methods_text([figs[k].get("page", "") for k in sel], __version__), height=300, key="si_methods",
                      help="Starting text for the Methods / SI: only the processing is described, the experiment is left in [brackets].")
