@@ -13,7 +13,7 @@
 :root{--ink:#435266;--line:#D5DEEA;--bg:#F4F7FB;--panel:#FFFFFF;--accent:#0F766E;--sel:#2563EB}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
-#app{display:grid;grid-template-columns:260px 1fr 250px;grid-template-rows:44px 1fr;height:100vh}
+#app{display:grid;grid-template-columns:260px 1fr var(--rw,250px);grid-template-rows:44px 1fr;height:100vh}
 #bar{grid-column:1/4;display:flex;gap:6px;align-items:center;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
 #bar button,#bar select{height:30px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:0 10px;color:var(--ink);cursor:pointer}
 #bar button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -39,7 +39,9 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #stage{position:relative;overflow:auto;min-height:0}
 #paper{position:absolute;left:40px;top:30px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.12),0 8px 24px rgba(15,23,42,.06);transform-origin:0 0}
 #canvas{display:block;user-select:none;touch-action:none}
-#right{background:var(--panel);border-left:1px solid var(--line);padding:10px;overflow:auto}
+#right{background:var(--panel);border-left:1px solid var(--line);padding:10px;overflow:auto;position:relative}
+#rsplit{position:fixed;top:44px;bottom:0;right:calc(var(--rw,250px) - 4px);width:8px;cursor:col-resize;z-index:2}   /* drag to resize the right panel; double-click resets */
+#rsplit:hover{background:rgba(37,99,235,.15)}
 #right h3{margin:4px 0 10px;font-size:13px}
 #right label{display:block;margin:8px 0 3px;font-size:11px;color:#64748B}
 #right input,#right select{width:100%;height:30px;border:1px solid var(--line);border-radius:7px;padding:0 8px}
@@ -121,6 +123,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content (0)">Fit</button><button id="zlabel" title="Click to reset to 100% (1)">100%</button><button id="grid" title="Show the grid (G)">Grid</button><button id="snapbtn" class="on" title="Snap to grid and guides (S). Hold Shift to snap the other way.">Snap</button>
     <select id="theme" title="Colour theme"></select>
     <span id="status" class="status"></span>
+    <button id="helpbtn" title="Keyboard shortcuts (?)">?</button>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
     <button id="imp">Open JSON</button><button id="expj">Save JSON</button><button id="exps">Export SVG</button>
@@ -142,6 +145,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <div class="hint">Drag an icon from the left onto the page. Arrow mode: click a dot on one icon, then a dot on another.
     Keys: Del, Ctrl+D duplicate, Ctrl+Z/Y, arrows nudge (Shift ×10), H flip, [ ] layer order.</div></div>
 </div>
+<div id="rsplit"></div>
 <div id="ctx"></div>
 <div id="help" hidden><b>Keyboard</b><br>
 V select · A arrow · T text · B box · Esc clear selection and cancel · 0 fit content · 1 100%<br>
@@ -849,7 +853,7 @@ function statusText(){
   if (mode === "text") return "Text: click where the label goes";
   if (mode === "box") return "Box: click where the panel goes";
   const n = selectedIds().length;
-  return n ? `${n} selected · Enter adds the next step (Shift+Enter below) · Ctrl+D duplicates · F focus mode`
+  return n ? `${n} selected · Enter adds the next step (Shift+Enter below) · Ctrl+D duplicates · Esc clears · F focus mode`
            : "Drag an icon in, or double-click an empty spot to type a label · / searches icons";
 }
 function updateStatus(){ const s = $("status"); if (s) s.textContent = statusText(); }
@@ -1102,6 +1106,12 @@ async function boot(){
   CAT = window.RT_CATALOG || await (await fetch("catalog.json")).json();
   buildPicker(); renderAll(); send("streamlit:componentReady", {apiVersion:1});
   $("undo").disabled = true; $("redo").disabled = true;              // nothing to undo yet
+  $("helpbtn").onclick = () => toggleHelp();
+  const rs = $("rsplit"), root = document.documentElement; let rsDrag = false;      // width lives on :root so the handle sees it too
+  rs.addEventListener("pointerdown", e => { rsDrag = true; rs.setPointerCapture(e.pointerId); e.preventDefault(); });
+  rs.addEventListener("pointermove", e => { if (!rsDrag) return; root.style.setProperty("--rw", Math.max(200, Math.min(520, window.innerWidth - e.clientX)) + "px"); });
+  rs.addEventListener("pointerup", () => { rsDrag = false; });
+  rs.addEventListener("dblclick", () => root.style.setProperty("--rw", "250px"));
   $("st-tpl").onclick = () => $("tpl").click(); $("st-arrow").onclick = () => setMode("arrow"); $("st-text").onclick = () => setMode("text");
 }
 boot();
