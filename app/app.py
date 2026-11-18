@@ -587,7 +587,12 @@ try:
         finally:
             _pr.disable(); _pr.dump_stats(f"{os.environ['MFS_PROFILE']}_{PS.slug(page)}.prof")
     else:
-        _PAGEFN[page]()
+        try:
+            _PAGEFN[page]()
+        except Exception as _exc:                # v2.16: remember the error for the problem report, then show it as before
+            from mfs import problem_report as _PR
+            _PR.record_error(st.session_state, page, _exc)
+            raise
 finally:
     if os.environ.get("MFS_TIMING"):
         try:
@@ -601,6 +606,15 @@ finally:
     PS.status_badge(page)
     UI.about_box(__version__, os.path.dirname(STORE_PATH))
     PRJ.sidebar(page, __version__)
+    with st.sidebar.expander("🐞 Report a problem", expanded=bool(st.session_state.get("_last_error"))):
+        from mfs import problem_report as _PR
+        _le = st.session_state.get("_last_error")
+        if _le:
+            st.error(f"Last error on **{_le['page']}**: {_le['type']}: {_le['message'][:160]}")
+        st.caption("Creates a small ZIP with the version, your settings and the last error - **no data**. Send it to the developer.")
+        _note = st.text_area("What were you doing? (optional)", key="_pr_note", height=70)
+        dl(st, "⬇️ Create the problem report", lambda: _PR.build(st.session_state, page, __version__, SOURCES, _note),
+           f"Reticula_problem_report_{datetime.datetime.now():%Y%m%d_%H%M}.zip", "_pr_dl", width="stretch")
     with st.sidebar.expander("💾 Saved page work", expanded=False):
         sp = PS.saved_pages()
         st.caption("Saved with the dialog or 💾 Save; restored on the next start. " + (", ".join(f"{k} ({v[5:16].replace('T', ' ')})"
