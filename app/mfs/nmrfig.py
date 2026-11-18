@@ -31,6 +31,8 @@ def mol_drawing(mol, groups=None, size=(360, 280), fmt="png", notes=True, highli
     o.clearBackground = fmt == "png"
     if mono:                                  # simple mode: heteroatoms black too (RDKit default is CPK colours)
         o.useBWAtomPalette()
+        o.bondLineWidth = 2.4                 # print-weight bonds and larger atom labels: the thin default vanishes at figure size
+        o.annotationFontScale = 1.0
     hl = list(highlight or [])
     if hl:
         d.DrawMolecule(m, highlightAtoms=hl, highlightAtomColors={i: (0.98, 0.6, 0.25) for i in hl}, highlightBonds=[])
