@@ -65,6 +65,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #fbar button:hover{background:#EFF6FF}
 #fbar button.danger:hover{background:#FEF2F2;color:#B91C1C}
 #fbar .sep{width:1px;background:#E2E8F0;margin:3px 2px}
+#stage.pan{cursor:grab}#stage.panning{cursor:grabbing}#stage.panning *{pointer-events:none}
 #left .sub{grid-column:1/-1;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
 #help{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:12px 16px;
   box-shadow:0 8px 24px rgba(15,23,42,.15);font:13px/1.55 Helvetica,Arial,sans-serif;color:#334155;z-index:9;max-width:380px}
@@ -137,6 +138,7 @@ let scene = {version:1,width:960,height:540,background:"#FFFFFF",theme:"default"
 let sel = null, mode = "select", zoom = 1, showGrid = false, pending = null;
 let multi = new Set(), marquee = null;      // multi-selection (ids) and the rubber-band rectangle in progress
 const hist = [], redoStack = [];
+let spaceDown = false, lastNudge = 0;        // space held = pan mode; nudges within 0.7 s form one undo step
 const $ = id => document.getElementById(id);
 const L = {box:$("L_box"), arrow:$("L_arrow"), icon:$("L_icon"), svgart:$("L_icon"), text:$("L_text"), ui:$("L_ui")};
 const el = (tag, attrs={}) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
@@ -166,8 +168,8 @@ function loadScene(s){ scene = s; scene.items.forEach(normalise);
 
 /* ------------------------------------------------------------------ history */
 function snapshot(){ hist.push(JSON.stringify(scene)); if (hist.length > 200) hist.shift(); redoStack.length = 0; }
-function undo(){ if (!hist.length) return; redoStack.push(JSON.stringify(scene)); scene = JSON.parse(hist.pop()); sel = null; renderAll(); commit(); }
-function redo(){ if (!redoStack.length) return; hist.push(JSON.stringify(scene)); scene = JSON.parse(redoStack.pop()); sel = null; renderAll(); commit(); }
+function undo(){ if (!hist.length) return; redoStack.push(JSON.stringify(scene)); const keep = sel; scene = JSON.parse(hist.pop()); sel = keep && byId(keep) ? keep : null; multi = new Set(); renderAll(); commit(); }
+function redo(){ if (!redoStack.length) return; hist.push(JSON.stringify(scene)); const keep = sel; scene = JSON.parse(redoStack.pop()); sel = keep && byId(keep) ? keep : null; multi = new Set(); renderAll(); commit(); }
 
 /* ------------------------------------------------------------------ geometry (mirror of reticon/scene.py) */
 function anchorsOf(it){ const ic = CAT.icons[it.icon]; if (!ic) return []; const sh = ic.shapes[it.shape||"base"] || ic.shapes.base; return sh.anchors; }
@@ -563,7 +565,10 @@ document.addEventListener("keydown", ev => {
   if (mod && k === "y"){ ev.preventDefault(); redo(); return; }
   if (mod && k === "s"){ ev.preventDefault(); saveScene(); return; }
   if (mod && k === "a"){ ev.preventDefault(); multi = new Set(scene.items.filter(i => i.type !== "arrow").map(i => i.id)); sel = null; drawUI(); inspector(); return; }
-  if (k === "escape"){ closeCtx(); pending = null; setMode("select"); return; }
+  if (k === "escape"){ closeCtx(); pending = null; sel = null; multi = new Set(); setMode("select"); renderAll(); return; }
+  if (k === " " && !mod){ ev.preventDefault(); spaceDown = true; $("stage").classList.add("pan"); return; }
+  if (!mod && k === "0"){ fitContent(); return; }
+  if (!mod && k === "1"){ setZoom(1); return; }
   if (!mod && k === "v") setMode("select"); if (!mod && k === "a") setMode("arrow"); if (!mod && k === "t") setMode("text"); if (!mod && k === "b") setMode("box");
   const ids = selectedIds();
   if (mod && k === "c" && ids.length){ ev.preventDefault(); copyItems(ids); return; }
@@ -576,14 +581,31 @@ document.addEventListener("keydown", ev => {
   if (k === "h" && it.type === "icon"){ snapshot(); it.flip = !it.flip; drawItem(it); arrowsOf(it.id).forEach(drawItem); drawUI(); commit(); }
   if (k === "[" || k === "]"){ snapshot(); const i = scene.items.indexOf(it); scene.items.splice(i, 1); scene.items.splice(k === "]" ? scene.items.length : 0, 0, it); renderAll(); commit(); }
   const step = ev.shiftKey ? 10 : 1, mv = {arrowleft:[-step,0], arrowright:[step,0], arrowup:[0,-step], arrowdown:[0,step]}[k];
-  if (mv){ ev.preventDefault(); for (const id of ids){ const x = byId(id); if (!x || x.type === "arrow") continue; x.x += mv[0]; x.y += mv[1]; drawItem(x); arrowsOf(x.id).forEach(drawItem); } drawUI(); commitSoon(); }
+  if (mv){ ev.preventDefault(); const now = Date.now(); if (now - lastNudge > 700) snapshot(); lastNudge = now;
+    for (const id of ids){ const x = byId(id); if (!x || x.type === "arrow") continue; x.x += mv[0]; x.y += mv[1]; drawItem(x); arrowsOf(x.id).forEach(drawItem); } drawUI(); commitSoon(); }
 });
+
+/* space + drag pans; Ctrl + wheel zooms around the cursor; double-click an icon to edit its label */
+document.addEventListener("keyup", ev => { if (ev.key === " "){ spaceDown = false; $("stage").classList.remove("pan"); } });
+let panFrom = null;
+$("stage").addEventListener("pointerdown", ev => { if (!spaceDown) return; ev.stopPropagation(); ev.preventDefault();
+  const st = $("stage"); panFrom = {x: ev.clientX, y: ev.clientY, sl: st.scrollLeft, st: st.scrollTop}; st.classList.add("panning"); }, true);
+window.addEventListener("pointermove", ev => { if (!panFrom) return; const st = $("stage");
+  st.scrollLeft = panFrom.sl - (ev.clientX - panFrom.x); st.scrollTop = panFrom.st - (ev.clientY - panFrom.y); });
+window.addEventListener("pointerup", () => { if (!panFrom) return; panFrom = null; $("stage").classList.remove("panning"); });
+$("stage").addEventListener("wheel", ev => { if (!(ev.ctrlKey || ev.metaKey)) return; ev.preventDefault();
+  const st = $("stage"), r = st.getBoundingClientRect(), cx = ev.clientX - r.left, cy = ev.clientY - r.top;
+  const ox = 40, oy = 30;                                            // the paper's offset inside the stage (not scaled)
+  const px = (st.scrollLeft + cx - ox) / zoom, py = (st.scrollTop + cy - oy) / zoom;   // page point under the cursor
+  setZoom(zoom * (ev.deltaY < 0 ? 1.1 : 1 / 1.1));
+  st.scrollLeft = px * zoom + ox - cx; st.scrollTop = py * zoom + oy - cy; }, {passive: false});
+cv.addEventListener("dblclick", () => { const f = $("ilab"); if (f){ f.focus(); f.select(); } });
 
 /* ------------------------------------------------------------------ inspector */
 function field(label, html){ return `<label>${label}</label>${html}`; }
 function inspector(){
   const R = $("right"), it = sel && byId(sel);
-  if (multi.size > 1){ R.innerHTML = `<h3>${multi.size} items selected</h3><div class="hint">Align, distribute or group them with the bar above.
+  if (multi.size > 1){ R.innerHTML = `<h3>${multi.size} items selected</h3><div class="hint">Bounding box ${selSize()}</div><div class="hint">Align, distribute or group them with the bar above.
     Drag any of them to move the whole selection. Del deletes all. Ctrl+C / Ctrl+V copies them to another scheme too.</div>`; return; }
   if (!it){ R.innerHTML = `<h3>Page</h3>${field("Size (px)", `<div class="row"><input id="pw" type="number" value="${scene.width}"><input id="ph" type="number" value="${scene.height}"></div>`)}
     ${field("Background", `<input id="pbg" type="color" value="${scene.background||"#ffffff"}">`)}
@@ -596,11 +618,13 @@ function inspector(){
       ${field("Variant", `<div class="fam" id="ifam"></div>`)}
       ${field("Label", `<input id="ilab" value="${esc(lab)}">`)}
       ${field("Liquid / sample colour", `<input id="iliq" type="color" value="${it.liquid||"#F39AB4"}"><div class="sw">${OKABE.map(c => `<b style="background:${c}" data-c="${c}"></b>`).join("")}</div>`)}
+      ${field("Position X / Y", `<div class="row"><input id="ix" type="number" value="${Math.round(it.x)}"><input id="iy" type="number" value="${Math.round(it.y)}"></div>`)}
       ${field("Size / rotation", `<div class="row"><input id="isz" type="number" value="${it.size}"><input id="irot" type="number" value="${it.rotate||0}"></div>`)}
       <div class="hint">H = flip · [ ] = layer order</div>`;
     famStrip($("ifam"), it.icon, it.shape||"base", k => { snapshot(); it.shape = k; renderAll(); commit(); inspector(); });
     bind("ilab", v => { it.label = v; }); bind("iliq", v => { it.liquid = v; });
     bind("isz", v => { it.size = Math.max(16, +v); }); bind("irot", v => { it.rotate = +v; });
+    bind("ix", v => { it.x = +v || 0; }); bind("iy", v => { it.y = +v || 0; });
     R.querySelectorAll(".sw b").forEach(b => b.onclick = () => { snapshot(); it.liquid = b.dataset.c; renderAll(); commit(); });
     R.insertAdjacentHTML("beforeend", field("Style (export)", sel3("istyle", ["illustration","shaded","flat","line","solid","duotone"], it.style || "illustration"))
       + field("Theme (export)", sel3("ithm", ["(scheme theme)", ...(CAT.themes || ["default"])], it.theme || "(scheme theme)")));
@@ -629,8 +653,12 @@ function inspector(){
   }
 }
 const sel3 = (id, opts, cur) => `<select id="${id}">${opts.map(o => `<option ${o===cur?"selected":""}>${o}</option>`).join("")}</select>`;
+function renderNodes(){                       // redraw the items without rebuilding the inspector (keeps the focused field)
+  for (const it of scene.items){ drawItem(it); nodes.get(it.id).parentNode.appendChild(nodes.get(it.id)); }
+  drawUI();
+}
 function bind(id, set){ const e = $(id); if (!e) return; let snapped = false;
-  e.addEventListener("input", () => { if (!snapped){ snapshot(); snapped = true; } set(e.value); renderAll(); commitSoon(); });
+  e.addEventListener("input", () => { if (!snapped){ snapshot(); snapped = true; } set(e.value); renderNodes(); commitSoon(); });
   e.addEventListener("change", () => { snapped = false; commit(); }); }
 
 /* ------------------------------------------------------------------ picker */
@@ -739,14 +767,29 @@ const FBAR_ACTIONS = {
   alignC: {label:"Align C",   title:"Align centres horizontally",            run:() => alignSel("c")},
   alignR: {label:"Align R",   title:"Align right edges",                     run:() => alignSel("r")},
   del:    {label:"Delete",    title:"Delete (Del)",                          run:() => deleteSel(), danger:true},
+  dup:    {label:"Duplicate", title:"Duplicate the selection (Ctrl+D)",      run:() => { copyItems(selectedIds()); pasteItems(); }},
+  same:   {label:"Same size", title:"Give the selected icons the size of the first one", run:() => sameSize()},
 };
+function selSize(){                         // width x height of the selection's bounding box
+  const bs = selectedIds().map(byId).map(bbox).filter(Boolean);
+  if (!bs.length) return "";
+  const w = Math.round(Math.max(...bs.map(b => b.x + b.w)) - Math.min(...bs.map(b => b.x)));
+  const h = Math.round(Math.max(...bs.map(b => b.y + b.h)) - Math.min(...bs.map(b => b.y)));
+  return `${w} × ${h} px`;
+}
+function sameSize(){
+  const its = selectedIds().map(byId).filter(x => x && x.type === "icon");
+  if (its.length < 2) return;
+  snapshot(); const size = its[0].size; its.forEach(x => x.size = size); renderAll(); commit();
+}
 function fbarSet(ids){                       // which actions for this selection
   const items = ids.map(byId).filter(Boolean);
   const multiSel = items.length > 1;
   const hasIcon = items.some(x => x.type === "icon");
   const k = [];
   if (hasIcon) k.push("flip");
-  k.push("front", "back");
+  k.push("front", "back", "dup");
+  if (multiSel && items.filter(x => x.type === "icon").length > 1) k.push("same");
   if (multiSel) k.push("alignL", "alignC", "alignR", "group");
   if (items.some(x => x.group)) k.push("ungroup");
   k.push("del");
@@ -800,7 +843,7 @@ const inFrame = window.parent !== window;
 function send(type, data){ if (inFrame) window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, data), "*"); }
 let dirty = false;
 function setDirty(v){ dirty = v; const b = $("save"); if (b) b.textContent = v ? "💾 Save ●" : "💾 Saved"; }
-function commit(){ setDirty(true); }          // local edit only: no Streamlit rerun, so selection and scroll stay put
+function commit(){ setDirty(true); $("undo").title = `Undo (${hist.length} step${hist.length === 1 ? "" : "s"}, Ctrl+Z)`; }   // local edit only: no Streamlit rerun, so selection and scroll stay put
 function commitSoon(){ commit(); }
 function saveScene(){ clearTimeout(tmr); send("streamlit:setComponentValue", {value: JSON.stringify(scene), dataType:"json"}); setDirty(false); }
 let tmr = 0;
