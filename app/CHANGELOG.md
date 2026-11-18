@@ -1,5 +1,6 @@
 # Changelog
 
+## 2.17.0 — unreleased (not yet tagged)
 
 ### Name and project files: Figuryte
 - The program is called **Figuryte** in the window, the start page, the menus, the exports, the methods texts and the provenance.
@@ -7,8 +8,6 @@
 - Double-click or *Open with* works for `.figuryte` files (Windows installer and macOS bundle register the new extension too).
 - **Start page: continue or save a project.** *Continue a project* opens a `.figuryte` file directly from the home page; *Save as .figuryte* saves the whole work from there as well.
 - Not yet renamed (technical, to be done with the release): the installer file name `Reticula_Setup`, the macOS app name and bundle identifier, the data folder `Documents\Reticula`, the GitHub release names and the update check. These keep working; changing them would break existing installs and the update check.
-
-## 2.17.0 — unreleased (not yet tagged)
 
 ### Across the program
 - **Tabs more visible**: every technique's tab bar has the app colours, bold labels and a clear bar.
