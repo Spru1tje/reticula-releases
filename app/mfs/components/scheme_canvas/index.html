@@ -66,6 +66,8 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #fbar button:hover{background:#EFF6FF}
 #fbar button.danger:hover{background:#FEF2F2;color:#B91C1C}
 #fbar .sep{width:1px;background:#E2E8F0;margin:3px 2px}
+.status{font:12px Helvetica,Arial,sans-serif;color:#64748B;margin-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+#app.focus #left,#app.focus #right{display:none}      /* focus mode: the canvas alone (F) */
 #stage.pan{cursor:grab}#stage.panning{cursor:grabbing}#stage.panning *{pointer-events:none}
 #left .sub{grid-column:1/-1;font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
 #help{position:fixed;right:16px;bottom:16px;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:12px 16px;
@@ -102,6 +104,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
     <span class="sep"></span>
     <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content (0)">Fit</button><button id="zlabel" title="Click to reset to 100% (1)">100%</button><button id="grid" title="Show the grid (G)">Grid</button><button id="snapbtn" class="on" title="Snap to grid and guides (S). Hold Shift to snap the other way.">Snap</button>
     <select id="theme" title="Colour theme"></select>
+    <span id="status" class="status"></span>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
     <button id="imp">Open JSON</button><button id="expj">Save JSON</button><button id="exps">Export SVG</button>
@@ -294,7 +297,7 @@ function bbox(it){
 function drawUI(){
   L.ui.innerHTML = "";
   $("alignbar").hidden = !(sel || multi.size);   // align / group only appear when something is selected: less clutter in the bar
-  syncFbar();
+  syncFbar(); updateStatus();
   if (!scene.items.length){                    // empty canvas: a quiet hint instead of a blank page
     const t = el("text", {x: scene.width / 2, y: scene.height / 2, "text-anchor": "middle", fill: "#94A3B8", "font-size": 18,
       "font-family": "Helvetica,Arial,sans-serif", "pointer-events": "none"});
@@ -516,7 +519,8 @@ function nearestAnchor(p, maxd = 36){ let best = null, bd = maxd;
 function layerMove(front){ const ids = selectedIds(); if (!ids.length) return; snapshot();
   const set = new Set(ids), moved = scene.items.filter(i => set.has(i.id)), rest = scene.items.filter(i => !set.has(i.id));
   scene.items = front ? rest.concat(moved) : moved.concat(rest); renderAll(); commit(); }
-function deleteSel(){ const ids = selectedIds(); if (!ids.length) return; snapshot(); const del = new Set(ids);
+function deleteSel(){ const ids = selectedIds(); if (!ids.length) return; snapshot();
+  toast(`Deleted ${ids.length} item${ids.length === 1 ? "" : "s"}`, "Undo", undo); const del = new Set(ids);
   scene.items = scene.items.filter(i => !del.has(i.id) && !(i.type === "arrow" && (del.has(i.from.item) || del.has(i.to.item))));
   sel = null; multi = new Set(); renderAll(); commit(); }
 function flipSel(){ const ids = selectedIds().map(byId).filter(x => x && x.type === "icon"); if (!ids.length) return;
@@ -591,8 +595,11 @@ document.addEventListener("keydown", ev => {
   if (mod && k === "v"){ ev.preventDefault(); pasteItems(); return; }
   if (mod && k === "g"){ ev.preventDefault(); ev.shiftKey ? ungroupSel() : groupSel(); return; }
   if (!mod && k === "?"){ toggleHelp(); return; }
+  if (!mod && k === "/"){ ev.preventDefault(); $("q").focus(); $("q").select(); return; }
+  if (!mod && k === "f"){ $("app").classList.toggle("focus"); return; }
   if (!it) return;
-  if (k === "delete" || k === "backspace"){ snapshot(); const del = new Set(ids); scene.items = scene.items.filter(i => !del.has(i.id) && !(i.type === "arrow" && (del.has(i.from.item) || del.has(i.to.item)))); sel = null; multi = new Set(); renderAll(); commit(); }
+  if (k === "enter" && !mod){ ev.preventDefault(); addSuccessor(it, ev.shiftKey); return; }
+  if (k === "delete" || k === "backspace"){ snapshot(); toast(`Deleted ${ids.length} item${ids.length === 1 ? "" : "s"}`, "Undo", undo); const del = new Set(ids); scene.items = scene.items.filter(i => !del.has(i.id) && !(i.type === "arrow" && (del.has(i.from.item) || del.has(i.to.item)))); sel = null; multi = new Set(); renderAll(); commit(); }
   if (mod && k === "d"){ ev.preventDefault(); copyItems(ids); pasteItems(); return; }
   if (k === "h" && it.type === "icon"){ snapshot(); it.flip = !it.flip; drawItem(it); arrowsOf(it.id).forEach(drawItem); drawUI(); commit(); }
   if (k === "[" || k === "]"){ snapshot(); const i = scene.items.indexOf(it); scene.items.splice(i, 1); scene.items.splice(k === "]" ? scene.items.length : 0, 0, it); renderAll(); commit(); }
@@ -618,6 +625,11 @@ $("stage").addEventListener("wheel", ev => { if (!(ev.ctrlKey || ev.metaKey)) re
 cv.addEventListener("dblclick", ev => {
   const g = ev.target.closest && ev.target.closest("[data-id]"); const it = g && byId(g.dataset.id);
   if (it && it.type === "text" && !it.locked) return editText(it, g);     // text: edit in place
+  if (!it){                                                             // empty page: a new label right where you clicked
+    snapshot(); const id = newId("t"), p = svgPt(ev);
+    scene.items.push({id, type: "text", x: Math.round(p.x), y: Math.round(p.y), text: "", size: 16});
+    sel = id; multi = new Set(); renderAll(); commit();
+    return editText(byId(id), nodes.get(id).querySelector("text") || nodes.get(id)); }
   const f = $("ilab"); if (f){ f.focus(); f.select(); } });        // icon: jump to its label field
 function editText(it, g){                       // an input placed over the text, Enter keeps, Esc drops, blur keeps
   const r = g.getBoundingClientRect(), inp = document.createElement("input");
@@ -627,7 +639,9 @@ function editText(it, g){                       // an input placed over the text
   document.body.appendChild(inp); inp.focus(); inp.select();
   let done = false;
   const finish = keep => { if (done) return; done = true;
-    if (keep && inp.value !== it.text){ snapshot(); it.text = inp.value; renderAll(); commit(); }
+    if (keep && !inp.value.trim() && !it.text){ scene.items = scene.items.filter(x => x.id !== it.id); sel = null; renderAll(); commit(); }   // an empty new label is dropped
+    else if (keep && inp.value !== it.text){ snapshot(); it.text = inp.value; renderAll(); commit(); }
+    else if (!keep && !it.text){ scene.items = scene.items.filter(x => x.id !== it.id); sel = null; renderAll(); }
     inp.remove(); };
   inp.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter") finish(true); else if (e.key === "Escape") finish(false); });
   inp.addEventListener("blur", () => finish(true));
@@ -793,6 +807,74 @@ document.querySelectorAll("#alignbar [data-al]").forEach(b => b.onclick = () => 
   const a = b.dataset.al; if (a === "group") groupSel(); else if (a === "ungroup") ungroupSel(); else if (a === "help") toggleHelp(); else alignSel(a); });
 $("zin").onclick = () => setZoom(zoom * 1.2); $("zout").onclick = () => setZoom(zoom / 1.2);
 $("zfit").onclick = () => fitContent();
+/* Status line: always says what the next click or key does. */
+function statusText(){
+  if (mode === "arrow") return pending ? "Arrow: now click a dot on the second icon" : "Arrow: click a dot on the first icon (Esc cancels)";
+  if (mode === "text") return "Text: click where the label goes";
+  if (mode === "box") return "Box: click where the panel goes";
+  const n = selectedIds().length;
+  return n ? `${n} selected · Enter adds the next step (Shift+Enter below) · Ctrl+D duplicates · F focus mode`
+           : "Drag an icon in, or double-click an empty spot to type a label · / searches icons";
+}
+function updateStatus(){ const s = $("status"); if (s) s.textContent = statusText(); }
+
+/* Adding a step: the new icon goes right of (or below) the selected one and is joined by an arrow. Enter repeatedly = a chain. */
+function addSuccessor(it, below){
+  if (!it || it.type !== "icon") return;
+  snapshot();
+  const id = newId("i"), gap = 60, sz = it.size || 96;
+  const ns = JSON.parse(JSON.stringify(it));
+  Object.assign(ns, {id, x: below ? it.x : Math.round(it.x + sz + gap), y: below ? Math.round(it.y + sz + gap) : it.y, label: ""});
+  delete ns.group;
+  scene.items.push(ns);
+  scene.items.push({id: newId("a"), type: "arrow", from: {item: it.id, anchor: below ? "b" : "r"}, to: {item: id, anchor: below ? "t" : "l"}, route: "straight", head: "end"});
+  sel = id; multi = new Set(); renderAll(); commit(); inspector();
+}
+
+/* Undo toast: a short confirmation with one-click undo, so deleting in a hurry is never a trap. */
+function toast(msg, label, fn){
+  document.querySelectorAll("#toast").forEach(t => t.remove());
+  const t = document.createElement("div"); t.id = "toast";
+  t.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:45;background:#1E293B;color:#fff;border-radius:8px;padding:8px 12px;font:13px Helvetica,Arial,sans-serif;display:flex;gap:12px;align-items:center;box-shadow:0 6px 18px rgba(15,23,42,.25)";
+  t.innerHTML = `<span>${esc(msg)}</span>` + (label ? `<button style="background:none;border:0;color:#93C5FD;font:inherit;cursor:pointer">${esc(label)}</button>` : "");
+  if (label) t.querySelector("button").onclick = () => { fn(); t.remove(); };
+  document.body.appendChild(t); setTimeout(() => t.remove(), 5000);
+}
+
+/* Series: repeat the selection to the right, one step further each time, with its arrows. */
+function repeatRight(){
+  const ids = selectedIds(), items = ids.map(byId).filter(x => x && x.type !== "arrow");
+  if (!items.length) return;
+  const bs = items.map(bbox).filter(Boolean);
+  const step = Math.max(...bs.map(b => b.x + b.w)) - Math.min(...bs.map(b => b.x)) + 24;
+  snapshot(); const map = {}, added = [];
+  for (const it of items){ const c = JSON.parse(JSON.stringify(it)); c.id = newId(it.type[0]); map[it.id] = c.id; c.x += step; delete c.group; scene.items.push(c); added.push(c.id); }
+  for (const a of scene.items.filter(x => x.type === "arrow" && map[x.from.item] && map[x.to.item])){
+    const c = JSON.parse(JSON.stringify(a)); c.id = newId("a"); c.from.item = map[a.from.item]; c.to.item = map[a.to.item]; scene.items.push(c); }
+  multi = new Set(added); sel = added[added.length - 1]; renderAll(); commit(); inspector();
+}
+
+/* Numbered steps: 1, 2, 3 on the selected items, in the order they were picked. */
+function numberSel(){
+  const items = selectedIds().map(byId).filter(x => x && x.type !== "arrow");
+  if (!items.length) return;
+  snapshot();
+  items.forEach((it, i) => { const b = bbox(it);
+    scene.items.push({id: newId("t"), type: "text", x: Math.round(b.x - 8), y: Math.round(b.y - 6), text: String(i + 1), size: 15, weight: "bold", color: "#1E293B", anchor: "start"}); });
+  renderAll(); commit();
+}
+
+/* Line up: a row in the order picked, equal gaps, vertically centred on the first item. */
+function lineUp(){
+  const its = selectedIds().map(byId).filter(x => x && x.type !== "arrow");
+  if (its.length < 2) return;
+  snapshot();
+  const first = bbox(its[0]), yc = first.y + first.h / 2; let x = first.x;
+  for (const it of its){ const b = bbox(it), dx = x - b.x, dy = yc - (b.y + b.h / 2);
+    it.x = Math.round((it.x + dx) * 10) / 10; it.y = Math.round((it.y + dy) * 10) / 10; x += b.w + 40; }
+  renderAll(); commit();
+}
+
 /* Floating bar above the selection: the few actions that fit this selection, next to where the eye already is. */
 const FBAR_ACTIONS = {
   flip:   {label:"⇋ Flip",    title:"Flip horizontally (H)",                 run:() => flipSel()},
@@ -805,6 +887,9 @@ const FBAR_ACTIONS = {
   alignR: {label:"Align R",   title:"Align right edges",                     run:() => alignSel("r")},
   del:    {label:"Delete",    title:"Delete (Del)",                          run:() => deleteSel(), danger:true},
   dup:    {label:"Duplicate", title:"Duplicate the selection (Ctrl+D)",      run:() => { copyItems(selectedIds()); pasteItems(); }},
+  repeat: {label:"Repeat →", title:"Repeat the selection to the right, one step further each time (series)", run:() => repeatRight()},
+  num:    {label:"Number", title:"Number the selected items 1, 2, 3 in the order you picked them", run:() => numberSel()},
+  line:   {label:"Line up", title:"Place the selected items in a row, in the order you picked, with equal gaps", run:() => lineUp()},
   same:   {label:"Same size", title:"Give the selected icons the size of the first one", run:() => sameSize()},
   route:  {label:"Route", title:"Cycle the arrow route: straight, elbow, curved", run:() => {
     const a = selectedIds().map(byId).find(x => x && x.type === "arrow"); if (!a) return;
@@ -833,8 +918,9 @@ function fbarSet(ids){                       // which actions for this selection
   const k = [];
   if (hasIcon) k.push("flip");
   k.push("front", "back", "dup");
+  if (items.some(x => x.type !== "arrow")) k.push("repeat", "num");
   if (multiSel && items.filter(x => x.type === "icon").length > 1) k.push("same");
-  if (multiSel) k.push("alignL", "alignC", "alignR", "group");
+  if (multiSel) k.push("line", "alignL", "alignC", "alignR", "group");
   if (items.some(x => x.group)) k.push("ungroup");
   k.push("del");
   return k;
