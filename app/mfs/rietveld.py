@@ -751,6 +751,28 @@ class Refinement:
                 "size_nm_apparent": size, "strain_apparent": strain, "notes": notes, "bg_order": self.nb - 1,
                 "free": names_free, "lebail_I": {i: self.I_free[i] for i in self.I_free} if self.mode == "lebail" else None}
 
+    def structure_report(self, i):
+        """Bond lengths, angles, coordination, bond-valence sums (with esd from the refinement covariance) and the plausibility verdict of phase i."""
+        from mfs import structstats as SST
+        ph = self.phases[i]
+        mdl = ph.model
+        v = self._values()
+        names_pos = [f"sx{i}.{k}" for k in range(mdl.n_pos)]
+        names_cell = [f"c{i}.{n}" for n in CELL_DOF[ph.system]]
+        base = {f"p{k}": v[n] for k, n in enumerate(names_pos)}
+        base.update({f"c.{n}": v[f"c{i}.{n}"] for n in CELL_DOF[ph.system]})
+        to_base = {**{n: f"p{k}" for k, n in enumerate(names_pos)}, **{f"c{i}.{n}": f"c.{n}" for n in CELL_DOF[ph.system]}}
+        cov, names = None, []
+        if getattr(self, "_cov", None):
+            fn, C = self._cov
+            keep = [k for k, n in enumerate(fn) if n in to_base]
+            names = [to_base[fn[k]] for k in keep]
+            cov = C[np.ix_(keep, keep)] if keep else None
+        metric = lambda vals: _cell_metric(cell_from_dof(ph.system, {n: vals[f"c.{n}"] for n in CELL_DOF[ph.system]}, ph.cell0))
+        rep = SST.report(mdl, self._pos_vec(i, v), metric, cov, names, base, mdl.labels())
+        rep["verdict"] = SST.verdict(rep)
+        return rep
+
     def _structure_table(self, i, v, esd):
         """Refined atoms (label, element, x, y, z ± esd, B ± esd, occupancy, number of equivalent atoms in the cell, site-symmetry order) and the
         restraint statistics."""
@@ -782,6 +804,10 @@ class Refinement:
                           "occupancy": float(mdl.atom_occ[np.nonzero(mdl.atom_site == r)[0][0]]), "n_equivalent": int(np.sum(mdl.site_rep == r)),
                           "site_symmetry_order": int(mdl.site_sym_order[r]), "free_coordinates": len(ks)})
         out = {"spacegroup": mdl.spacegroup, "sg_number": mdl.sg_number, "n_atoms_cell": mdl.n_atoms, "atoms": atoms}
+        try:
+            out.update(self.structure_report(i))
+        except Exception as e:                                       # the statistics must never cost the refinement result
+            out["report_error"] = str(e)[:200]
         if ph.bond_arr is not None:
             bi, bj, bn, d0 = ph.bond_arr
             cell = self.cell(i, v)

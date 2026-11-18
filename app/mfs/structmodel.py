@@ -30,6 +30,37 @@ def _covalent(el):
     return COVALENT.get(el, 1.5)
 
 
+ANIONS = {"O", "F", "Cl", "Br", "I", "N", "S", "Se", "Te"}
+_METAL = {}
+
+
+def is_metal(el):
+    if el not in _METAL:
+        from pymatgen.core import Element
+        try:
+            _METAL[el] = bool(Element(el).is_metal)
+        except Exception:
+            _METAL[el] = False
+    return _METAL[el]
+
+
+def is_bond(e1: str, e2: str, d: float, ionic_extra: float = 0.55, covalent_extra: float = 0.30) -> bool:
+    """Chemically sensible bond test: metal-anion (O, F, N, S, halides) within the covalent radii + 0.55 Å, covalent bonds between non-metals within +0.30 Å.
+    Never: metal-metal, metal-P/Si/B/C/H, O-O (beyond peroxide length), H-H. Used for the restraints and for the bond statistics."""
+    m1, m2 = is_metal(e1), is_metal(e2)
+    r = _covalent(e1) + _covalent(e2)
+    if m1 and m2:
+        return False
+    if m1 or m2:
+        other = e2 if m1 else e1
+        return other in ANIONS and d < r + ionic_extra
+    if e1 == "H" and e2 == "H":
+        return False
+    if e1 in ANIONS and e2 in ANIONS and e1 == e2 and d > 1.7:
+        return False
+    return d < r + covalent_extra
+
+
 def _frac_diff(a, b):
     d = a - b
     return d - np.round(d)
@@ -194,9 +225,8 @@ class StructureModel:
             d = X - X[i]
             for n in np.array([(a, b, c) for a in (-1, 0, 1) for b in (-1, 0, 1) for c in (-1, 0, 1)]):
                 dd = np.linalg.norm((d + n) @ L, axis=1)
-                lim = rad[i] + rad + tol
-                for j in np.nonzero((dd < lim) & (dd > 0.4))[0]:
-                    if (j, tuple(n)) == (i, (0, 0, 0)):
+                for j in np.nonzero((dd < 4.0) & (dd > 0.4))[0]:
+                    if (j, tuple(n)) == (i, (0, 0, 0)) or not is_bond(self.atom_el[i], self.atom_el[j], float(dd[j])):
                         continue
                     a, b = sorted((self.atom_el[i], self.atom_el[j]))
                     key = (a, b, round(float(dd[j]), 3), tuple(sorted((int(self.atom_rep_site[i]), int(self.atom_rep_site[j])))))

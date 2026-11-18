@@ -96,3 +96,38 @@ def test_synthetic_positions_are_recovered_and_restraints_keep_geometry():
         assert np.abs(got[labs[rr]] - want[rr]).max() < 0.002, (labs[rr], got[labs[rr]], want[rr])
     assert r["stats"]["chi2"] < 1.6
     assert r["phases"][0]["structure"]["bond_rms_deviation"] < 0.08
+
+
+@needs_data
+def test_statistics_and_cif_of_the_refined_fluorapatite():
+    from mfs import structcif as SC
+    from pymatgen.core import Structure
+    import tempfile
+    x, y = _fap_pattern()
+    ph = RV.Phase.from_cif(FAP_CIF).enable_structure()
+    r = RV.quick_refine(x, y, [ph], radiation=RAD, refine_structure=True)
+    p = r["phases"][0]
+    st = p["structure"]
+    assert not st.get("report_error")
+    bonds = {(b["atom1"], b["atom2"]): b for b in st["bonds"]}
+    assert 1.50 < bonds[("P1", "O1")]["distance"] < 1.60 and 1.50 < bonds[("P1", "O2")]["distance"] < 1.60 and bonds[("P1", "O1")]["esd"] > 0
+    ang = [a for a in st["angles"] if a["centre"] == "P1"]
+    assert ang and all(100 < a["angle"] < 118 for a in ang) and all(a["esd"] > 0 for a in ang)                       # tetrahedral PO4
+    cn = {c["atom"]: c["CN"] for c in st["coordination"]}
+    assert cn["P1"] == 4 and cn["Ca1"] == 9 and cn["Ca2"] == 7
+    bvs = {b["atom"]: b["BVS"] for b in st["bvs"]}
+    assert 4.3 < bvs["P1"] < 5.5 and 1.6 < bvs["Ca1"] < 2.4
+    assert [v for v in st["verdict"] if v["level"] == "warn"] == []
+    # esd notation
+    assert SC.fmt_esd(9.37172, 0.00004) == "9.37172(4)" and SC.fmt_esd(0.5, 0.0) == "0.5" and SC.fmt_esd(1.5555, 0.0047) == "1.556(5)"
+    # the CIF reads back as the same structure
+    txt = SC.write_cif(p, ph.model, "FAP", 1.5405, r["stats"], "2.16.0")
+    assert "_atom_site_fract_x" in txt and "_geom_bond_distance" in txt and "(" in txt and "P 6_3/m" in txt.replace("63", "6_3") or "P6_3/m" in txt
+    with tempfile.NamedTemporaryFile("w", suffix=".cif", delete=False, encoding="utf-8") as fh:
+        fh.write(txt)
+        path = fh.name
+    back = Structure.from_file(path)
+    orig = Structure.from_file(FAP_CIF)
+    os.unlink(path)
+    assert back.composition.reduced_formula == orig.composition.reduced_formula and len(back) == len(orig)
+    assert abs(back.lattice.a - p["cell"][0]) < 1e-4 and abs(back.lattice.c - p["cell"][2]) < 1e-4
