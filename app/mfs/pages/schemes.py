@@ -110,6 +110,17 @@ def _import_scheme(up):
         st.session_state["sch_import_err"] = f"Could not read this file: {e}"
 
 
+@st.cache_data(show_spinner=False)
+def _tpl_preview(name: str) -> str:
+    import base64
+    data, _info = SC.export(SC.templates()[name], "svg")
+    return base64.b64encode(data).decode("ascii")
+
+
+def esc_alt(text: str) -> str:
+    return text.replace('"', "&quot;").replace("<", "&lt;")
+
+
 def page_schemes():
     st.header("Schemes & Icons – schemes with lab and materials icons")
     st.caption("Drag icons from the library onto the canvas, add arrows and text, then export to SVG, PDF, PNG or TIFF at the width and DPI of your journal. "
@@ -128,6 +139,12 @@ def page_schemes():
         tpl = st.selectbox("Start from", ["empty"] + tpl_names, key="sch_tpl",
                            format_func=lambda t: {"empty": "empty canvas"}.get(t, t.replace("_", " ")))
         st.button("➕ New scheme", key="sch_new", width="stretch", on_click=_new_scheme, args=(tpl,))
+        if tpl != "empty":                     # preview of the chosen starting scheme (our own bundled template, shown as SVG)
+            try:
+                st.markdown(f'<img alt="{esc_alt(tpl)} preview" src="data:image/svg+xml;base64,{_tpl_preview(tpl)}" '
+                            f'style="max-width:100%;border:1px solid #CBD5E1;border-radius:6px;background:#fff">', unsafe_allow_html=True)
+            except Exception:                    # a broken preview must not break the page
+                pass
 
     if pick not in store:
         st.caption("Create a scheme to start. Schemes are saved with the project file.")
