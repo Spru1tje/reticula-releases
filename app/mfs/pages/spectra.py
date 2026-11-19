@@ -40,8 +40,8 @@ def page_pxrd():
     c1, c2, c3 = st.columns(3)
     lo, hi = c1.slider("2θ range (°)", 2.0, 90.0, (4.0, 50.0), 0.5)
     ref_mode = c2.selectbox("Reference pattern", ["Simulate from bundled MOF-801 CIF (COD 4121459)", "Simulate from bundled UiO-66 CIF (COD 4512074)",
-                                                  "Upload CIF", "Upload .xy reference", "none"])
-    subst = c3.selectbox("Metal in simulation", ["Hf (replace Zr)", "Zr (as in CIF)"])
+                                                  "Upload CIF", "Upload .xy reference", "none"], index=4)     # v2.18.4: no reference unless you choose one
+    subst = c3.selectbox("Metal in simulation", ["As in the CIF (no substitution)", "Hf (replace Zr)"])           # v2.18.4: Hf is an option, not the default
     fwhm = c3.number_input("Simulated FWHM (°)", 0.03, 1.0, 0.12, 0.01)
     sticks_on = c2.checkbox("Show reflection sticks", True)
     ref, sticks = None, None
@@ -54,7 +54,7 @@ def page_pxrd():
                 cif = os.path.join(REF, "MOF-801_Zr_COD4121459.cif" if "801" in ref_mode else "UiO-66_Zr_COD4512074.cif")
             if cif:
                 sim, sticks, formula = A.simulate_pxrd(cif, (lo, hi), fwhm=fwhm, substitute={"Zr": "Hf"} if subst.startswith("Hf") else None)
-                name = st.text_input("Reference label", "Simulated " + ("MOF-801" if "801" in ref_mode else "UiO-66" if "UiO" in ref_mode else formula) + ("(Hf)" if subst.startswith("Hf") else "(Zr)"))
+                name = st.text_input("Reference label", "Simulated " + ("MOF-801" if "801" in ref_mode else "UiO-66" if "UiO" in ref_mode else formula) + ("(Hf)" if subst.startswith("Hf") else ""))
                 ref = (name, sim.x.values, sim.y.values)
         elif ref_mode == "Upload .xy reference":
             rf = st.file_uploader("Reference .xy", key="refxy")

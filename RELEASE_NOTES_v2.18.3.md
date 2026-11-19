@@ -12,6 +12,7 @@
 
 - **New module: Help and info.** An info document for every module: what it does, the terms (written out before they are abbreviated), a tutorial, the formulas, what the program checks and the limits. Read it in the app, search it, or download it as a PDF in the Reticula colours (one module, or all as a ZIP).
 - **📖 Info about this module (PDF)** button at the top of every module.
+- **PXRD:** no material is assumed any more: the reference pattern starts at *none*, the simulated metal at *As in the CIF* (Hf replacement is an option) and no Rietveld phase is preselected.
 - The Photoluminescence document explains ratiometric thermometry, including the background polynomial (default order 1, range 0-3).
 
 Full list: `app/CHANGELOG.md`.

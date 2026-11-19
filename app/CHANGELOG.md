@@ -2,6 +2,9 @@
 
 ## 2.18.3 — 2026-11-19
 
+### PXRD: no assumed material
+- The reference pattern now starts at *none*, the metal in the simulation at *As in the CIF (no substitution)* (Hf replacement is an option), and no phase is preselected in Rietveld. The label no longer adds `(Zr)` by itself.
+
 ### Help and info
 - New module **Help and info**: an info document for every module (what it does, the terms written out before they are abbreviated, a tutorial, the formulas, what the program checks, the limits). Readable in the app, searchable, and downloadable as a PDF in the Reticula colours (one module, or all as a ZIP).
 - Every module has a **📖 Info about this module (PDF)** button at the top.

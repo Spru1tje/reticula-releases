@@ -31,8 +31,9 @@ def test_crystallite_size_and_rietveld_run_in_the_app():
     assert any("Williamson" in e.value or "D Scherrer" in str(getattr(e, "value", "")) for e in at.dataframe) or len(at.dataframe) > 0
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     assert not at.exception, at.exception
+    _ms = at.multiselect(key="rv_phases"); _ms.set_value([o for o in _ms.options if "801" in o][:1]).run()      # v2.18.4: no phase is preselected any more
     go = [b for b in at.button if b.key == "rv_go"][0]
-    assert not go.disabled                                                # the bundled MOF-801 is preselected
+    assert not go.disabled                                                # the chosen bundled MOF-801
     go.click().run()
     assert not at.exception, at.exception
     res = at.session_state["rv_res"]
@@ -141,6 +142,7 @@ def test_structure_refinement_in_the_app_with_3d_tables_and_cif():
     at.run()
     at.sidebar.radio[0].set_value("PXRD").run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    _ms = at.multiselect(key="rv_phases"); _ms.set_value([o for o in _ms.options if "801" in o][:1]).run()      # v2.18.4: no phase is preselected any more
     [r for r in at.radio if r.key == "rv_mode"][0].set_value("Rietveld + refine the atoms (structure)").run()
     [b for b in at.button if b.key == "rv_go"][0].click().run()
     assert not at.exception, at.exception

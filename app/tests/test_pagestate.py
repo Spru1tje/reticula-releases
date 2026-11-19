@@ -33,10 +33,10 @@ def test_settings_survive_navigation(tmp_path):
     at = _app(str(tmp_path), guard="0")
     _nav(at, "PXRD")
     _slider(at, "2θ range").set_value((6.0, 40.0)).run()
-    sb = next(s for s in at.selectbox if s.label == "Metal in simulation"); sb.set_value("Zr (as in CIF)").run()
+    sb = next(s for s in at.selectbox if s.label == "Metal in simulation"); sb.set_value("Hf (replace Zr)").run()
     _nav(at, "TGA"); _nav(at, "XPS"); _nav(at, "PXRD")
     assert _slider(at, "2θ range").value == (6.0, 40.0)
-    assert next(s for s in at.selectbox if s.label == "Metal in simulation").value == "Zr (as in CIF)"
+    assert next(s for s in at.selectbox if s.label == "Metal in simulation").value == "Hf (replace Zr)"
 
 
 def test_dialog_blocks_navigation_and_cancel(tmp_path):
