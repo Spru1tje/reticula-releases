@@ -316,6 +316,61 @@ def read_ftir_multi(src, name: str = ""):
     return out
 
 
+# --------------------------------------------------------------------------- Edinburgh Instruments .FS (Fluoracle / F980 / FLS)
+def read_edinburgh_fs(src, name: str = ""):
+    """v2.18.4: Edinburgh Instruments Fluoracle binary `.FS` file (one scan, or 'EAI Multiple Scans' with several). Each scan block holds the file type, the axis names and units,
+    the program version, the sample name, the instrument settings and the data as float32 (counts) on an even wavelength grid between the start and end wavelength that are
+    stored in the block. Verified on 9 files of an FLS (NIR PMT) emission series: 351 points 900-1250 nm per scan.
+    Returns a list of dicts {name, x, y, x_label, y_label, kind, detector, excitation, x_start, x_end, step} (one per scan; wavelength ascending)."""
+    b = _to_bytes(src)
+    if not b.startswith(b"EAI "):
+        raise ValueError("Not an Edinburgh Instruments .FS file (it should start with 'EAI ...')")
+    head = re.match(rb"EAI [A-Za-z ]+?\x00", b)
+    kind_file = head.group().rstrip(b"\x00").decode("latin1") if head else "EAI"
+    marks = [m.start() for m in re.finditer(rb"EAI (?:Emission|Excitation|Synchronous|Kinetics|Lifetime|Decay|Absorption|Scan)[A-Za-z ]*\x00", b)]
+    if b.startswith(b"EAI Emission Scan") or kind_file.endswith("Scan"):
+        marks = [m for m in marks if m > 0] or marks                   # a single-scan file repeats the type string once at the start
+    scans = []
+    for k, m0 in enumerate(marks):
+        m1 = marks[k + 1] if k + 1 < len(marks) else len(b)
+        blk = b[m0:m1]
+        kind = re.match(rb"EAI [A-Za-z ]+", blk).group().decode("latin1")
+        jw = blk.find(b"Wavelength")
+        if jw < 8:
+            continue
+        x0, x1 = struct.unpack_from("<ff", blk, jw - 8)
+        strs = [(mm.start(), mm.end(), mm.group().decode("latin1")) for mm in re.finditer(rb"[\x20-\x7e]{2,}", blk[:700])]
+        sample, name_end = "", jw + 20
+        ver = next(((s0, s1) for s0, s1, s in strs if re.fullmatch(r"\d+(\.\d+)+", s)), None)          # the program version string ends the axis block
+        for s0, s1, s in strs:
+            if (ver is None or s0 >= ver[1]) and s0 > jw + 20 and not re.fullmatch(r"\d+(\.\d+)+", s) and s.strip() and len(s) >= 2:
+                sample, name_end = s, s1
+                break
+        tail = [s for s0, s1, s in strs if s0 >= name_end and len(s) > 3]               # settings strings (detector, excitation source) between the name and the data
+        # data: the last N float32 of the block; N from the wavelength grid ('nice' steps) - the first position after the name that gives all-plausible numbers
+        start = None
+        for s in range(name_end, len(blk) - 12):
+            if (len(blk) - s) % 4:
+                continue
+            n = (len(blk) - s) // 4
+            step = (x1 - x0) / (n - 1)
+            if not (abs(step * 1000 - round(step * 1000)) < 1e-6 * max(1.0, abs(step) * 1000) and abs(step) >= 0.001):
+                continue
+            a = np.frombuffer(blk, "<f4", n, s)
+            if np.all(np.isfinite(a)) and np.abs(a).max() < 1e9:
+                start = s
+                break
+        if start is None:
+            raise ValueError("Could not locate the data of a scan in this .FS file")
+        y = np.frombuffer(blk, "<f4", (len(blk) - start) // 4, start).astype(float)
+        x = np.linspace(x0, x1, len(y))
+        scans.append({"name": sample, "x": x, "y": y, "x_label": "Wavelength (nm)", "y_label": "Counts", "kind": kind, "x_start": float(x0), "x_end": float(x1),
+                      "step": float(x[1] - x[0]) if len(x) > 1 else float("nan"), "detector": next((t for t in tail if "PMT" in t or "InGaAs" in t or "CCD" in t), ""),
+                      "excitation": next((t for t in tail if "aser" in t or "amp" in t or "Xe" in t), ""), "n": len(y)})
+    if not scans:
+        raise ValueError("No scan found in this .FS file")
+    return scans
+
 # --------------------------------------------------------------------------- NMR
 def read_nmr(src, name: str = ""):
     """Bruker TopSpin processed spectrum.

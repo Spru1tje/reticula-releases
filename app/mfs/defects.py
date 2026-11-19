@@ -53,6 +53,8 @@ REFS = {
     "vermoortele2013": ("Vermoortele, F. et al. Synthesis Modulation as a Tool To Increase the Catalytic Activity "
                         "of Metal-Organic Frameworks: The Unique Case of UiO-66(Zr). J. Am. Chem. Soc. 2013, 135, "
                         "11465-11468.", "10.1021/ja405078u"),
+    "lazaro2020": ("Abánades Lázaro, I. A Comprehensive Thermogravimetric Analysis Multifaceted Method for the Exact Determination of the Composition of "
+                   "Multifunctional Metal-Organic Framework Materials. Eur. J. Inorg. Chem. 2020, 4284-4294.", "10.1002/ejic.202000656"),
     "furukawa2014": ("Furukawa, H. et al. Water Adsorption in Porous Metal-Organic Frameworks and Related Materials. "
                      "J. Am. Chem. Soc. 2014, 136, 4369-4381.", "10.1021/ja500330a"),
 }
@@ -69,6 +71,7 @@ class Species:
     integral: float | None = None   # integral of that signal (any common scale)
     at_plateau: bool = False        # still present at the TGA dehydroxylated plateau (~400 °C)?
     main: bool = False              # the framework's main linker
+    residue_frac: float = 0.0       # v2.18.4 (Lázaro 2020): fraction of this species that stays in the TGA residue (partial decomposition; 0 = burns away)
 
     @property
     def M(self):
@@ -124,6 +127,12 @@ class DefectInput:
     node: str = ""
     node_custom: dict | None = None        # custom node: mfs.nodes.custom_node(...) kwargs or a full definition
     icp_M_wt: float | None = None          # ICP framework-metal wt% for non-Zr/Hf nodes (Zr/Hf keep icp_Zr_wt/icp_Hf_wt)
+    # v2.18.4 Lázaro 2020 method (mfs.lazaro): composites and the charge-balancing species
+    composite_kind: str = "none"           # 'none' | 'inert' (oxide/metal that does not decompose) | 'before_dh' (burns away before the linker) | 'with_dh' (burns with the linker)
+    composite_wt_pct: float | None = None  # weight % of the composite in the material ('with_dh': needed)
+    mof_residue_fraction: float | None = None   # share of the TGA residue that comes from the MOF (inert composite, from ICP/EDX); None -> from the extra-framework Zr option
+    lazaro_balance: str = "OH"             # species that closes the charge at ~200 °C: 'OH' | 'O' | 'Cl' | 'none'
+    lazaro_dh_compensation: str = "O"      # DH structure: 'O' (ZrO(L)xO(1-x)) or 'none' (ZrO(L)x)
 
     # ---- derived helpers -------------------------------------------------
     def fw(self):
@@ -861,7 +870,17 @@ SUMMARY_PITFALLS = [
 ]
 
 
-def run_all(inp: DefectInput) -> dict:
+def run_all(inp: DefectInput, lazaro: bool = False) -> dict:
+    """All methods a–h + consensus. lazaro=True adds res["lazaro"] = [i1, i2] (Lázaro 2020, mfs.lazaro) and a side-by-side table; they are NOT part of the
+    consensus, so the results of earlier versions stay identical."""
+    res = _run_all(inp)
+    if lazaro:
+        from . import lazaro as LZ
+        res["lazaro"] = LZ.method_i(inp)
+    return res
+
+
+def _run_all(inp: DefectInput) -> dict:
     a = method_a(inp)
     c = method_c(inp)
     b = method_b(inp)

@@ -308,6 +308,117 @@ def _std_profile(up):
     return {k: s_[k] for k in ("U", "V", "W", "X", "Y")} | {"fixed": True}, s_
 
 
+def _solve_ui(box, raws, nm):
+    """v2.18.4: guided structure solution of an unknown compound from this powder pattern (mfs.solve): cell, space group, charge flipping, atoms, refinement."""
+    import os as _os
+    from mfs import solve as SV
+    from mfs import rietveld as RV
+    from mfs import refout as RO
+    ss = st.session_state
+    with box.expander("🧪 Solve the crystal structure of an unknown compound (from this powder pattern)", expanded=False):
+        st.caption("The route of the field, automated: **data check → unit cell (indexing + Le Bail on your pattern) → space group (systematic absences) → structure solution "
+                   "(charge flipping, many random starts in parallel) → atoms (assigned from your formula by the R factor) → Rietveld refinement**. Every decision is shown and can be "
+                   "overridden. It works best with a high-quality pattern to 2θ ≈ 80° (Cu Kα) or more; the result is a **starting model** to continue with, not a finished structure.")
+        c1, c2 = st.columns([3, 1])
+        formula = c1.text_input("Chemical formula (one formula unit), e.g. Zr6O4(OH)4(C8H4O4)6, or the elements, e.g. Sn O", "", key="sv_formula",
+                                help="The atoms are named from this: the electron-density peaks cannot tell the elements apart by themselves. Hydrogen is ignored (it is invisible to X-rays).")
+        zin = c2.text_input("Formula units per cell (Z)", "", key="sv_z", help="Empty = estimated from the cell volume; the best fit of the intensities decides between the plausible values.")
+        c3, c4, c5 = st.columns([2, 1, 1])
+        si_up = c3.file_uploader("Silicon (or other standard) pattern measured on the same instrument – optional", key="sv_si",
+                                 help="Gives the zero shift of the instrument and the peak profile. A zero error of 0.05° spoils indexing; with a reference the cell is more reliable.")
+        sgn = c4.text_input("Space group No. (empty = determine)", "", key="sv_sg")
+        mono = c5.checkbox("Also try monoclinic cells (slower)", False, key="sv_mono")
+        n_tr, n_it, n_thr = 12, 300, max(1, (_os.cpu_count() or 2))
+        if LV.at_least("Advanced"):
+            a1, a2, a3 = st.columns(3)
+            n_tr = a1.slider("Random starts per space group", 4, 48, 12, key="sv_trials")
+            n_it = a2.slider("Charge-flipping iterations", 100, 1500, 300, 50, key="sv_iter")
+            n_thr = a3.slider("Parallel threads", 1, max(2, (_os.cpu_count() or 2)), max(1, (_os.cpu_count() or 2)), key="sv_threads")
+        go = st.button("▶ Solve the structure", key="sv_go", type="primary", width="stretch", help="Typically one to several minutes.")
+        store = ss.setdefault("sv_res", {})
+        if go:
+            try:
+                comp = SV.parse_formula(formula)
+            except Exception as e:
+                comp = {}
+                st.error(f"The formula was not understood: {e}")
+            if not comp:
+                st.warning("Give the chemical formula or the elements so that the peaks can be named.")
+            else:
+                x, y = raws[nm]
+                rad_ = ss.get("rv_rad", "Cu Kα1")
+                inst, zero = None, 0.0
+                if si_up is not None:
+                    try:
+                        from mfs import readers as R2
+                        d_si = R2.read_pxrd(io.BytesIO(si_up.getvalue()), si_up.name)
+                        std2 = RV.instrument_profile_from_standard(d_si["x"].values, d_si["y"].values, rad_, offset="zero")        # separate standard sample: instrument zero, not its displacement
+                        inst = {k_: std2[k_] for k_ in ("U", "V", "W", "X", "Y")} | {"fixed": True}
+                        zero = float(std2["zero"])
+                        st.caption(f"Reference pattern: zero shift {zero:+.4f}° applied, profile U, V, W, X, Y fixed; its Rwp is {100 * std2['rwp']:.1f} % and a = {std2['cell_a']:.4f} Å (SRM 640: 5.4312 Å).")
+                    except Exception as e:
+                        st.warning(f"The reference pattern could not be used: {e}")
+                bar = st.progress(0.0, text="Starting …")
+
+                def cb(f, t=""):
+                    bar.progress(min(1.0, max(0.0, float(f))), text=str(t)[:110])
+                systems = ("cubic", "tetragonal", "hexagonal", "orthorhombic") + (("monoclinic",) if mono else ())
+                try:
+                    out = SV.solve(x, y, rad_, comp, int(zin) if zin.strip().isdigit() else None, None, int(sgn) if sgn.strip().isdigit() else None, inst, zero, systems,
+                                   None, n_tr, n_it, 2, 6, 0.10, n_thr, cb, True)
+                    out["_formula"] = formula
+                    out["_zero"] = zero
+                    store[nm] = out
+                except Exception as e:
+                    st.error(f"The structure solution stopped: {e}")
+                bar.empty()
+        out = store.get(nm)
+        if out is None:
+            st.caption("Give the formula and press **Solve the structure**. The decision log appears here.")
+            return
+        icon = {"ok": "✅", "warning": "⚠️", "failed": "❌"}
+        for s_ in out["steps"]:
+            with st.expander(f"{icon.get(s_['status'], 'ℹ️')} {s_['title']}", expanded=s_["key"] in ("cf", "atoms", "rietveld") or s_["status"] != "ok"):
+                st.write(s_["text"])
+                tb = s_.get("data", {}).get("table")
+                if tb:
+                    st.dataframe(pd.DataFrame(tb), hide_index=True, width="stretch")
+        if not out.get("ok"):
+            st.warning("No structure was obtained. Read the steps above: the first step that is marked ⚠️ or ❌ tells what to change (more peaks / higher angle range, a zero-shift reference, the formula, "
+                       "the space group, or more random starts in the Advanced settings).")
+            return
+        res_r = out.get("refinement")
+        m = st.columns(4)
+        m[0].metric("Space group", out["space_group"]["label"], f"No. {out['space_group']['number']}", delta_color="off")
+        m[1].metric("Cell volume", f"{RV.cell_volume(tuple(out['cell'])):.1f} Å³", f"{out['system']}", delta_color="off")
+        m[2].metric("R(F) of the amplitudes", f"{100 * out['R_F']:.1f} %", help="Agreement of the model with the Le Bail intensities (a model of the heavy atoms from powder data: about 10–30 %).")
+        if res_r:
+            m[3].metric("Rwp after refinement", f"{100 * res_r['stats']['Rwp']:.1f} %", "good" if res_r["stats"]["Rwp"] < 0.15 else "check", delta_color="off" if res_r["stats"]["Rwp"] < 0.15 else "inverse")
+        for w_ in out.get("warnings", [])[-2:]:
+            st.caption("⚠️ " + w_)
+        ph_o = (res_r or {}).get("_phase_objs") or []
+        if res_r:
+            fig, ax = newfig(aspect=0.75)
+            RV.draw(ax, res_r)
+            show(fig, f"PXRD_solved_{nm}", pd.DataFrame({"two_theta": res_r["x"], "observed": res_r["y"], "calculated": res_r["calc"], "background": res_r["bg"], "difference": res_r["resid"]}),
+                 lambda ax_, r_=res_r: RV.draw(ax_, r_), "Rietveld fit of the solved structure", units={"x": "2theta"})
+            for _i, _p in enumerate(res_r["phases"]):
+                if _p.get("structure"):
+                    from mfs import struct_ui as SU
+                    SU.render(res_r, _i, nm, {"show": show, "newfig": newfig, "dl": dl}, __version__)
+                else:
+                    RO.render(res_r, _i, ph_o[_i] if _i < len(ph_o) else None, nm, {"dl": dl}, __version__)
+        _fn = re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)
+        dl(st, "⬇️ Solved structure (CIF, starting model)", out["cif"].encode("utf-8"), f"{_fn}_solved.cif", "sv_cif",
+           help="Symmetry written by the program; light atoms may be missing and hydrogen is not placed – refine with restraints before use.")
+        extra = {"solution_report.txt": SV.report_text(out, nm, __version__), "solved_structure_before_refinement.cif": out["cif"]}
+        if res_r:
+            dl(st, "⬇️ Everything to continue with (ZIP: CIFs, pattern files, reflection lists, decision report)", lambda: RO.bundle(res_r, ph_o, nm, __version__, extra_files=extra),
+               f"{_fn}_structure_solution.zip", "sv_zip")
+        else:
+            dl(st, "⬇️ Decision report (text)", SV.report_text(out, nm, __version__).encode("utf-8"), f"{_fn}_solution_report.txt", "sv_rep")
+
+
 def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     """v2.15: Rietveld / Le Bail refinement - pick phases, press Refine. Opt-in (shown only after a click)."""
     import math
@@ -344,18 +455,26 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                 st.caption("The cell change shows how far the measured cell is from the library cell (solid solution, another metal, temperature …).")
     with box.expander("🧭 Unknown phase? Find its unit cell (indexing)", expanded=False):
         from mfs import indexing as IX
-        st.caption("For a phase that is not in the library and has no CIF: the unit cell is searched from the peak positions (cubic, tetragonal, hexagonal, orthorhombic). "
-                   "The quality is the de Wolff M20 (> 10 reliable). The cell is then fitted with Le Bail (no structure needed) – a good cell gives a good fit.")
+        st.caption("For a phase that is not in the library and has no CIF: the unit cell is searched from the peak positions (cubic, tetragonal, hexagonal, orthorhombic; monoclinic on request). "
+                   "The quality is the de Wolff M20 (> 10 reliable); the zero shift of the pattern is refined together with the cell. "
+                   "The cell is then fitted with Le Bail (no structure needed) – a good cell gives a good fit.")
+        _mono = st.checkbox("Also try monoclinic cells (slower)", False, key="rv_index_mono",
+                            help="Monoclinic cells have four free parameters and many more candidates; the search takes longer and is only reliable with a good pattern.")
         if st.button("🧭 Index the pattern", key="rv_index"):
             _x, _y = raws[nm]
             _lam = RV.RADIATION[ss.get("rv_rad", "Cu Kα1")][0][0]
             _pk = PID.exp_peaks(_x, _y, 0.015)[0]
-            with st.spinner("Searching unit cells …"):
-                ss["rv_index_res"] = (nm, IX.index(_pk, _lam), len(_pk))
+            _pb = st.progress(0.0, text="Searching unit cells …")
+
+            def _cb(f, t=""):
+                _pb.progress(min(1.0, max(0.0, float(f))), text=f"Searching unit cells – {t}" if t else "Searching unit cells …")
+            _syst = ("cubic", "tetragonal", "hexagonal", "orthorhombic") + (("monoclinic",) if _mono else ())
+            ss["rv_index_res"] = (nm, IX.index(_pk, _lam, systems=_syst, progress=_cb), len(_pk))
+            _pb.empty()
         _xr = ss.get("rv_index_res")
         if _xr and _xr[0] == nm:
             if not _xr[1]:
-                st.warning(f"No cell found from {_xr[2]} peaks (monoclinic / triclinic cells, impurities or too few peaks). Dedicated programs (DICVOL, McMaille) go further.")
+                st.warning(f"No cell found from {_xr[2]} peaks (triclinic cells, impurities or too few peaks; tick 'Also try monoclinic cells' if you have not). Dedicated programs (DICVOL, McMaille) go further.")
             else:
                 st.dataframe(pd.DataFrame([{"#": k + 1, "system": s_["system"], "a (Å)": s_["cell"][0], "b (Å)": s_["cell"][1], "c (Å)": s_["cell"][2], "γ (°)": s_["cell"][5],
                                              "volume (Å³)": s_["volume"], "M20": s_["M20"], "unindexed": s_["n_unindexed"], "quality": s_["quality"]} for k, s_ in enumerate(_xr[1])]),
@@ -365,6 +484,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         if ss.get("rv_cellph"):
             st.markdown("**Unknown phases (cell only):** " + ", ".join(f"{n_} ({c_[0]:.3f}, {c_[1]:.3f}, {c_[2]:.3f} Å)" for n_, c_ in ss["rv_cellph"]))
             st.button("Remove the unknown phases", key="rv_cell_clear", on_click=lambda: ss.pop("rv_cellph", None))
+    _solve_ui(box, raws, nm)
     _lk1, _lk2 = box.columns([1, 2], vertical_alignment="center")
     _lk1.link_button("🔗 Open ICSD (licensed)", "https://icsd.fiz-karlsruhe.de/", width="stretch",
                      help="Opens ICSD in your browser. Search there with your own login, then download the CIF and upload it below.")
@@ -465,6 +585,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                                   mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=_rv_progress(bar),
                                   refine_structure=mode_l.startswith("Rietveld + refine"), restraint_scale=rscale, instrument=inst_fix, glass_bg=glass_on, bg_pattern=bg_pat)
             res["profile_fixed"] = bool(inst_fix)
+            res["_phase_objs"] = ph                        # v2.18.4: for the 3D view, the CIF and the reflection list of any refinement
             store[nm] = res
             bar.empty()
         except Exception as e:
@@ -520,7 +641,14 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         if _p.get("structure"):
             from mfs import struct_ui as SU
             SU.render(res, _i, nm, {"show": show, "newfig": newfig, "dl": dl}, __version__)
+    from mfs import refout as RO                                 # v2.18.4: 3D view, CIF, reflection list and .xy files for every refinement (not only the atom refinement)
+    _pobjs = res.get("_phase_objs") or []
+    for _i, _p in enumerate(res["phases"]):
+        if not _p.get("structure"):
+            RO.render(res, _i, _pobjs[_i] if _i < len(_pobjs) else None, nm, {"dl": dl}, __version__)
     _fn = re.sub(r"[^A-Za-z0-9_.-]+", "_", nm)
+    dl(st, "⬇️ Everything to continue with (ZIP: CIF, .xy of the pattern, reflection lists, summary)", lambda: RO.bundle(res, _pobjs, nm, __version__), f"{_fn}_refinement_files.zip", "rv_zip",
+       help="CIF per phase, observed / calculated / difference / background as .xy, the tick positions, the reflection lists (CSV and .hkl) and a JSON summary.")
     dl(st, "⬇️ Rietveld report (Excel: summary, phases, profile, pattern, notes)", lambda: RV.report_xlsx(res, nm), f"Rietveld_{_fn}.xlsx", "rv_xlsx")
     _dom = max(res["phases"], key=lambda p_: p_["weight_fraction"] if p_["weight_fraction"] == p_["weight_fraction"] else 0)
     for p in res["phases"]:

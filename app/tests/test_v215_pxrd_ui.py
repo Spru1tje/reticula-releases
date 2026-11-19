@@ -128,7 +128,7 @@ def test_pl_extras_panels_exist_and_run():
     assert not at.exception, at.exception
     labels = [e.label for e in at.expander]
     assert any("CIE 1931" in l for l in labels) and any("Power dependence" in l for l in labels)
-    assert any("repeat measurements" in l for l in labels) and any("Spectral-response correction" in l for l in labels)
+    assert any("Repeats" in l for l in labels)          # v2.18.4: "Repeats, independent runs and heating / cooling" and any("Spectral-response correction" in l for l in labels)
     at = _page("Photoluminescence", "Standard")
     assert not at.exception, at.exception
     assert not any("CIE 1931" in e.label for e in at.expander)

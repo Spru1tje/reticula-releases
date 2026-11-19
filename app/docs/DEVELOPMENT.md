@@ -12,3 +12,5 @@
 5. **Source files** are read through `files_input()` – their names then end up in the provenance record of each figure.
 6. Optional / heavy tools (e.g. Rietveld, crystallite size) stay **hidden until the user clicks them open**.
 7. Tests: `pytest tests/` – new behaviour needs a test on synthetic data with a known answer.
+8. **Info documents**: after every big change (new module, method, default, file format or output) update the module's document in `mfs/helpdocs.py` (the *Help and info*
+   module and the 📖 PDF button), in the same release. English; write abbreviations out first; mark unchecked advice as *General practice*. See also `AGENTS.md` at the repo root.

@@ -22,8 +22,13 @@ def _spectra_from(files):
     out = []
     for f in files:
         try:
-            for s in PL.read_pl(f.getvalue(), f.name):
+            raw = f.getvalue()
+            md5 = hashlib.md5(raw).hexdigest()
+            for s in PL.read_pl(raw, f.name):
                 s["file"] = f.name
+                s["file_md5"] = md5
+                s["_order"] = len(out)                      # v2.18.4: measurement order (files, then scans) - for the heating / cooling check
+                s["I_raw"] = np.asarray(s["I"], float).copy()   # v2.18.4: before any correction - for the saturation check and the Poisson weights
                 out.append(s)
         except Exception as e:
             st.error(f"{f.name}: {e}")
@@ -41,12 +46,13 @@ def _pick_cb(target):
         ss["pl_pick_msg"] = "Drag a range on the graph first."
         return
     ss[target] = (round(lo, 1), round(hi, 1))
-    if target == "pl_b1" or target == "pl_b2":
+    if (target == "pl_b1" or target == "pl_b2") and ss.get("pl_method") not in (METHODS[2], METHODS[3]):
         ss["pl_method"] = METHODS[1]
     ss["pl_pick_msg"] = f"Range {lo:.1f}–{hi:.1f} nm set."
 
 
-METHODS = ["Automatic – global fit of all spectra (recommended)", "Integration windows (choose them on the graph)", "Compare both"]
+METHODS = ["Automatic – global fit of all spectra (recommended)", "Integration windows (choose them on the graph)", "Compare both",
+           "Manifold fit – crowded / Stark-split bands (sum of the lines in two ranges)"]
 
 
 def _brush_picker(spectra, lo, hi, marks):
@@ -68,187 +74,25 @@ def _brush_picker(spectra, lo, hi, marks):
     return st.altair_chart(ch, on_select="rerun", key="pl_pick", width="stretch")
 
 
-def _ratio_block(t_order, T, rng, norm, counts_default, g):
-    """Returns (I1, I2, D, D_err, sT_override, info) for the thermometry tab, or None. D_err is None for the integration method."""
-    show, newfig, dl = g["show"], g["newfig"], g["dl"]
-    from mfs import plratio as PR
-    ss = st.session_state
-    c0, c1 = st.columns([3, 2])
-    method = c0.radio("Method", METHODS, key="pl_method", horizontal=False,
-                      help="The global fit describes ALL spectra with the same bands (also hidden shoulders and dirty neighbours) and gives the ratio "
-                           "with an error bar and a quality flag per spectrum. Integration windows cut the overlap at a chosen valley.")
-    raw_counts = all(np.allclose(p["I"], np.round(p["I"])) for p in t_order) and norm.startswith("none")
-    counts = c1.checkbox("Intensities are photon counts (statistics-based weights and σT)", counts_default, key="pl_counts",
-                         help="Raw counts: points are weighted by Poisson statistics. Arbitrary units: the noise is estimated from the data.")
-    # raw (unsmoothed, un-normalised) data inside the chosen wavelength range: the fit has its own background
-    spec = []
-    for p in t_order:
-        w = (p["wl"] >= rng[0]) & (p["wl"] <= rng[1])
-        spec.append({"T": p["T"], "x": p["wl"][w], "y": p["I"][w]})
-    use_fit = not method.startswith("Integration")
-    fit = None
-    bands_txt, extra_txt, bgo, model, add_extra = "", "", 1, "auto", True
-    if use_fit and LV.at_least("Advanced"):
-        with st.expander("⚙️ Fit settings (automatic by default)", expanded=False):
-            a1, a2, a3 = st.columns(3)
-            bands_txt = a1.text_input("Ratio bands: centres (nm), empty = automatic", "", key="pl_bands", help="e.g. 524, 545 – band 1 is the first, band 2 the second.")
-            extra_txt = a2.text_input("Extra (nuisance) bands (nm), empty = automatic", "", key="pl_extra",
-                                      help="Bands that are not part of the ratio but overlap with it (a shoulder, a third emission).")
-            add_extra = a2.checkbox("Let the program add extra bands when needed", True, key="pl_addextra")
-            bgo = a3.slider("Background polynomial order", 0, 3, 1, key="pl_bgo")
-            model = {"automatic (BIC)": "auto", "shared shape": "none", "shape drifts with T": "drift"}[
-                a3.selectbox("Peak model", ["automatic (BIC)", "shared shape", "shape drifts with T"], key="pl_model")]
-    flo, fhi = (float(rng[0]), float(rng[1]))
-    if use_fit and LV.at_least("Advanced"):
-        fw = st.slider("Fit range (nm)", float(rng[0]), float(rng[1]), (float(rng[0]), float(rng[1])), 0.5, key="pl_fitwin")
-        flo, fhi = fw
-    # ---------- graph with brush
-    marks = []
-    dflt = _band_default([{"wl": q["x"], "I": q["y"]} for q in spec], rng[0], rng[1])
-    b1d, b2d = dflt if dflt else ((rng[0], (rng[0] + rng[1]) / 2), ((rng[0] + rng[1]) / 2, rng[1]))
-    b1d, b2d = tuple(round(float(v), 1) for v in b1d), tuple(round(float(v), 1) for v in b2d)
-    b1 = ss.get("pl_b1", b1d)
-    b2 = ss.get("pl_b2", b2d)
-    if not use_fit or method == METHODS[2]:
-        if b1:
-            marks.append((b1[0], b1[1], "band 1", "#0072B2"))
-        if b2:
-            marks.append((b2[0], b2[1], "band 2", "#D55E00"))
-    if use_fit:
-        marks.append((flo, fhi, "fit range", "#10B981"))
-    _brush_picker(spec, float(rng[0]), float(rng[1]), marks)
-    bc = st.columns(4)
-    bc[0].button("→ band 1", key="pl_pb1", on_click=_pick_cb, args=("pl_b1",), width="stretch", help="Use the range you dragged on the graph as band 1")
-    bc[1].button("→ band 2", key="pl_pb2", on_click=_pick_cb, args=("pl_b2",), width="stretch")
-    if use_fit and LV.at_least("Advanced"):
-        bc[2].button("→ fit range", key="pl_pfw", on_click=_pick_cb, args=("pl_fitwin",), width="stretch")
-    if ss.get("pl_pick_msg"):
-        bc[3].caption(ss.pop("pl_pick_msg"))
-    st.caption("Drag over the graph to select a range, then press a button. With the automatic method nothing has to be chosen.")
-    # ---------- integration windows
-    I1w = I2w = None
-    if (not use_fit) or method == METHODS[2]:
-        w1 = st.slider("Band 1 window (nm) – I₁", float(rng[0]), float(rng[1]), b1d, 0.5, key="pl_b1")
-        w2 = st.slider("Band 2 window (nm) – I₂", float(rng[0]), float(rng[1]), b2d, 0.5, key="pl_b2")
-        I1w = np.array([PL.band_integral(p["wl_c"], p["y_c"], w1[0], w1[1], "linear") for p in t_order])
-        I2w = np.array([PL.band_integral(p["wl_c"], p["y_c"], w2[0], w2[1], "linear") for p in t_order])
-        if (I2w <= 0).any() or (I1w <= 0).any():
-            st.warning("A band has no (positive) integrated intensity in its window – adjust the windows.")
-            if not use_fit:
-                return None
-            I1w = I2w = None
-    if not use_fit:
-        return I1w, I2w, I1w / I2w, None, None, {"method": "windows"}
-    # ---------- global fit
-    try:
-        man = [float(v) for v in bands_txt.replace(";", ",").split(",") if v.strip()]
-        ext = [float(v) for v in extra_txt.replace(";", ",").split(",") if v.strip()]
-    except ValueError:
-        st.warning("Band positions not understood – the automatic choice is used.")
-        man, ext = [], []
-    with st.spinner("Fitting all spectra …"):
-        if len(man) >= 2:
-            bands = [(c, 10.0) for c in man[:2]]
-            auto = PR.auto_bands(np.asarray(spec[0]["x"], float), np.mean([np.interp(spec[0]["x"], q["x"], q["y"]) for q in spec], axis=0), flo, fhi, 2)
-            if auto:
-                bands = [min(auto, key=lambda b: abs(b[0] - c)) if abs(min(auto, key=lambda b: abs(b[0] - c))[0] - c) < 8 else (c, 10.0) for c in man[:2]]
-                bands = [(c0_, w_) for (c0_, w_), c in zip(bands, man[:2])]
-            fit = PR.auto_fit(spec, counts, flo, fhi, bgo, 3 if add_extra and not ext else 0, bands=bands)
-            if fit is not None and ext:
-                fit = PR.fit_global(spec, fit["bands"] + [(c, 10.0) for c in ext], (flo, fhi), bgo, model, counts)
-                fit["bands"], fit["extra"] = fit.get("bands", bands), [(c, 10.0) for c in ext]
-        else:
-            fit = PR.auto_fit(spec, counts, flo, fhi, bgo, 3 if add_extra and not ext else 0)
-            if fit is not None and ext:
-                fit = PR.fit_global(spec, fit["bands"] + [(c, 10.0) for c in ext], (flo, fhi), bgo, model, counts)
-        if fit is not None and model != "auto" and not ext:
-            fit = PR.fit_global(spec, fit["bands"] + fit["extra"], (flo, fhi), bgo, model, counts) | {"bands": fit["bands"], "extra": fit["extra"]}
-        if fit is None:
-            st.info("The automatic search did not find two separate bands. Choose the two windows by hand (method: integration windows) "
-                    "or give the band centres in the fit settings.")
-            return None
-        fit = PR.robust_ratio(spec, fit["bands"], bg_order=bgo, counts=counts, main=fit)
-    return _show_fit(fit, spec, T, I1w, I2w, method, counts, g)
-
-
-def _show_fit(fit, spec, T, I1w, I2w, method, counts, g):
-    show, newfig, dl = g["show"], g["newfig"], g["dl"]
-    rows = fit["rows"]
-    A = np.array([r["areas"][0] for r in rows])
-    B = np.array([r["areas"][1] for r in rows])
-    D = np.array([r["ratio"] for r in rows])
-    stat = np.array([r["ratio_err"] for r in rows])
-    tot = fit["ratio_total"]
-    bad = [r for r in rows if r["flag"] != "good"]
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Bands", f"{fit['n_bands']}" + (f" (incl. {len(fit['extra'])} extra)" if fit.get("extra") else ""),
-              help="The first two are the ratio bands: " + ", ".join(f"{c:.1f} nm" for c, _ in fit["bands"][:2]))
-    m2.metric("Model", fit["model"])
-    m3.metric("Typical ratio error", f"{100 * float(np.nanmedian(tot / D)):.1f} %", help="Statistical error + the spread of refits with other windows and the other model.")
-    m4.metric("Spectra to check", f"{len(bad)} of {len(rows)}", "all good" if not bad else "see the table", delta_color="off" if not bad else "inverse")
-    if fit.get("extra"):
-        st.caption("➕ Extra (nuisance) bands added automatically: " + ", ".join(f"{c:.0f} nm" for c, _ in fit["extra"])
-                   + " – they absorb a shoulder / neighbouring emission so that it does not distort the ratio.")
-    if bad:
-        st.warning("The fit is not trustworthy for: " + ", ".join(f"{r['T']:.1f} K ({r['flag']})" for r in bad)
-                   + " – the residual shows structure (dirty / wavy spectrum, an unmodelled band). Look at the fit of those spectra below.")
-    # which temperature to look at
-    ti = st.select_slider("Show the fit of the spectrum at", options=list(range(len(rows))), value=len(rows) // 2, key="pl_fit_i",
-                          format_func=lambda i: f"{rows[i]['T']:.1f} K")
-    r = rows[ti]
-
-    def draw_fit(ax, r=r):
-        ax.plot(r["x"], r["y"], "o", ms=2.2, mfc="none", mec="#222222", mew=0.4, label="measured")
-        ax.plot(r["x"], r["fit"], "-", color="#D62728", lw=1.0, label="fit")
-        cols = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00"]
-        for k, comp in enumerate(r["components"]):
-            ax.fill_between(r["x"], r["background"], r["background"] + comp, color=cols[k % 5], alpha=0.35, lw=0,
-                            label=(f"band {k + 1}" if k < 2 else "extra"))
-        ax.plot(r["x"], r["background"], "--", color="#7F7F7F", lw=0.6)
-        res = r["y"] - r["fit"]
-        off = float(r["y"].min()) - 0.12 * float(np.ptp(r["y"])) - float(np.max(np.abs(res)))
-        ax.plot(r["x"], off + res, "-", color="#7F7F7F", lw=0.6, label="residual")
-        ax.axhline(off, color="#7F7F7F", lw=0.3)
-        ax.set_xlabel("Wavelength (nm)"); ax.set_ylabel("Intensity (counts)" if counts else "Intensity")
-        ax.text(0.02, 0.97, f"{r['T']:.1f} K,  R$^2$ = {r['r2']:.4f}", transform=ax.transAxes, va="top", fontsize=6)
-        ax.legend(frameon=False, fontsize=6, loc="upper right")
-    fig, ax = newfig(0.75); draw_fit(ax)
-    show(fig, "PL_ratio_fit", pd.DataFrame({"wavelength": r["x"], "measured": r["y"], "fit": r["fit"], "background": r["background"]}), draw_fit,
-         "Band fit at one temperature")
-    q = pd.DataFrame({"T (K)": [x["T"] for x in rows], "I1 (area)": A, "I2 (area)": B, "ratio I1/I2": D, "± statistical": stat,
-                      "± systematic": fit["ratio_sys"], "± total": tot, "R²": [x["r2"] for x in rows],
-                      "χ² (red.)": [x["chi2_red"] for x in rows], "residual correlation (DW)": [x["dw"] for x in rows], "quality": [x["flag"] for x in rows]})
-    with st.expander("Quality of every fit (ratio ± error, R², residual statistics)", expanded=bool(bad)):
-        st.dataframe(q.style.format(precision=4), hide_index=True, width="stretch")
-        st.caption("Quality: **good** = random residual; **check** = visible structure or a poor χ²; **poor** = the model does not describe this spectrum. "
-                   "DW (Durbin–Watson) ≈ 2 for random residuals, < 1 for wavy ones. Systematic error = spread of refits with a narrower / wider fit range and the other peak model.")
-    if method == METHODS[2] and I1w is not None:
-        with st.expander("Comparison: fit vs integration windows", expanded=True):
-            Dw = I1w / I2w
-            dev = 100 * (Dw / D - 1)
-
-            def draw_cmp(ax, T=T, D=D, tot=tot, Dw=Dw):
-                ax.errorbar(T, D, yerr=tot, fmt="o", ms=3.5, capsize=2, lw=0.8, color="#0072B2", label="global fit")
-                ax.plot(T, Dw, "s", ms=3.5, mfc="none", color="#D55E00", label="integration windows")
-                ax.set_xlabel("Temperature (K)"); ax.set_ylabel("Δ = $I_1$/$I_2$"); ax.legend(frameon=False, fontsize=6)
-            fig2, ax2 = newfig(0.7); draw_cmp(ax2)
-            show(fig2, "PL_ratio_compare", pd.DataFrame({"T (K)": T, "fit": D, "fit error": tot, "windows": Dw}), draw_cmp, "Fit vs windows")
-            st.caption(f"The windows deviate from the global fit by {np.nanmedian(np.abs(dev)):.1f} % (median, up to {np.nanmax(np.abs(dev)):.1f} %): "
-                       "that is the bias of cutting overlapping bands at a valley.")
-    return A, B, D, tot, None, {"method": "fit", "fit": fit}
-
-
 def _extras_panel(proc, rng, g):
     """v2.15.1: CIE 1931 colour of the spectra and the power dependence (log-log slope)."""
     show, newfig, dl = g["show"], g["newfig"], g["dl"]
     from mfs import plextras as PX
     with st.expander("🎨 CIE 1931 colour (x, y, colour temperature)", expanded=False):
-        photon = st.checkbox("Intensities are photon counts (convert to energy before weighting)", True, key="pl_cie_ph")
+        cc1, cc2 = st.columns(2)
+        photon = cc1.checkbox("Intensities are photon counts (convert to energy before weighting)", True, key="pl_cie_ph")
+        wp = cc2.selectbox("White point for the dominant wavelength and purity", list(PX.WHITE), key="pl_cie_wp")
+        if not st.session_state.get("pl_cal_applied"):
+            st.caption("⚠️ Colour coordinates need spectra corrected for the spectral response of the spectrometer; without the correction they are instrument-specific.")
         rows, pts, cols = [], [], []
         pal = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#7F7F7F", "#000000"]
         for k, q in enumerate(proc):
             c = PX.cie_xy(q["wl_c"], q["y_c"], photon)
-            rows.append({"spectrum": q["name"], "T (K)": q["T"], "x": c["x"], "y": c["y"], "CCT (K)": c["CCT"]})
+            dw = PX.dominant_wavelength(c["x"], c["y"], PX.WHITE[wp])
+            cov = (min(780.0, float(q["wl_c"].max())) - max(380.0, float(q["wl_c"].min()))) / 400.0
+            rows.append({"spectrum": q["name"], "T (K)": q["T"], "x": c["x"], "y": c["y"], "CCT (K)": c["CCT"],
+                         ("complementary λ (nm)" if dw["complementary"] else "dominant λ (nm)"): dw["dominant_nm"], "purity (%)": dw["purity_pct"],
+                         "visible range covered (%)": round(100 * max(0.0, min(1.0, cov)))})
             if np.isfinite(c["x"]):
                 pts.append((c["x"], c["y"])); cols.append(pal[k % len(pal)])
         tab = pd.DataFrame(rows)
@@ -292,6 +136,29 @@ def _extras_panel(proc, rng, g):
                 st.warning(f.get("status"))
 
 
+def _data_checks(spectra):
+    """v2.18.4: what the files say about the measurement, and the checks that do not need any analysis (saturation, settings that differ)."""
+    from mfs import plqa as QA
+    sat = QA.saturation(spectra)
+    rows, differ = QA.settings_table(spectra)
+    bad = [s for s in sat if s["status"] != "ok"]
+    worst = "fail" if any(s["status"] == "fail" for s in bad) else ("warn" if bad or differ else "ok")
+    label = {"ok": "✅ Measurement settings and data checks – nothing found",
+             "warn": "⚠️ Measurement settings and data checks – look at this",
+             "fail": "⛔ Measurement settings and data checks – saturated spectra"}[worst]
+    with st.expander(label, expanded=worst == "fail"):
+        for s in bad:
+            (st.error if s["status"] == "fail" else st.warning)(f"{s['name']}: {s['reason']}.")
+        if differ:
+            st.warning("These settings differ inside the series: " + ", ".join(differ) + ". Intensities (and ratios, when the response changes with the setting) are only comparable "
+                       "with the same settings – or use 'per second' normalisation when only the dwell time differs.")
+        tab = pd.DataFrame(rows)
+        tab["max (raw counts)"] = [round(s["max"]) if np.isfinite(s["max"]) else None for s in sat]
+        st.dataframe(tab, hide_index=True, width="stretch")
+        st.caption("Read from the files where they contain it (Edinburgh .FS: detector and excitation source; Fluoracle text export: excitation, dwell time, repeats; "
+                   "Ocean Optics: integration time and scans). Saturation: a maximum at the converter limit of an array detector, or three or more points with exactly the maximum.")
+
+
 def _band_default(spectra, lo, hi):
     """Two strongest peaks of the mean spectrum -> two integration windows split at the valley between them."""
     from scipy.signal import find_peaks
@@ -314,38 +181,178 @@ def _band_default(spectra, lo, hi):
     return (float(max(x[0], x[a] - 2.2 * w1)), float(x[v])), (float(x[v]), float(min(x[-1], x[b] + 2.2 * w2)))
 
 
+def _parse_windows(txt):
+    """'900-925; 1090-1250' -> [(900.0, 925.0), (1090.0, 1250.0)] (also with commas and 'to')."""
+    import re
+    out = []
+    for part in re.split(r"[;,]\s*(?=\d)|\n", str(txt)):
+        m = re.findall(r"[-+]?\d+(?:[.]\d+)?", part.replace("–", "-").replace(" to ", "-"))
+        if len(m) >= 2:
+            a, b = float(m[0]), abs(float(m[1])) if float(m[1]) < 0 and float(m[0]) > 0 else float(m[1])
+            out.append((min(a, b), max(a, b)))
+    return out
+
+
+def _background_block(spectra, mode, g):
+    """v2.18.4: standard background subtraction of the whole series. Returns (plan, [{'y','baseline','spikes'}]) - the plan is the same for every spectrum."""
+    from mfs import plbackground as BG
+    show, newfig, dl = g["show"], g["newfig"], g["dl"]
+    grid = np.asarray(spectra[0]["wl"], float)
+    ys = [np.interp(grid, s["wl"], s["I"]) for s in spectra]
+    kind = BG.range_kind(grid)
+    det = next((s["meta"].get("detector") for s in spectra if s.get("meta") and s["meta"].get("detector")), "")
+    with st.expander(f"🧹 Background subtraction – {mode}" + (f" · {kind} spectrum" + (f" · {det}" if det else "")), expanded=True):
+        c1, c2 = st.columns(2)
+        spike = c1.checkbox("Remove single-point spikes (cosmic rays, hot pixels)", False, key="pl_spike",
+                            help="A point that differs from the median of its neighbours by more than 8 noise levels is replaced. Array detectors (CCD, InGaAs); not needed for a PMT scan.")
+        dark, wins, forced = None, None, {}
+        if mode == "Dark / background file":
+            df_ = c2.file_uploader("Dark / background spectrum (same detector and settings)", type=["csv", "txt", "dat", "xlsx", "xls", "fs"], key="pl_dark")
+            if df_ is not None:
+                try:
+                    d0 = PL.read_pl(df_.getvalue(), df_.name)[0]
+                    dark = (d0["wl"], d0["I"])
+                    c2.caption(f"✅ {df_.name}: {len(d0['wl'])} points. It is scaled in the signal-free windows and subtracted from every spectrum.")
+                except Exception as e:
+                    st.warning(f"Dark file not read: {e}")
+            else:
+                c2.info("Upload the dark / background spectrum; until then the automatic background is used.")
+        if mode == "Manual windows":
+            auto_w = BG.find_free_windows(grid, ys)
+            txt = c2.text_input("Signal-free windows (nm), e.g. 900-925; 1090-1250", "; ".join(f"{a:.0f}-{b:.0f}" for a, b in auto_w), key="pl_win_txt",
+                                help="Regions without emission. The start value is what the automatic search found: edit it.")
+            wins = _parse_windows(txt) or None
+            m1, m2 = st.columns(2)
+            meth = m1.selectbox("Method", ["polynomial in the windows", "rubber band (lower convex hull)", "ModPoly (iterative polynomial)", "arPLS (penalised least squares)", "SNIP (peak clipping)"], key="pl_bg_meth")
+            order = m2.slider("Polynomial order (0 = constant pedestal)", 0, 4, 1, key="pl_bg_order")
+            forced = {"polynomial in the windows": ("poly", order), "rubber band (lower convex hull)": ("rubber", None), "ModPoly (iterative polynomial)": ("modpoly", order),
+                      "arPLS (penalised least squares)": ("arpls", None), "SNIP (peak clipping)": ("snip", None)}[meth]
+        plan = BG.autoselect(grid, ys, dark=dark, windows=wins, max_order=2)
+        plan["_dark"] = dark
+        if forced:
+            plan["method"], plan["order"] = forced[0], forced[1]
+            if plan["method"] == "poly" and plan["order"] == 0:
+                plan["method"] = "offset"
+            plan["notes"] = ["Manual: " + BG.LABELS.get(plan["method"], plan["method"]) + (f", order {plan['order']}" if plan["order"] is not None else "")] + plan["notes"][-1:]
+        res = BG.apply_plan(spectra, plan, dark, spike)
+        ped = [float(np.mean(r["baseline"])) for r in res]
+        chk = [BG.check_after(s["wl"], r["y"], plan) for s, r in zip(spectra, res)]
+        m = st.columns(4)
+        m[0].metric("Method", BG.LABELS.get(plan["method"], plan["method"]).split(" (")[0], f"order {plan['order']}" if plan.get("order") is not None else None, delta_color="off")
+        m[1].metric("Signal-free windows", f"{len(plan['windows'])}", f"{sum(b - a for a, b in plan['windows']):.0f} nm in total" if plan["windows"] else "none", delta_color="off")
+        m[2].metric("Mean background", f"{np.mean(ped):,.0f}".replace(",", " "), f"{min(ped):,.0f} – {max(ped):,.0f}".replace(",", " "), delta_color="off")
+        bias = np.nanmean([abs(c["bias"]) for c in chk]) if plan["windows"] else float("nan")
+        m[3].metric("Left in the free windows", f"{bias:.2f} σ" if bias == bias else "–", "should be 0 ± 1 noise level (σ)", delta_color="off")
+        if bias == bias and bias > 1.0:
+            st.warning(f"After the subtraction the signal-free windows are not flat around zero ({bias:.1f} σ left). Change the windows or the method, or load a dark / background file.")
+        for n in plan["notes"]:
+            st.caption("ℹ️ " + n)
+        if sum(r["spikes"] for r in res):
+            st.caption(f"🧽 {sum(r['spikes'] for r in res)} spike(s) removed.")
+        order_ = sorted(range(len(spectra)), key=lambda i: (spectra[i].get("T") is None, spectra[i].get("T") or 0))
+
+        def draw_bg(ax, spectra=spectra, res=res, plan=plan, order_=order_):
+            from mfs import style as S
+            cols = S.colours_for([spectra[i]["name"] for i in order_])
+            for c, i in zip(cols, order_):
+                ax.plot(spectra[i]["wl"], spectra[i]["I"], color=c, lw=0.7)
+                ax.plot(spectra[i]["wl"], res[i]["baseline"], color="k", lw=0.8, ls="--")
+            for a, b in plan["windows"]:
+                ax.axvspan(a, b, color="#5EEAD4", alpha=0.22, lw=0)
+            ax.set_xlabel("Wavelength (nm)"); ax.set_ylabel("Intensity (counts)")
+            lo = min(float(np.percentile(s["I"], 1)) for s in spectra); hi = max(float(np.percentile(s["I"], 60)) for s in spectra)
+            ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.35 * (hi - lo))
+            ax.set_title("raw spectra, background (dashed), signal-free windows (green)", fontsize=7)
+        fig, ax = newfig(0.55); draw_bg(ax)
+        dfb = pd.DataFrame({"wavelength_nm": grid, **{f"{s['name']} raw": np.interp(grid, s["wl"], s["I"]) for s in spectra},
+                            **{f"{s['name']} background": np.interp(grid, s["wl"], r["baseline"]) for s, r in zip(spectra, res)}})
+        show(fig, "PL_background", dfb, draw_bg, "Background of the PL spectra")
+        dfc = pd.DataFrame({"wavelength_nm": grid, **{s["name"]: np.interp(grid, s["wl"], r["y"]) for s, r in zip(spectra, res)}})
+        dl(st, "⬇️ Background-corrected spectra (CSV)", dfc.to_csv(index=False).encode("utf-8-sig"), "PL_background_corrected.csv", "pl_bg_csv")
+        if plan["candidates"]:
+            with st.expander("Why this method? (the candidates, ranked by objective numbers)", expanded=False):
+                tab = pd.DataFrame([{"method": BG.LABELS.get(c["method"], c["method"]), "order": c["order"], "BIC (lower = better)": None if c["bic"] != c["bic"] else round(c["bic"], 1),
+                                     "bias in windows (σ)": None if c["bias"] != c["bias"] else round(c["bias"], 2), "rms in windows (σ)": None if c["rms"] != c["rms"] else round(c["rms"], 2),
+                                     "points below −3σ": round(c["below"], 4)} for c in plan["candidates"]])
+                st.dataframe(tab, hide_index=True, width="stretch")
+                st.caption("A polynomial of higher order must clearly earn its extra parameter (ΔBIC > 10). The flexible methods (rubber band, arPLS, SNIP, ModPoly) can follow or swallow broad emission and are only used when no "
+                           "signal-free window exists (the rubber band is the cautious default: it never rises above the data). 'Bias' is the mean left in the signal-free windows after the subtraction, 'rms' their scatter, both in noise levels σ.")
+    return plan, res
+
+
 def render(g):
     show, newfig, files_input, store_put, EX, dl, safe_name, C = (g["show"], g["newfig"], g["files_input"], g["store_put"], g["EX"],
                                                                  g["dl"], g["safe_name"], g["C"])
     from mfs import style as S
     st.header("Photoluminescence – steady-state and temperature-dependent")
-    st.caption("Emission (or excitation) spectra as CSV / TXT / DAT / Excel from Horiba, Edinburgh, Ocean Optics, Hitachi … : two columns "
+    st.caption("Edinburgh Instruments `.FS` files (single scans and 'Multiple Scans') are read directly. "
+               "Emission (or excitation) spectra as CSV / TXT / DAT / Excel from Horiba, Edinburgh, Ocean Optics, Hitachi … : two columns "
                "(wavelength, intensity) per file, or ONE table with the wavelength in the first column and one column per temperature "
                "(header like `293.15 K`, `25 °C`). Several files = several temperatures: the temperature is read from the column header or "
                "the file name (`..._300K.txt`, `..._25C.csv`) and can be edited below. Typical outputs: spectra coloured by temperature, "
                "emission map, thermal quenching (activation energy, T₅₀), peak shift / width, and ratiometric thermometry "
                "(Boltzmann fit, relative sensitivity Sᵣ, temperature uncertainty σT).")
+    kind = st.radio("What did you measure?", ["Emission / excitation spectra", "Decay curves (lifetimes)"], horizontal=True, key="pl_kind")
+    if kind.startswith("Decay"):
+        from mfs import pl_decay_page as DP
+        DP.render(g)
+        return
     ex = st.radio("Bundled EXAMPLE (synthetic)", list(EXAMPLES), horizontal=True, key="pl_example")
-    files = files_input("PL spectra", ["csv", "txt", "dat", "xlsx", "xls"], EXAMPLES[ex], "pl", multiple=True)
+    files = files_input("PL spectra", ["csv", "txt", "dat", "xlsx", "xls", "fs"], EXAMPLES[ex], "pl", multiple=True)
     if not files:
         return
     spectra = _spectra_from(files)
     if not spectra:
         return
-    with LV.gate("Advanced", globals()):
-        with st.expander("🎚️ Spectral-response correction (optional)", expanded=False):
-            st.caption("A file with two columns (wavelength in nm, correction factor) – the detector / grating response of your spectrometer. "
-                       "Every spectrum is multiplied by the factor at its wavelength. Corrected data are no longer photon counts.")
-            cf = st.file_uploader("Correction file", type=["txt", "csv", "dat"], key="pl_cal")
-            if cf is not None:
-                try:
-                    from mfs import plextras as _PX
+    st.session_state["pl_cal_applied"] = False
+    with st.expander("🎚️ Spectral-response correction (optional)", expanded=False):
+        from mfs import plextras as _PX
+        st.caption("The detector and grating do not see every wavelength equally well. The correction multiplies every spectrum by a factor per wavelength. "
+                   "It changes the absolute ratio (α) and the band shapes, not the energy gap or Sᵣ of a thermometer (a constant response multiplies every ratio by "
+                   "the same number). Corrected data are no longer photon counts.")
+        cm = st.radio("Source", ["none", "correction file (wavelength, factor)", "calibration lamp (measured + certified spectrum)"], horizontal=True, key="pl_cal_src")
+        _cw = _cfac = None
+        try:
+            if cm.startswith("correction"):
+                cf = st.file_uploader("Correction file (two columns: wavelength in nm, factor)", type=["txt", "csv", "dat"], key="pl_cal")
+                if cf is not None:
                     _cw, _cfac = _PX.read_correction(cf.getvalue())
-                    for s_ in spectra:
-                        s_["I"] = _PX.apply_correction(s_["wl"], s_["I"], _cw, _cfac)
-                    st.caption(f"✅ Correction applied ({len(_cw)} points, {_cw.min():.0f}–{_cw.max():.0f} nm).")
-                except Exception as e:
-                    st.warning(f"Correction not applied: {e}")
+            elif cm.startswith("calibration"):
+                l1, l2 = st.columns(2)
+                lm = l1.file_uploader("Lamp measured on YOUR spectrometer (same detector, grating, slits, filters)", type=["txt", "csv", "dat", "fs", "xlsx"], key="pl_lamp_meas")
+                lc = l2.file_uploader("Certified lamp spectrum (from the lamp certificate)", type=["txt", "csv", "dat", "xlsx"], key="pl_lamp_cert")
+                if lm is not None and lc is not None:
+                    a_ = PL.read_pl(lm.getvalue(), lm.name)[0]
+                    b_ = PL.read_pl(lc.getvalue(), lc.name)[0]
+                    _cw, _cfac = _PX.correction_from_lamp(a_["wl"], a_["I"], b_["wl"], b_["I"])
+            if _cw is not None:
+                for s_ in spectra:
+                    s_["I"] = _PX.apply_correction(s_["wl"], s_["I"], _cw, _cfac)
+                cov = _PX.correction_coverage(min(s_["wl"].min() for s_ in spectra), max(s_["wl"].max() for s_ in spectra), _cw)
+                st.session_state["pl_cal_applied"] = True
+                (st.success if cov > 0.98 else st.warning)(f"Correction applied ({len(_cw)} points, {_cw.min():.0f}–{_cw.max():.0f} nm); it covers {100 * cov:.0f} % of the data range"
+                                                          + ("." if cov > 0.98 else " – outside it the factor is held constant, which is NOT a correction."))
+        except Exception as e:
+            st.warning(f"Correction not applied: {e}")
+    # ---- v2.18.4: excitation line and its second order (scattered laser light is not emission)
+    _exc = next((s_.get("meta", {}).get("excitation_nm") for s_ in spectra if s_.get("meta", {}).get("excitation_nm")), None)
+    with st.expander("✂️ Remove the excitation line (scattered light)", expanded=False):
+        e1, e2, e3 = st.columns(3)
+        exc = e1.number_input("Excitation wavelength (nm, 0 = none)", 0.0, 3000.0, float(_exc or 0.0), 1.0, key="pl_exc",
+                              help="Scattered excitation light and its second grating order (2 × λ) are cut out of every spectrum before anything else.")
+        half = e2.number_input("Half-width of the cut (nm)", 0.5, 50.0, 5.0, 0.5, key="pl_exc_hw")
+        sec = e3.checkbox("Also the second order (2 × λ)", True, key="pl_exc_2nd")
+        if exc > 0:
+            cuts = [(exc - half, exc + half)] + ([(2 * exc - half, 2 * exc + half)] if sec else [])
+            n_cut = 0
+            for s_ in spectra:
+                keep = np.ones(len(s_["wl"]), bool)
+                for a_, b_ in cuts:
+                    keep &= ~((s_["wl"] >= a_) & (s_["wl"] <= b_))
+                n_cut = max(n_cut, int((~keep).sum()))
+                for k_ in ("wl", "I", "I_raw"):
+                    s_[k_] = np.asarray(s_[k_])[keep]
+            st.caption(f"{n_cut} points cut per spectrum (" + ", ".join(f"{a_:.0f}–{b_:.0f} nm" for a_, b_ in cuts) + ").")
     # ------------------------------------------------------------ temperatures (editable)
     c1, c2 = st.columns([1, 3])
     unit = c1.radio("Plain numbers in headers are", ["auto", "K", "°C"], horizontal=True, key="pl_unit")
@@ -367,27 +374,45 @@ def render(g):
     wl_lo, wl_hi = float(min(s["wl"].min() for s in spectra)), float(max(s["wl"].max() for s in spectra))
     p1, p2, p3, p4 = st.columns(4)
     axis = p1.radio("x axis", ["nm", "eV", "cm-1"], horizontal=True, key="pl_axis", format_func=lambda a: {"nm": "nm", "eV": "eV", "cm-1": "cm⁻¹"}[a])
-    base = p2.selectbox("Baseline", ["none", "minimum", "region (mean)"], key="pl_base")
-    norm = p3.selectbox("Normalisation", ["none (counts)", "max", "area", "to the lowest temperature"], key="pl_norm")
+    BG_OPTS = ["Automatic (recommended)", "Manual windows", "Dark / background file", "Constant: minimum", "Constant: mean of a region", "None"]
+    base = p2.selectbox("Background", BG_OPTS, key="pl_bg_mode",
+                        help="Automatic: the signal-free windows of the whole series are found and the pedestal / baseline is fitted there (order chosen by the information criterion). "
+                             "Manual: you give the windows. Dark file: a measured background spectrum is subtracted.")
+    has_dwell = all((s.get("meta") or {}).get("dwell_s") for s in spectra)
+    norm = p3.selectbox("Normalisation", ["none (counts)", "max", "area", "to the lowest temperature"] + (["per second (dwell time × scans)"] if has_dwell else []), key="pl_norm",
+                        help="Per second: divides by the dwell / integration time (and the number of scans) read from the files, so series measured with different settings can be compared.")
     sm = p4.slider("Smoothing (points)", 0, 31, 0, 2, key="pl_sm", help="Savitzky–Golay, order 3; 0 = none")
     rng = st.slider("Wavelength range (nm)", wl_lo, wl_hi, (wl_lo, wl_hi), 0.5, key="pl_rng")
     reg = None
-    if base.startswith("region"):
+    if base.startswith("Constant: mean"):
         reg = st.slider("Baseline region (nm)", wl_lo, wl_hi, (wl_lo, min(wl_hi, wl_lo + 0.05 * (wl_hi - wl_lo))), 0.5, key="pl_reg")
+    # ---- v2.18.4: background subtraction on the WHOLE spectra of the series (same plan for every spectrum), before the range is cut
+    plan, bg_res = None, None
+    for s in spectra:
+        s["I_corr"], s["baseline"] = s["I"], np.zeros_like(s["I"])
+    if base in BG_OPTS[:3]:
+        plan, bg_res = _background_block(spectra, base, g)
+        if bg_res is not None:
+            for s, r in zip(spectra, bg_res):
+                s["I_corr"], s["baseline"], s["_plan"] = r["y"], r["baseline"], plan
     proc = []
     for s in spectra:
         m = (s["wl"] >= rng[0]) & (s["wl"] <= rng[1])
-        wl, y = s["wl"][m], PL.smooth(s["I"], sm)[m]
-        y = PL.baseline_subtract(wl, y, {"none": "none", "minimum": "minimum", "region (mean)": "region"}[base], reg)
+        wl, y = s["wl"][m], PL.smooth(s["I_corr"], sm)[m]
+        y = PL.baseline_subtract(wl, y, {"Constant: minimum": "minimum", "Constant: mean of a region": "region"}.get(base, "none"), reg)
         proc.append({**s, "wl_c": wl, "y_c": y})
     t_order = sorted([p for p in proc if p["T"] is not None], key=lambda p: p["T"])
     ref_val = None
     if norm.startswith("to the lowest") and t_order:
         ref_val = float(np.max(t_order[0]["y_c"])) or 1.0
     for p in proc:
-        y = PL.normalise(p["y_c"], {"none (counts)": "none", "max": "max", "area": "area", "to the lowest temperature": "ref"}[norm], ref_val)
+        if norm.startswith("per second"):
+            m_ = p.get("meta") or {}
+            y = p["y_c"] / (float(m_.get("dwell_s") or 1.0) * float(m_.get("scans") or 1))
+        else:
+            y = PL.normalise(p["y_c"], {"none (counts)": "none", "max": "max", "area": "area", "to the lowest temperature": "ref"}[norm], ref_val)
         p["x"], p["y"] = PL.to_axis(p["wl_c"], y, axis)
-    ylab = "Intensity (counts)" if norm.startswith("none") else ("Normalised intensity" if norm != "area" else "Intensity (area = 1)")
+    ylab = "Intensity (counts)" if norm.startswith("none") else ("Intensity (counts s$^{-1}$)" if norm.startswith("per second") else ("Normalised intensity" if norm != "area" else "Intensity (area = 1)"))
     xlab = XLAB[axis]
     names = ["📈 Spectra"] + (["🌡️ Temperature dependence", "🔥 Thermometry (band ratio)"] if n_t >= 3 else [])
     tabs = st.tabs(names)
@@ -400,14 +425,19 @@ def render(g):
         view = v1.radio("View", views, horizontal=True, key="pl_view")
         cmap = v2.selectbox("Colour scale", PL.CMAPS, key="pl_cmap", help="viridis / cividis are colour-blind safe")
         shown = sorted(proc, key=lambda p: (p["T"] is None, p["T"] or 0))
+        from mfs import pllines as LN
+        ions = st.multiselect("Label the transitions of (typical ranges; the host shifts them a little)", list(LN.LINES), key="pl_ions",
+                              help="Light bands with the usual emission ranges of these ions on the overlay (nm axis). A guide only: nothing is assigned automatically.")
 
-        def draw_spec(ax, shown=shown, view=view, cmap=cmap, xlab=xlab, ylab=ylab):
+        def draw_spec(ax, shown=shown, view=view, cmap=cmap, xlab=xlab, ylab=ylab, ions=ions, axis=axis):
             if view == "Emission map":
                 PL.draw_map(ax, [{"T": p["T"], "x": p["x"], "y": p["y"]} for p in shown if p["T"] is not None], xlab, "magma", ylab)
             elif view.startswith("Stacked"):
                 PL.draw_ridge(ax, shown, xlab, ylab + " + offset", cmap)
             else:
                 PL.draw_spectra(ax, shown, xlab, ylab, cmap)
+                if ions and axis == "nm":
+                    LN.draw_labels(ax, ions, float(min(p["x"].min() for p in shown)), float(max(p["x"].max() for p in shown)), ax.get_ylim()[1] * 0.98)
         fig, ax = newfig(0.8); draw_spec(ax)
         stem = "PL_" + {"Overlay": "spectra", "Emission map": "map"}.get(view, "waterfall")
         df = pd.DataFrame({"x": shown[0]["x"], **{(f"{p['T']:.2f} K" if p["T"] is not None else p["name"]): np.interp(shown[0]["x"], p["x"], p["y"]) for p in shown}})
@@ -423,6 +453,7 @@ def render(g):
         pk = pd.DataFrame(rows)
         st.dataframe(pk, hide_index=True, width="stretch")
         dl(st, "CSV peaks", pk.to_csv(index=False).encode("utf-8-sig"), "PL_peaks.csv", "pl_peaks_csv")
+        _data_checks(spectra)
         with LV.gate("Advanced", globals()):
             _extras_panel(proc, rng, g)
 
@@ -445,10 +476,17 @@ def render(g):
         okq = fit.get("status") == "ok"
         if okq:
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Eₐ", f"{fit['Ea_meV']:.0f} meV", help=f"{fit['Ea_eV'] * PL.EV_TO_CM:.0f} cm⁻¹")
-            m2.metric("T₅₀", f"{fit['T50']:.0f} K" if fit["T50"] else "–", help="temperature at which the intensity is half of I₀")
+            m1.metric("Eₐ", f"{fit['Ea_meV']:.0f} ± {fit['Ea_err_meV']:.0f} meV" if np.isfinite(fit.get("Ea_err_meV", np.nan)) else f"{fit['Ea_meV']:.0f} meV",
+                      help=f"{fit['Ea_eV'] * PL.EV_TO_CM:.0f} cm⁻¹")
+            m2.metric("T₅₀", (f"{fit['T50']:.0f} ± {fit['T50_err']:.0f} K" if np.isfinite(fit.get("T50_err", np.nan)) else f"{fit['T50']:.0f} K") if fit["T50"] else "–",
+                      help="temperature at which the intensity is half of I₀")
             m3.metric("A", f"{fit['A']:.3g}")
             m4.metric("R²", f"{fit['R2']:.4f}")
+            if fit.get("few_points_in_drop", 9) < 3:
+                st.warning(f"Only {fit['few_points_in_drop']} temperature(s) lie on the drop of the intensity (between 90 % and 10 % of the maximum): Eₐ and T₅₀ are poorly "
+                           "determined. Measure more temperatures where the intensity falls.")
+            if T.max() < (fit["T50"] or 0):
+                st.caption("ℹ️ T₅₀ lies above the measured range: it is an extrapolation.")
         else:
             st.info(f"Thermal-quenching fit: {fit.get('status')}.")
         Tf = np.linspace(T.min(), T.max(), 200)
@@ -486,73 +524,19 @@ def render(g):
 
     # ============================================================ thermometry
     with tabs[2]:
+        from mfs import pl_thermo as TH
         st.caption("Ratiometric thermometry with two thermally coupled bands: Δ = I₁/I₂ = α·exp(−ΔE/k_BT); "
-                   "relative sensitivity Sᵣ = 100 %·|(1/Δ)·∂Δ/∂T| = 100 %·ΔE/(k_BT²); temperature uncertainty "
-                   "σT = (1/Sᵣ)·√(1/I₁ + 1/I₂) for photon counts (the usual figures of merit of luminescent thermometers).")
-        raw_counts = all(np.allclose(p["I"], np.round(p["I"])) for p in t_order) and norm.startswith("none")
+                   "relative sensitivity Sᵣ = 100 %·|(1/Δ)·∂Δ/∂T| = 100 %·ΔE/(k_BT²); temperature uncertainty σT = (σΔ/Δ)/Sᵣ. "
+                   "The confidence verdict above the results collects every check (data, fit, physics, uncertainty, experiment).")
+        raw_counts = all(np.allclose(p.get("I_raw", p["I"]), np.round(p.get("I_raw", p["I"]))) for p in t_order) and not st.session_state.get("pl_cal_applied")
         offs = st.checkbox("Add a constant C to the Boltzmann law (Δ = α·exp(−ΔE/k_BT) + C)", False, key="pl_off")
-        got = _ratio_block(t_order, T, rng, norm, raw_counts, g)
+        got = TH.ratio_block(t_order, T, rng, norm, raw_counts, g, METHODS, _brush_picker, _pick_cb, _band_default)
         if got is None:
             return
-        I1, I2, D, D_err, _, info = got
+        I1, I2, D, D_stat, info = got
         counts = bool(st.session_state.get("pl_counts", raw_counts))
         if (D <= 0).any() or not np.isfinite(D).all():
             st.warning("The ratio is not positive for every spectrum – check the bands / windows."); return
-        bf = PL.fit_boltzmann(T, D, offset=offs, sigma=D_err)
-        if bf.get("status") != "ok":
-            st.warning(f"Boltzmann fit: {bf.get('status')}"); return
-        Sr = PL.relative_sensitivity(T, bf["dE_eV"])
-        Sa = PL.absolute_sensitivity(T, bf)
-        sT = PL.temperature_uncertainty_from_ratio(Sr, D, D_err) if D_err is not None else (PL.temperature_uncertainty(Sr, I1, I2) if counts else None)
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("ΔE", f"{bf['dE_cm1']:.0f} cm⁻¹", f"± {bf['dE_err_cm1']:.0f}" if np.isfinite(bf.get("dE_err_cm1", np.nan)) else None, delta_color="off",
-                  help=f"{1000 * bf['dE_eV']:.1f} meV")
-        m2.metric("Sᵣ at " + f"{T.min():.0f} K", f"{Sr[0]:.3f} % K⁻¹")
-        m3.metric("σT" + (f" at {T.min():.0f} K" if sT is not None else ""), f"{sT[0]:.2f} K" if sT is not None else "–")
-        m4.metric("R²", f"{bf['R2']:.4f}")
-        Tf = np.linspace(T.min(), T.max(), 200)
-        _cb = [c for c, _ in (info.get("fit") or {}).get("bands", [])[:2]] if info.get("method") == "fit" else []
-        _lo, _hi = ((min(_cb) - 40, max(_cb) + 40) if _cb else (float(rng[0]), float(rng[1])))
-        mp = [{"T": p["T"], "x": p["wl_c"][(p["wl_c"] >= _lo) & (p["wl_c"] <= _hi)], "y": p["y_c"][(p["wl_c"] >= _lo) & (p["wl_c"] <= _hi)]} for p in t_order]
-
-        def d_map(ax, mp=mp):
-            PL.draw_map(ax, mp, "Wavelength (nm)", "magma", "Intensity (counts)" if norm.startswith("none") else "Intensity")
-
-        def d_D(ax, T=T, D=D, bf=bf, Tf=Tf):
-            PL.draw_trend(ax, T, D, "Δ = $I_1$/$I_2$", fit_T=Tf, fit_y=bf["f"](Tf),
-                          fit_label=f"fit: ΔE = {bf['dE_cm1']:.0f} cm$^{{-1}}$ ($R^2$ = {bf['R2']:.3f})")
-
-        def d_Sr(ax, T=T, Sr=Sr, Tf=Tf, bf=bf):
-            PL.draw_trend(ax, T, Sr, r"$S_\mathrm{r}$ (% K$^{-1}$)", fit_T=Tf, fit_y=PL.relative_sensitivity(Tf, bf["dE_eV"]), legend=False)
-
-        def d_sT(ax, T=T, sT=sT):
-            ax.plot(T, sT, "o-", ms=3.2, lw=0.9, color="#0072B2")
-            ax.set_xlabel("Temperature (K)"); ax.set_ylabel(r"$\sigma_T$ (K)")
-        panels = [("Emission map", d_map), ("Δ vs T (Boltzmann fit)", d_D), ("Relative sensitivity Sr", d_Sr)] + ([("Temperature uncertainty σT", d_sT)] if sT is not None else [])
-        fig, axs = C.compose([f for _, f in panels], ncols=2, width=max(g["WIDTH"], 6.6), panel_aspect=0.78, label_style="A", label_inside=False, wspace=0.75, hspace=0.5)
-        res = pd.DataFrame({"T (K)": T, "I1": I1, "I2": I2, "Δ = I1/I2": D, "Δ fit": bf["f"](T), "Sr (% per K)": Sr, "Sa (per K)": Sa})
-        if D_err is not None:
-            res["Δ error"] = D_err
-        if sT is not None:
-            res["σT (K)"] = sT
-        show(fig, "PL_thermometry", res, None, "PL thermometry")
-        pick = st.selectbox("Single panel (e.g. for the combined figure)", ["(none)"] + [n for n, _ in panels], key="pl_single2")
-        if pick != "(none)":
-            fn = dict(panels)[pick]
-            fig2, ax2 = newfig(0.8); fn(ax2)
-            show(fig2, "PL_" + safe_name(pick), res, fn, pick)
-        with LV.gate("Advanced", globals()):
-            with st.expander("🔁 Temperature uncertainty from repeat measurements", expanded=False):
-                from mfs import plextras as _PX
-                rep = _PX.repeat_uncertainty(T, D, lambda t_: PL.relative_sensitivity(t_, bf["dE_eV"]))
-                if rep:
-                    st.dataframe(pd.DataFrame([{"T (K)": r_["T"], "repeats": r_["n"], "mean Δ": r_["mean"], "std Δ": r_["std"], "std (%)": r_["rel_pct"],
-                                                "σT from the scatter (K)": r_["sigma_T"]} for r_ in rep]).style.format(precision=4), hide_index=True, width="stretch")
-                    st.caption("σT = (std Δ / Δ) / Sᵣ: what the scatter between repeated spectra at one temperature means in kelvin – the experimental "
-                               "temperature resolution, which includes everything the counting statistics do not (drift, positioning, laser noise).")
-                else:
-                    st.info("Measure each temperature at least twice (same temperature within 0.6 K) to get the repeat-based uncertainty.")
-        st.dataframe(res.round(5), hide_index=True, width="stretch")
-        dl(st, "CSV thermometry", res.to_csv(index=False).encode("utf-8-sig"), "PL_thermometry.csv", "pl_th_csv")
-        store_put(sample, "pl", {"dE_cm1": bf["dE_cm1"], "alpha": bf["alpha"], "Sr_Tmin_pct_per_K": float(Sr[0]), "R2_boltzmann": bf["R2"],
-                                 **({"sigmaT_Tmin_K": float(sT[0])} if sT is not None else {})}, "Photoluminescence page")
+        settings = {"background": {k: (plan or {}).get(k) for k in ("method", "order", "windows")} if plan else base, "wavelength_range_nm": list(rng), "smoothing_points": sm,
+                    "normalisation": norm, "excitation_cut_nm": st.session_state.get("pl_exc", 0.0), "spectral_correction": bool(st.session_state.get("pl_cal_applied"))}
+        TH.results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, g.get("__version__", ""), settings)

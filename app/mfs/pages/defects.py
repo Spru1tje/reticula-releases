@@ -239,9 +239,13 @@ def page_defects():
                "'at plateau' = still present at the ~400 °C TGA plateau (e.g. benzoate, sulfonated linkers). Integrals on any common scale "
                "(set the TMSP-d4 standard to 9 for the qNMR method).")
     sp = pd.DataFrame(g("species") if fw == fw0 else base["species"])
+    if "residue_frac" not in sp.columns:
+        sp["residue_frac"] = 0.0
     sp = st.data_editor(sp, num_rows="dynamic", key="def_sp" + sfx + ("" if fw == fw0 else "|" + fw), column_config={
         "role": st.column_config.SelectboxColumn(options=["linker", "cap", "neutral"]),
-        "name": st.column_config.TextColumn(help="Pick from the library below or type your own")})
+        "name": st.column_config.TextColumn(help="Pick from the library below or type your own"),
+        "residue_frac": st.column_config.NumberColumn("residue fraction", min_value=0.0, max_value=1.0, step=0.05,
+                                                      help="Lázaro 2020 method: fraction of this species that stays in the TGA residue (0 = burns away completely, 0.5 = half remains). Only for partial decomposition.")})
     _mm = []
     for r_ in sp.to_dict("records"):
         try:
@@ -293,6 +297,31 @@ def page_defects():
         c2.caption(f"framework metal {metal}: {ND['nM']} per node")
     state = c3.selectbox("ICP sample weighed", ["as-measured (RT)", "dried 200 °C"], index=0 if "RT" in g("icp_state", "RT") else 1)
     lum = num(c4, "qNMR linker content (µmol mg⁻¹)", "lum", g("linker_umol_per_mg"), format="%.5f")
+    st.subheader("5b · Composite and charge balance – for the experimental-ratio method (Lázaro 2020)")
+    st.caption("Optional. The defaults suit a pure MOF: nothing to fill in. The method (i) works from the TGA masses, the NMR ratios and the Cl you entered above.")
+    comp_kind, comp_wt, comp_frac, lz_bal, lz_dh = "none", None, None, "OH", "O"
+    with LV.gate("Advanced", globals()):
+        with st.expander("🧪 Second material in the sample (composite) · the species that balances the charge", expanded=False):
+            _kinds = {"none": "No second material (pure MOF)",
+                      "inert": "Inert oxide / metal that does not decompose (e.g. TiO₂@MOF, ZrO₂@MOF)",
+                      "before_dh": "Burns away completely BEFORE the linker (polymer, guest, loaded molecule)",
+                      "with_dh": "Burns away together with the linker (its weight % must be known)"}
+            comp_kind = st.selectbox("Second material", list(_kinds), format_func=_kinds.get, key="lz_kind" + sfx,
+                                     help="Lázaro 2020, sections S9–S11: the composite is taken out of the masses so that only the MOF is solved.")
+            k1, k2 = st.columns(2)
+            if comp_kind == "inert":
+                _pc = k1.number_input("Share of the TGA residue that comes from the MOF (%)", 0.0, 100.0, None, key="lz_frac" + sfx,
+                                      help="From ICP/EDX: e.g. 82.2 % ZrO₂ and 17.8 % TiO₂ in the residue → 82.2. Empty: from the 'extra-framework ZrO₂' option above, else 100 %.")
+                comp_frac = None if _pc is None else float(_pc) / 100.0
+            elif comp_kind == "with_dh":
+                comp_wt = k1.number_input("Weight % of the second material in the material (from ICP, UV-Vis, HPLC …)", 0.0, 99.0, None, key="lz_wt" + sfx)
+            elif comp_kind == "before_dh":
+                k1.caption("Nothing to enter: its weight % follows from the two TGA stages (shown with method i2).")
+            _bal = {"OH": "OH⁻ (hydroxide; default)", "O": "O²⁻ (oxide)", "Cl": "Cl⁻ (all remaining charge is chloride)", "none": "none – only report the charge that is left"}
+            lz_bal = k2.selectbox("Species that closes the charge at ~200 °C", list(_bal), format_func=_bal.get, key="lz_bal" + sfx,
+                                  help="The nature of the species must come from another technique (ICP, EDX, FT-IR). The calculator shows the charge that is left per node.")
+            lz_dh = k2.selectbox("DH structure (at the plateau)", ["O", "none"], format_func={"O": "ZrO(L)ₓO₁₋ₓ – oxygen compensates (default)", "none": "ZrO(L)ₓ – no compensation"}.get,
+                                 key="lz_dh" + sfx)
     st.subheader("6 · Porosity (semi-quantitative) and titration")
     c1, c2, c3, c4 = st.columns(4)
     Vm = num(c1, "V measured (cm³ g⁻¹)", "vm", g("V_meas"), format="%.4f")
@@ -322,15 +351,17 @@ def page_defects():
     try:
         species = [D.Species(**{k: (None if (isinstance(v, float) and np.isnan(v)) else v) for k, v in r.items()}) for r in sp.to_dict("records") if r.get("name")]
         for s in species:
-            s.z = int(s.z); s.nH = int(s.nH or 0); s.at_plateau = bool(s.at_plateau); s.main = bool(s.main)
+            s.z = int(s.z); s.nH = int(s.nH or 0); s.at_plateau = bool(s.at_plateau); s.main = bool(s.main); s.residue_frac = float(s.residue_frac or 0.0)
         inp = D.DefectInput(sample=sample, framework=fw, CN=int(CN), metal=metal, f_hf=f_hf, extraframework_Zr=extra, species=species,
                             node=nsel["node"] if nsel["node"] != (FRAMEWORKS[fw].get("node") or "") else "", node_custom=nsel["node_custom"], icp_M_wt=icpM,
                             tga_W_initial=W_i, tga_W_200=W200, tga_W_plateau=Wpl, tga_W_end=Wend, nmr_std_conc_mM=std_c, nmr_std_integral=std_I,
                             nmr_sample_mg=mdig, nmr_volume_mL=vol, cl_per_node=cl_node, cl_conc_mM=cl_mM, cl_wt_pct=cl_wt, icp_Zr_wt=zr, icp_Hf_wt=hf,
                             icp_state=state, linker_umol_per_mg=lum, xrf_S_per_M=s_m, V_meas=Vm, V_ideal=Vi, v_linker_A3=vL, tit_mass_mg=tm,
                             tit_c_NaOH=tc, tit_V_eq=[float(v) for v in veq.split(",") if v.strip()] or None, tit_HCl_mmol=hcl,
-                            reo_peaks_seen=None if reo == "not checked" else reo == "yes")
-        res = D.run_all(inp)
+                            reo_peaks_seen=None if reo == "not checked" else reo == "yes",
+                            composite_kind=comp_kind, composite_wt_pct=comp_wt, mof_residue_fraction=comp_frac, lazaro_balance=lz_bal, lazaro_dh_compensation=lz_dh)
+        res = D.run_all(inp, lazaro=True)
+        res_rep = dict(res); res_rep["methods"] = list(res["methods"]) + list(res.get("lazaro", []))      # the report, CSV and figure show method (i) too; the consensus is unchanged
     except Exception as e:
         st.error(f"Calculation error: {e}"); return
     st.markdown("---")
@@ -353,6 +384,24 @@ def page_defects():
             st.caption(f"XRF cross-check: S per node = 6·S/M = {6*s_m:.2f} (compare with the sulfonated species per node in the formula).")
     tab = D.results_table(res)
     st.dataframe(tab, width="stretch", hide_index=True)
+    lz = res.get("lazaro") or []
+    if lz:
+        st.dataframe(pd.DataFrame([m.row() for m in lz]), width="stretch", hide_index=True)
+        ok_ = [m for m in lz if m.L is not None]
+        if ok_:
+            st.markdown("**Experimental-ratio method (i, Lázaro 2020)** – works from the structure : residue mass ratio, the NMR ratios and the charge balance, so it needs no assumption about which "
+                        "decomposition step belongs to which species. " + " · ".join(f"{m.title.split(':')[0]}: **L = {m.L:.2f}**, x = {m.x:.2f}" for m in ok_)
+                        + (f" (consensus of (a)–(g): L = {cons['L']:.2f})" if cons else ""))
+            for m in ok_:
+                if m.extra.get("composite_wt_pct") is not None:
+                    st.success(f"Second material that burns away before the linker: **{m.extra['composite_wt_pct']:.1f} wt %** of the desolvated material.")
+                if m.status == "warn" and m.message:
+                    st.warning(f"{m.title.split(':')[0]}: {m.message}")
+            if len(ok_) == 2 and abs(ok_[0].L - ok_[1].L) > 0.15:
+                st.info(f"The two stages give different L ({ok_[0].L:.2f} vs {ok_[1].L:.2f}). Possible reasons: solvent or water left at 200 °C, a modulator or Cl that survives to the plateau "
+                        "(mark it 'at plateau'), another balancing species than the one chosen in 5b, or a second material.")
+        else:
+            st.caption("Experimental-ratio method (i, Lázaro 2020): " + "; ".join(f"{m.title.split(':')[0]} – {m.message}" for m in lz if m.message))
     if cons:
         used = [m.title.split(" ·")[0].split(" –")[0] for m in res["methods"] if m.status == "ok" and m.L is not None and not m.semi_quant]
         store_put(sample, "defects", {"framework": fw, "metal": metal, "node": ND["core"].format(M=inp.M_symbol()), "L": cons["L"], "x": cons["x"], "m": cons["m"], "OS": cons["OS"],
@@ -373,29 +422,29 @@ def page_defects():
                 q2.caption(f"DOCX export unavailable ({e})")
         else:
             st.caption("No defect results stored yet – every computed sample is added automatically.")
-    fig = P.fig_defect_comparison(res, max(WIDTH, 7.0))
+    fig = P.fig_defect_comparison(res_rep, max(WIDTH, 7.0))
     show(fig, f"defects_{re.sub(r'[^A-Za-z0-9]+', '_', sample)}")
     c1, c2, c3 = st.columns(3)
     sn = safe_name(sample)
 
-    def _pdf(res=res):
+    def _pdf(res=res_rep):
         import tempfile
         with _RENDER_LOCK, tempfile.TemporaryDirectory() as td:
             pth = os.path.join(td, "defect_report.pdf")
             REP.pdf_report(res, pth)
             return open(pth, "rb").read()
     dl(c1, "📄 PDF report (full calculation)", _pdf, f"defect_report_{sn}.pdf", "def_pdf", help="generated when you click (takes a few s)")
-    dl(c2, "CSV (table + steps)", REP.csv_report(res).encode("utf-8-sig"), f"defect_report_{sn}.csv", "def_csv")
+    dl(c2, "CSV (table + steps)", REP.csv_report(res_rep).encode("utf-8-sig"), f"defect_report_{sn}.csv", "def_csv")
     dl(c3, "JSON (inputs, reload later)", json.dumps(REP.input_to_dict(inp), indent=1).encode(), f"defect_input_{sn}.json", "def_json")
     if st.button("💾 Save report to folder", key="def_save"):
         os.makedirs(EXPORT_DIR, exist_ok=True)
         pth = os.path.join(EXPORT_DIR, f"defect_report_{sn}.pdf")
         open(pth, "wb").write(_pdf())
-        open(os.path.join(EXPORT_DIR, f"defect_report_{sn}.csv"), "wb").write(REP.csv_report(res).encode("utf-8-sig"))
+        open(os.path.join(EXPORT_DIR, f"defect_report_{sn}.csv"), "wb").write(REP.csv_report(res_rep).encode("utf-8-sig"))
         st.success(f"Saved to `{EXPORT_DIR}`")
     st.subheader("Method by method")
     h = res["h"]
-    for m in res["methods"]:
+    for m in res_rep["methods"]:
         icon = {"ok": "✅", "warn": "⚠️", "n/a": "▫️"}[m.status]
         with st.expander(f"{icon} {m.title}" + (f" — L = {m.L:.2f}, x = {m.x:.2f}" if m.L is not None else f" — {m.message}")):
             if m.semi_quant:

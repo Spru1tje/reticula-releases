@@ -78,6 +78,41 @@ def _rows_from_bytes(raw):
     return [[c.strip() for c in (l.split(d) if d else l.split())] for l in lines]
 
 
+def _short_names(names):
+    """Readable labels of the scans of one .FS file: the '(Multi Scans)' tags go, then the prefix and suffix that all names share (so '..._20C' … '..._50C' become '20C' … '50C')."""
+    cl = [re.sub(r"\s*\((?:Multi\s*Scans?|Multiple\s*Scans?)\)", "", n).strip() for n in names]
+    if len(cl) < 2:
+        return cl
+    pre = len(__import__("os").path.commonprefix(cl))
+    suf = len(__import__("os").path.commonprefix([c[::-1] for c in cl]))
+    if suf and any(c[len(c) - suf] not in "_- (" for c in cl):          # cut only at a separator: '20C' keeps its C
+        suf = 0
+    out = []
+    for c in cl:
+        core = c[pre: len(c) - suf if suf else len(c)]
+        # keep a whole token (the cut may fall inside a number): go back to the last separator
+        k = pre
+        while k > 0 and c[k - 1] not in "_- ":
+            k -= 1
+        core = c[k: len(c) - suf if suf else len(c)] or c
+        out.append(core.strip("_- ") or c)
+    return out if len(set(out)) == len(out) else cl
+
+
+def _read_edinburgh(raw, name=""):
+    from mfs import readers as R
+    scans = R.read_edinburgh_fs(raw, name)
+    stem = re.sub(r"\.[A-Za-z0-9]{2,5}$", "", re.split(r"[\\/]", name)[-1]) if name else "scan"
+    labels = _short_names([s["name"] or stem for s in scans]) if len(scans) > 1 else [stem]
+    out = []
+    for s, lab in zip(scans, labels):
+        o = np.argsort(s["x"])
+        out.append({"name": lab, "T_text": (s["name"] or lab) if len(scans) == 1 else lab, "wl": s["x"][o], "I": s["y"][o],
+                    "meta": {"instrument": "Edinburgh Instruments", "detector": s.get("detector", ""), "excitation": s.get("excitation", ""), "step_nm": s.get("step"), "kind": s.get("kind", ""),
+                             "full_name": s.get("name", "")}})
+    return out
+
+
 def read_pl(src, name=""):
     """Reads a spectrum file: two columns (wavelength, intensity) or a table (first column wavelength, one column per spectrum /
     temperature; the header gives the names). CSV / TXT / DAT / Excel. Returns a list of dicts {name, T_text, wl, I}."""
@@ -94,6 +129,8 @@ def read_pl(src, name=""):
         with open(src, "rb") as fh:
             raw = fh.read()
         name = name or str(src)
+    if raw[:4] == b"EAI ":                                        # v2.18.4: Edinburgh Instruments Fluoracle .FS (binary)
+        return _read_edinburgh(raw, name)
     rows = _rows_from_bytes(raw)
     data_idx = [i for i, r in enumerate(rows) if len(r) >= 2 and _is_num(r[0]) and _is_num(r[1])]
     if len(data_idx) < 5:
@@ -109,6 +146,9 @@ def read_pl(src, name=""):
             header = r
             break
     stem = re.sub(r"\.[A-Za-z0-9]{2,5}$", "", re.split(r"[\\/]", name)[-1]) if name else "spectrum"
+    labels_row, col_meta, common = _header_meta(rows, use[0], ncol)
+    if labels_row is not None:
+        header = labels_row
     wl = arr[:, 0]
     order = np.argsort(wl)
     out = []
@@ -119,9 +159,63 @@ def read_pl(src, name=""):
             label = stem
         else:
             label = f"{stem} #{k}"
+        meta = {**common, **(col_meta[k] if k < len(col_meta) else {})}
         out.append({"name": label, "T_text": label if (header is not None and len(header) >= ncol and header[k]) else stem,
-                    "wl": wl[order], "I": arr[order, k]})
+                    "wl": wl[order], "I": arr[order, k], "meta": meta})
     return out
+
+
+def _num_in(s):
+    m = re.search(r"[-+]?\d+(?:[.,]\d+)?(?:[eE][-+]?\d+)?", str(s))
+    return _f(m.group(0)) if m else None
+
+
+def _header_meta(rows, first_data, ncol):
+    """v2.18.4: settings written above the data. (a) 'key, value per column' rows of an Edinburgh Fluoracle text / CSV export ('Labels', 'Type', 'Fixed/Offset',
+    'Dwell Time', 'Repeats', slit rows); (b) 'key: value' lines of an Ocean Optics / OceanView export ('Integration Time (sec)', 'Scans to average').
+    Returns (labels row or None, [meta per column], common meta). Only keys that are recognised are kept; nothing is guessed."""
+    col_meta = [dict() for _ in range(ncol)]
+    common, labels = {}, None
+    for r in rows[:first_data]:
+        if not r or not r[0]:
+            continue
+        key = r[0].strip().lower()
+        vals = r[1:ncol] if len(r) >= 2 else []
+        line = " ".join(r)
+        if key in ("labels", "label") and vals:
+            labels = [r[0]] + [v.strip() for v in r[1:ncol]] + [""] * max(0, ncol - len(r))
+            continue
+        target = None
+        if key.startswith("dwell"):
+            target, conv = "dwell_s", (lambda v: _num_in(v))
+        elif key.startswith("fixed/offset") or key.startswith("excitation wavelength"):
+            target, conv = "excitation_nm", (lambda v: _num_in(v))
+        elif key.startswith("repeats") or key.startswith("scans to average") or key.startswith("number of scans"):
+            target, conv = "scans", (lambda v: int(_num_in(v)) if _num_in(v) is not None else None)
+        elif "slit" in key and ("exc" in key or "ex " in key or key.startswith("ex")):
+            target, conv = "slit_ex_nm", (lambda v: _num_in(v))
+        elif "slit" in key and ("emi" in key or "em " in key or key.startswith("em")):
+            target, conv = "slit_em_nm", (lambda v: _num_in(v))
+        elif key.startswith("type") and vals:
+            target, conv = "kind", (lambda v: v.strip())
+        elif key.startswith("detector"):
+            target, conv = "detector", (lambda v: v.strip())
+        if target and vals and any(str(v).strip() for v in vals) and ":" not in r[0]:
+            for k, v in enumerate(vals, start=1):
+                if str(v).strip():
+                    val = conv(v)
+                    if val is not None:
+                        col_meta[k][target] = val
+            continue
+        m = re.match(r"\s*integration time\s*\((sec|s|usec|µs|us|msec|ms)\)\s*:\s*([-+0-9.eE]+)", line, re.I)      # Ocean Optics
+        if m:
+            f = {"sec": 1.0, "s": 1.0, "msec": 1e-3, "ms": 1e-3, "usec": 1e-6, "µs": 1e-6, "us": 1e-6}[m.group(1).lower()]
+            common["dwell_s"] = float(m.group(2)) * f
+            continue
+        m = re.match(r"\s*scans to average\s*:\s*(\d+)", line, re.I)
+        if m:
+            common["scans"] = int(m.group(1))
+    return labels, col_meta, common
 
 
 # ----------------------------------------------------------------------------------------------- processing
@@ -246,13 +340,28 @@ def fit_quench(T, I):
         slope, icpt = np.polyfit(1.0 / T[sel], z, 1)
         p0 = [Imax * 1.02, float(np.clip(icpt, -10, 40)), float(np.clip(-slope * KB_EV, 0.005, 2.5))]
     try:
-        p, _ = curve_fit(quench_model, T, I, p0=p0, bounds=([0.5 * Imax, -15, 0.0], [3 * Imax, 45, 3.0]), maxfev=20000)
+        p, pcov = curve_fit(quench_model, T, I, p0=p0, bounds=([0.5 * Imax, -15, 0.0], [3 * Imax, 45, 3.0]), maxfev=20000)
     except Exception as e:
         return {"status": f"fit failed: {e}"}
     I0, lnA, Ea = [float(v) for v in p]
     f = lambda t: quench_model(t, I0, lnA, Ea)
-    return {"status": "ok", "I0": I0, "A": float(np.exp(lnA)), "lnA": lnA, "Ea_eV": Ea, "Ea_meV": 1000 * Ea,
-            "T50": (Ea / (KB_EV * lnA) if lnA > 0 else None), "R2": _r2(I, f(T)), "f": f}
+    # v2.18.4: uncertainties (from the covariance; T50 by Monte Carlo over the correlated lnA, Ea) and a residual check
+    err = np.sqrt(np.clip(np.diag(pcov), 0, None)) if np.all(np.isfinite(pcov)) else np.full(3, np.nan)
+    t50_err = float("nan")
+    if np.all(np.isfinite(pcov)) and lnA > 0:
+        rng = np.random.default_rng(0)
+        dr = rng.multivariate_normal(p, pcov, 2000, check_valid="ignore")
+        ok = dr[:, 1] > 0
+        if ok.sum() > 100:
+            t50 = dr[ok, 2] / (KB_EV * dr[ok, 1])
+            q = np.percentile(t50, [15.87, 84.13])
+            t50_err = float((q[1] - q[0]) / 2)
+    res = I - f(T)
+    s = np.sign(res[res != 0])
+    runs = 1 + int(np.sum(s[1:] != s[:-1])) if len(s) > 1 else 0
+    return {"status": "ok", "I0": I0, "A": float(np.exp(lnA)), "lnA": lnA, "Ea_eV": Ea, "Ea_meV": 1000 * Ea, "Ea_err_meV": 1000 * float(err[2]),
+            "T50": (Ea / (KB_EV * lnA) if lnA > 0 else None), "T50_err": t50_err, "R2": _r2(I, f(T)), "f": f, "residual_runs": runs, "n": int(len(T)),
+            "few_points_in_drop": int(np.sum((I < 0.9 * Imax) & (I > 0.1 * Imax)))}
 
 
 def fit_boltzmann(T, D, offset=False, sigma=None):

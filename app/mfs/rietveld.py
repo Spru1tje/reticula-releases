@@ -968,7 +968,7 @@ def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None
 SI_CELL = (5.4312, 5.4312, 5.4312, 90.0, 90.0, 90.0)
 
 
-def instrument_profile_from_standard(x, y, radiation="Cu Kα1", tt_range=None, bg_order=6, standard="Si"):
+def instrument_profile_from_standard(x, y, radiation="Cu Kα1", tt_range=None, bg_order=6, standard="Si", offset="displacement"):
     """v2.18.2: the instrument line profile (Caglioti-free TCH: U, V, W Gaussian and X, Y Lorentzian, in °2θ) measured on a line-profile
     standard: a Le Bail fit of the standard's own cell (Si SRM 640 by default). The returned values are then passed as
     instrument={..., 'fixed': True} to a sample refinement, which keeps them fixed. Returns {"U","V","W","X","Y","zero","rwp","cell_a"}."""
@@ -978,12 +978,13 @@ def instrument_profile_from_standard(x, y, radiation="Cu Kα1", tt_range=None, b
     if tt_range:
         m = (np.asarray(x, float) >= tt_range[0]) & (np.asarray(x, float) <= tt_range[1])
         x, y = np.asarray(x, float)[m], np.asarray(y, float)[m]
-    R = Refinement(np.asarray(x, float), np.asarray(y, float), [ph], radiation, bg_order, "lebail", 0.0)
+    R = Refinement(np.asarray(x, float), np.asarray(y, float), [ph], radiation, bg_order, "lebail", 0.0, offset=offset)
     R.fix_cell = True                                            # the standard's lattice parameter is known; only the line profile is fitted
     res = R.run()
     g = res["global"]
     out = {n: float(g[n]["value"]) for n in ("U", "V", "W", "X", "Y")}
-    out["zero"] = float(g["zero"]["value"])
+    out["zero"] = float(g["zero"]["value"])                      # the instrument zero shift (°2θ) when offset="zero" (a separate standard sample: its own displacement is not the sample's)
+    out["disp"] = float(g["disp"]["value"])
     out["rwp"] = float(res["stats"]["Rwp"])
     out["cell_a"] = float(res["phases"][0]["cell"][0])
     return out

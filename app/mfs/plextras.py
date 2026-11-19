@@ -170,3 +170,81 @@ def draw_cie(ax, points, labels=None, colors=None, locus=True):
     ax.set_xlabel("CIE x")
     ax.set_ylabel("CIE y")
     ax.set_aspect("equal")
+
+
+# ------------------------------------------------------------------------------------------------- v2.18.4: correction from a calibration lamp, coverage
+def correction_from_lamp(meas_wl, meas_I, cert_wl, cert_I, smooth_nm=5.0):
+    """Spectral-response correction from a calibration lamp: factor = certified spectrum / measured spectrum (both on the measured grid), lightly smoothed,
+    normalised to 1 at its median. The lamp must be measured with the same detector, grating, slits and filters as the samples. Returns (wl, factor)."""
+    mw = np.asarray(meas_wl, float)
+    mI = np.asarray(meas_I, float)
+    o = np.argsort(np.asarray(cert_wl, float))
+    cw, cI = np.asarray(cert_wl, float)[o], np.asarray(cert_I, float)[o]
+    m = (mw >= cw.min()) & (mw <= cw.max()) & (mI > 0.02 * np.nanmax(mI))
+    if m.sum() < 5:
+        raise ValueError("the lamp measurement and the certified spectrum do not overlap enough (or the measured lamp signal is too weak)")
+    w, mi = mw[m], mI[m]
+    f = np.interp(w, cw, cI) / mi
+    step = float(np.median(np.diff(w))) if len(w) > 2 else 1.0
+    k = max(1, int(round(smooth_nm / max(step, 1e-9))))
+    if k > 1 and len(f) > 2 * k:
+        f = np.convolve(np.pad(f, k, mode="edge"), np.ones(2 * k + 1) / (2 * k + 1), mode="same")[k:-k]
+    f = f / np.median(f)
+    return w, f
+
+
+def correction_coverage(data_wl_min, data_wl_max, cal_wl):
+    """Fraction of the data range that the correction covers (outside it the factor is held constant - not a real correction)."""
+    lo, hi = max(data_wl_min, float(np.min(cal_wl))), min(data_wl_max, float(np.max(cal_wl)))
+    span = max(data_wl_max - data_wl_min, 1e-9)
+    return max(0.0, hi - lo) / span
+
+
+# ------------------------------------------------------------------------------------------------- v2.18.4: dominant wavelength and colour purity
+WHITE = {"E (equal energy, 0.3333, 0.3333)": (1 / 3, 1 / 3), "D65 (0.3127, 0.3290)": (0.3127, 0.3290), "C (0.3101, 0.3162)": (0.3101, 0.3162)}
+
+
+def dominant_wavelength(x, y, white=(1 / 3, 1 / 3)):
+    """Dominant wavelength (nm) and colour purity (%) of a chromaticity (x, y) relative to a white point: the ray from the white point through the colour meets the
+    spectral locus at the dominant wavelength; purity = distance colour-white / distance locus-white. When the ray meets the purple line the complementary
+    wavelength is returned with complementary=True (purple colours have no dominant wavelength)."""
+    if not (np.isfinite(x) and np.isfinite(y)):
+        return {"dominant_nm": float("nan"), "purity_pct": float("nan"), "complementary": False}
+    wl = np.arange(380.0, 701.0, 0.5)
+    xb, yb, zb = cmf(wl)
+    s = xb + yb + zb
+    lx, ly = xb / s, yb / s
+    wx, wy = white
+    dx, dy = x - wx, y - wy
+    if abs(dx) + abs(dy) < 1e-9:
+        return {"dominant_nm": float("nan"), "purity_pct": 0.0, "complementary": False}
+
+    def hit(dirx, diry):
+        """the crossing with the locus at or beyond the colour itself (t >= 1): the blue end of the locus folds back, so an earlier crossing is not the exit"""
+        best, far = None, None
+        for i in range(len(wl) - 1):
+            ax_, ay_, bx_, by_ = lx[i], ly[i], lx[i + 1], ly[i + 1]
+            ex, ey = bx_ - ax_, by_ - ay_
+            den = dirx * ey - diry * ex
+            if abs(den) < 1e-15:
+                continue
+            t = ((ax_ - wx) * ey - (ay_ - wy) * ex) / den
+            u = ((ax_ - wx) * diry - (ay_ - wy) * dirx) / den
+            if t > 0 and 0 <= u <= 1:
+                cand = (t, wl[i] + u * (wl[i + 1] - wl[i]))
+                if t >= 0.999 and (best is None or t < best[0]):
+                    best = cand
+                if far is None or t > far[0]:
+                    far = cand
+        return best or far
+    h = hit(dx, dy)
+    if h is not None:
+        t, lam = h
+        return {"dominant_nm": float(lam), "purity_pct": float(100 * min(1.0, 1.0 / t)), "complementary": False}
+    h2 = hit(-dx, -dy)                          # purple: complementary wavelength; purity relative to the purple line
+    px, py = lx[0], ly[0]
+    qx, qy = lx[-1], ly[-1]
+    ex, ey = qx - px, qy - py
+    den = dx * ey - dy * ex
+    t = ((px - wx) * ey - (py - wy) * ex) / den if abs(den) > 1e-15 else float("nan")
+    return {"dominant_nm": float(h2[1]) if h2 else float("nan"), "purity_pct": float(100 * min(1.0, 1.0 / t)) if t == t and t > 0 else float("nan"), "complementary": True}
