@@ -1,6 +1,39 @@
 # Changelog
 
-## 2.17.0 — unreleased (not yet tagged)
+## 2.18.0 — 2026-11-19
+
+### Schemes & Icons
+- **500 new vector icons** (1054 in total). Each new icon has the five standard variants, so 6 shapes per icon: 3000 shapes
+  in all with the variants. Families: spectra and analysis traces (150), lab vessels (120), instrument bodies (96),
+  material morphologies (96), process arrows (38). All are original vector drawings, CC0, no images, masks or text.
+  Source: `tools/icon_sources/reticula_v218.py`.
+- The starting template chosen in *Start from* is shown as a preview (SVG). Hover previews are not possible in Streamlit.
+- Editor work since 2.17.0: floating contextual bar above the selection, status line, Enter / Shift+Enter to add the next step,
+  Repeat →, Number, Line up, Page ↔ / Page ↕, Copy style / Paste style, Copy PNG, focus mode (F), template start points,
+  locked items, undo toast, draft kept in the browser, resizable right panel, connection points on hover.
+- Fixed in the editor: flip could not be undone; typing in the side panel lost focus; the align bar showed without a selection.
+
+### Thermal analysis (TGA)
+- New plateau rule *start of decomposition (EJIC 2020)*, next to the flattest-stretch rule. It takes the knee of the mass curve
+  (1 % below the pre-decomposition line, fitted between 150 °C and 320 °C). Based on Lázaro et al., Eur. J. Inorg. Chem. 2020,
+  doi:10.1002/ejic.202000656. A point picked by hand on the graph still overrides either rule.
+- Example: UiO-66 TGA (Leuven, CC-BY 4.0, Zenodo 15013202) in `example_data/TGA`.
+- Known limit: the knee rule has not been checked against hand-picked onsets on real data; the example shows about 5–10 °C
+  from the visible bend on UiO-66.
+
+### Nuclear magnetic resonance (1H NMR)
+- *Simple mode (black)* checkbox on the figure tab: the spectrum, labels, integrals, marks, the molecule inset, and the SI page
+  PDF are drawn in black only.
+
+### Tests and checks
+- The batch-run test counts the example TGA files from the folder instead of a fixed number.
+- New tests: icon library (counts, five variants, vector-only), EJIC onset rule (synthetic and real UiO-66 data), NMR simple mode.
+
+### Known limits
+- Zetasizer 8.02 `.dts` files are still not read (waiting for a sample file).
+- Icons from the toolkit's `variants.py` need `rsvg-convert`; the app uses its own `raster.py` version instead (see `tools/build_icons.py`).
+
+## 2.17.0 — 2026-11-18
 
 ### Name and project files: Reticula
 - The program is called **Reticula** in the window, the start page, the menus, the exports, the methods texts and the provenance.

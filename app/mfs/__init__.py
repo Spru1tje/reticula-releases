@@ -1,3 +1,3 @@
 """Reticula (package name mfs) - publication-quality figures and defect analysis for framework materials (MOFs, COFs, zeolites, …)."""
-__version__ = "2.17.0"
+__version__ = "2.18.0"
 AUTHOR = "Stijn Germonpré"
