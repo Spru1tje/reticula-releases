@@ -1,4 +1,4 @@
-"""v2.17 Schemes & Icons (phase 2/3): content from Reticula's own data and embedded figures."""
+"""v2.17 Reticon (phase 2/3): content from Reticula's own data and embedded figures."""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np

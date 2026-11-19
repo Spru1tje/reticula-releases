@@ -1,4 +1,4 @@
-"""v2.17 (Schemes & Icons, phase 1): the vendored icon library loads and renders from inside Reticula."""
+"""v2.17 (Reticon, phase 1): the vendored icon library loads and renders from inside Reticula."""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mfs.reticon.runtime import Library

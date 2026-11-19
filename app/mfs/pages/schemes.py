@@ -1,4 +1,4 @@
-"""v2.17 page: Schemes & Icons – a BioRender-style scheme editor with the Reticon icon library (offline, CC0), publication export,
+"""v2.17 page: Reticon – a BioRender-style scheme editor with the Reticon icon library (offline, CC0), publication export,
 and the content that comes from Reticula itself: a methods schematic, your own data as an icon, a molecule, a crystal structure, and a
 scheme as a panel of the combined figure."""
 from __future__ import annotations
@@ -85,7 +85,7 @@ def _sources(store: dict, pick: str):
             png, _info = SC.export(store[pick], "png", width_mm=178, dpi=600)
             key = "scheme|" + pick
             ss = st.session_state
-            ss.setdefault("fig_registry", {})[key] = {"fn": SC.figure_panel(png), "cfg": {}, "fams": [], "page": "Schemes & Icons", "stem": pick}
+            ss.setdefault("fig_registry", {})[key] = {"fn": SC.figure_panel(png), "cfg": {}, "fams": [], "page": "Reticon", "stem": pick}
             comp = ss.setdefault("composer", {})
             comp[key] = ss["fig_registry"][key]["fn"]
             st.toast(f"Added to the combined figure ({len(comp)} panel{'s' if len(comp) != 1 else ''}).", icon="🧩")
@@ -122,7 +122,7 @@ def esc_alt(text: str) -> str:
 
 
 def page_schemes():
-    st.header("Schemes & Icons – schemes with lab and materials icons")
+    st.header("Reticon – schemes with lab and materials icons")
     st.caption("Drag icons from the library onto the canvas, add arrows and text, then export to SVG, PDF, PNG or TIFF at the width and DPI of your journal. "
                "The icons are CC0 and bundled: nothing is downloaded.")
     if not LV.opt_in("Open the scheme editor (loads the icon library)", "schemes"):

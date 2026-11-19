@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.18.1 — 2026-11-19 (quick fix)
+
+- **The Schemes & Icons module is now called Reticon** (menu, page title, figure composer label, gallery tile).
+- **Icon library resizable**: drag the edge next to the library to widen it; double-click resets it. Wider library shows more
+  icons per row (it used to show about two and a half).
+- **Full screen** for the Reticon editor: the *Full screen* button (or Ctrl+Shift+M) makes the editor fill the window, with
+  larger tile labels and buttons. The browser's full-screen mode is used where the host allows it.
+
 ## 2.18.0 — 2026-11-19
 
 ### Schemes & Icons

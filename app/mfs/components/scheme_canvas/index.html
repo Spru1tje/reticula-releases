@@ -13,7 +13,7 @@
 :root{--ink:#435266;--line:#D5DEEA;--bg:#F4F7FB;--panel:#FFFFFF;--accent:#0F766E;--sel:#2563EB}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
-#app{display:grid;grid-template-columns:260px 1fr var(--rw,250px);grid-template-rows:44px 1fr;height:100vh}
+#app{display:grid;grid-template-columns:var(--lw,260px) 1fr var(--rw,250px);grid-template-rows:44px 1fr;height:100vh}
 #bar{grid-column:1/4;display:flex;gap:6px;align-items:center;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
 #bar button,#bar select{height:30px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:0 10px;color:var(--ink);cursor:pointer}
 #bar button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -21,7 +21,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #bar .grow{flex:1}
 #left{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 #left input,#left select{margin:8px 8px 0;height:32px;border:1px solid var(--line);border-radius:8px;padding:0 10px}
-#tiles{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px;align-content:start}
+#tiles{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;padding:8px;align-content:start}
 .tile{border:1px solid transparent;border-radius:10px;padding:4px;text-align:center;cursor:grab;background:#fff}
 .tile:hover{border-color:var(--line);background:#F8FAFC}
 .tile svg{width:58px;height:58px;display:block;margin:0 auto}
@@ -70,6 +70,14 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #fbar .sep{width:1px;background:#E2E8F0;margin:3px 2px}
 .status{font:12px Helvetica,Arial,sans-serif;color:#64748B;margin-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
 #app.focus{grid-template-columns:1fr}
+/* full screen: the editor covers the window; larger tiles and labels for use at a distance */
+body.max #app{position:fixed;inset:0;z-index:60;background:#fff;height:100vh}
+body.max #tiles{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+body.max .tile div{font-size:12px !important}
+body.max #bar button{font-size:13px}
+#lsplit{position:fixed;top:44px;bottom:0;left:calc(var(--lw,260px) - 4px);width:8px;cursor:col-resize;z-index:2}   /* drag to widen the icon library; double-click resets */
+#lsplit:hover{background:rgba(37,99,235,.15)}
+#app.focus #lsplit{display:none}
 .tip summary{cursor:pointer;color:#475569;font-size:12px;margin-top:12px;user-select:none}   /* collapsible tips in the side panel */
 #app.focus #left,#app.focus #right{display:none}      /* focus mode: the canvas alone (F) */
 #start{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font:14px Helvetica,Arial,sans-serif;color:#475569;z-index:3;pointer-events:auto}
@@ -124,6 +132,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content (0)">Fit</button><button id="zlabel" title="Click to reset to 100% (1)">100%</button><button id="grid" title="Show the grid (G)">Grid</button><button id="snapbtn" class="on" title="Snap to grid and guides (S). Hold Shift to snap the other way.">Snap</button>
     <select id="theme" title="Colour theme"></select>
     <span id="status" class="status"></span>
+    <button id="fsbtn" title="Full screen: the editor fills the window, larger and easier to use (Ctrl+Shift+M)">⛶ Full screen</button>
     <button id="helpbtn" title="Keyboard shortcuts (?)">?</button>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
@@ -146,6 +155,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <div class="hint">Drag an icon from the left onto the page. Arrow mode: click a dot on one icon, then a dot on another.
     Keys: Del, Ctrl+D duplicate, Ctrl+Z/Y, arrows nudge (Shift ×10), H flip, [ ] layer order.</div></div>
 </div>
+<div id="lsplit"></div>
 <div id="rsplit"></div>
 <div id="ctx"></div>
 <div id="help" hidden><b>Keyboard</b><br>
@@ -615,6 +625,7 @@ document.addEventListener("keydown", ev => {
   if (mod && k === "z"){ ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
   if (mod && k === "y"){ ev.preventDefault(); redo(); return; }
   if (mod && k === "s"){ ev.preventDefault(); saveScene(); return; }
+  if (mod && ev.shiftKey && k === "m"){ ev.preventDefault(); toggleFull(); return; }
   if (mod && k === "a"){ ev.preventDefault(); multi = new Set(scene.items.filter(i => i.type !== "arrow").map(i => i.id)); sel = null; drawUI(); inspector(); return; }
   if (k === "escape"){ closeCtx(); pending = null; sel = null; multi = new Set(); setMode("select"); renderAll(); return; }
   if (k === " " && !mod){ ev.preventDefault(); spaceDown = true; $("stage").classList.add("pan"); return; }
@@ -873,6 +884,19 @@ function addSuccessor(it, below){
 }
 
 /* Undo toast: a short confirmation with one-click undo, so deleting in a hurry is never a trap. */
+/* Full screen: the browser's full-screen mode where the host allows it; otherwise the editor fills its frame and asks the host for a taller frame. */
+function toggleFull(){
+  const on = !document.body.classList.contains("max");
+  if (document.fullscreenElement){ document.exitFullscreen().catch(() => {}); }
+  if (on && document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  document.body.classList.toggle("max", on);
+  $("fsbtn").textContent = on ? "✕ Exit full screen" : "⛶ Full screen";
+  send("streamlit:setFrameHeight", {height: on ? Math.max(900, window.innerHeight || 900) : 980});
+  setTimeout(() => renderAll(), 50);
+}
+
 function toast(msg, label, fn){
   document.querySelectorAll("#toast").forEach(t => t.remove());
   const t = document.createElement("div"); t.id = "toast";
@@ -1130,6 +1154,12 @@ async function boot(){
   buildPicker(); renderAll(); send("streamlit:componentReady", {apiVersion:1});
   $("undo").disabled = true; $("redo").disabled = true;              // nothing to undo yet
   $("helpbtn").onclick = () => toggleHelp();
+  $("fsbtn").onclick = () => toggleFull();
+  const ls = $("lsplit"); let lsDrag = false;                                   // width of the icon library (left column)
+  ls.addEventListener("pointerdown", e => { lsDrag = true; ls.setPointerCapture(e.pointerId); e.preventDefault(); });
+  ls.addEventListener("pointermove", e => { if (!lsDrag) return; document.documentElement.style.setProperty("--lw", Math.max(200, Math.min(720, e.clientX)) + "px"); });
+  ls.addEventListener("pointerup", () => { lsDrag = false; });
+  ls.addEventListener("dblclick", () => document.documentElement.style.setProperty("--lw", "260px"));
   const rs = $("rsplit"), root = document.documentElement; let rsDrag = false;      // width lives on :root so the handle sees it too
   rs.addEventListener("pointerdown", e => { rsDrag = true; rs.setPointerCapture(e.pointerId); e.preventDefault(); });
   rs.addEventListener("pointermove", e => { if (!rsDrag) return; root.style.setProperty("--rw", Math.max(200, Math.min(520, window.innerWidth - e.clientX)) + "px"); });

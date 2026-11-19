@@ -1,4 +1,4 @@
-"""v2.17 Schemes & Icons: the icon library (reticon, vendored in mfs/reticon), the scheme canvas (a browser component, served from
+"""v2.17 Reticon: the icon library (reticon, vendored in mfs/reticon), the scheme canvas (a browser component, served from
 mfs/components/scheme_canvas) and the scenes of a project. Scenes are plain JSON dicts; they travel with the project file.
 
 The library is loaded from mfs/icons_runtime (built by the icon toolkit); nothing is downloaded and no external service is used."""

@@ -1,4 +1,4 @@
-"""v2.17 Schemes & Icons (phase 1): scenes, export and the page."""
+"""v2.17 Reticon (phase 1): scenes, export and the page."""
 import io, os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
