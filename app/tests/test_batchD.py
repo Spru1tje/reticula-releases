@@ -105,7 +105,9 @@ def test_app_batch_si_db_composer(at):
     _goto(at, "Batch processing")
     at.selectbox(key="bp_kind").set_value("TGA").run()
     at.button(key="bp_run").click().run(); assert not at.exception, [e.value for e in at.exception][:2]
-    assert any("Batch done: 3 / 3" in s.value for s in at.success)
+    from mfs import batchproc as BP
+    n = len(BP.list_folder(os.path.join(EX, "TGA"), "TGA"))   # the folder decides the count; do not hard-code it
+    assert any(f"Batch done: {n} / {n}" in s.value for s in at.success)
     _goto(at, "PXRD"); _goto(at, "TGA")
     figs = at.session_state["si_figs"]; assert len(figs) >= 2 and {f["page"] for f in figs.values()} >= {"PXRD", "TGA"}
     _goto(at, "SI export bundle"); assert not at.info
