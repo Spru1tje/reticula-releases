@@ -576,12 +576,14 @@ from mfs.pages.bioassays import page_sds, page_zeta, page_xps
 from mfs.pages.structure import page_structure
 from mfs.pages.workflow import page_composer, page_batch, page_si, page_db, page_guide
 from mfs.pages.schemes import page_schemes
+from mfs.pages.help import page_help, info_button          # v2.18.3: Help and info (one info document per module, also as a PDF button in each module)
 PG.bind(globals())                 # hand the helpers and this run's sidebar values (WIDTH, FONT …) to the page modules
 _PAGEFN = {"Home": page_home, "PXRD": page_pxrd, "FTIR / Raman": page_ftir, "1H NMR (digest)": page_nmr, "N2 sorption (BET/PSD)": page_sorption,
  "TGA": page_tga, "DSC": page_dsc, "Defect calculator": page_defects, "Kinetics & adsorption": page_kinetics, "ICP-OES / XRF": page_icp, "SEM / TEM / EDX": page_sem,
  "SDS-PAGE (Image Lab)": page_sds, "Zeta / DLS": page_zeta, "XPS": page_xps, "Figure composer": page_composer, "Reticon": page_schemes, "Batch processing": page_batch,
- "SI export bundle": page_si, "Sample database": page_db, "Structure (CIF)": page_structure, "UV/Vis": page_uvvis, "Photoluminescence": page_pl, "Export guide": page_guide}
+ "SI export bundle": page_si, "Sample database": page_db, "Structure (CIF)": page_structure, "UV/Vis": page_uvvis, "Photoluminescence": page_pl, "Export guide": page_guide, "Help and info": page_help}
 try:
+    info_button(page)                                  # v2.18.3: the module's info PDF, right under the header
     if os.environ.get("MFS_PROFILE"):        # dev: cProfile of the page function -> <MFS_PROFILE>_<page>.prof
         import cProfile as _cp
         _pr = _cp.Profile(); _pr.enable()

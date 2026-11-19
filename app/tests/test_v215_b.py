@@ -5,7 +5,7 @@ from mfs import summary as M, ui
 
 
 def test_methods_and_summary():
-    skip = ("Home", "Figure composer", "Batch processing", "SI export bundle", "Sample database", "Export guide", "Reticon")
+    skip = ("Home", "Figure composer", "Batch processing", "SI export bundle", "Sample database", "Export guide", "Reticon", "Help and info")
     assert all(p in M.TECHNIQUE_METHODS for p in ui.PAGES if p not in skip), "a technique has no methods text"
     t = M.methods_text(["PXRD", "TGA", "PXRD", "Home"], "2.15.0")
     assert t.count("**PXRD.**") == 1 and "Reticula 2.15.0" in t and "Home" not in t

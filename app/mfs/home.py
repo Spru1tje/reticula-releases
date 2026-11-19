@@ -32,7 +32,8 @@ WHAT = {"PXRD": "Stacked patterns, CIF reference, crystallite size, Rietveld ref
         "Batch processing": "Many files, one preset, one ZIP",
         "SI export bundle": "Figures, data, methods text, cross-checks, dossiers",
         "Sample database": "Link samples and their data files",
-        "Export guide": "How to export from each instrument"}
+        "Export guide": "How to export from each instrument",
+        "Help and info": "An info PDF for every module: terms, tutorial, formulas, checks"}
 
 INTENTS = [
     ("📈", "I have raw data and want a figure", "Pick the technique, drop the file, adjust, export a journal-ready figure.",

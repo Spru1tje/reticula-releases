@@ -188,6 +188,32 @@ def test_rietveld_glass_holder_background_automatic_and_measured():
     assert meas["bg_measured"] and abs(meas["phases"][0]["cell"][0] - 5.658) < 0.01
 
 
+def test_help_documents_cover_every_module_and_render_as_pdf():
+    from mfs import helpdocs as HD, helppdf, ui
+    skip = ("Home", "Help and info")
+    assert all(p in HD.DOCS for p in ui.PAGES if p not in skip), [p for p in ui.PAGES if p not in skip and p not in HD.DOCS]
+    for k, d in HD.DOCS.items():
+        assert d["title"] and any(kind == "h" for kind, _ in d["sections"]), k
+        assert d["sections"][1][0] == "p" or d["sections"][0][0] == "h", k
+        txt = " ".join(t for _, t in d["sections"])
+        assert "Terms" in txt, f"{k}: no terms section (abbreviations must be written out first)"
+    pdf = helppdf.render_pdf(HD.DOCS["Photoluminescence"])
+    assert pdf[:5] == b"%PDF-" and len(pdf) > 20000
+    assert HD.DOCS["Photoluminescence"]["title"] == "Info implementatie ratiometric thermometry in Reticula"
+
+
+def test_help_page_and_info_button_render():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=300); at.run()
+    at.sidebar.radio[0].set_value("Help and info").run()
+    assert not at.exception, [e.value for e in at.exception][:2]
+    assert any("Download this document" in getattr(d, "label", "") for d in at.get("download_button"))
+    at.sidebar.radio[0].set_value("PXRD").run()
+    assert not at.exception
+    labels = [getattr(b, "label", "") for b in at.get("download_button")]
+    assert any("Info about this module" in l for l in labels), labels[:6]
+
+
 def test_reticon_editor_has_no_opt_in_gate_and_full_screen_is_prominent():
     page = open(os.path.join(HERE, "mfs", "pages", "schemes.py"), encoding="utf-8").read()
     assert "opt_in(\"Open the scheme editor" not in page

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.18.3 — 2026-11-19
+
+### Help and info
+- New module **Help and info**: an info document for every module (what it does, the terms written out before they are abbreviated, a tutorial, the formulas, what the program checks, the limits). Readable in the app, searchable, and downloadable as a PDF in the Reticula colours (one module, or all as a ZIP).
+- Every module has a **📖 Info about this module (PDF)** button at the top.
+- The Photoluminescence document explains ratiometric thermometry, including the background polynomial (default order 1, range 0–3).
+
 ## 2.18.2 — 2026-11-19
 
 ### Zetasizer (.dts)

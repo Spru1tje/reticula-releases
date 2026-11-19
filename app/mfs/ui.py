@@ -17,7 +17,8 @@ NAV = [("Home", "🏠", None),
        ("SEM / TEM / EDX", "🔬", "Microscopy"),
        ("Kinetics & adsorption", "⏱️", "Kinetics / Bio"), ("SDS-PAGE (Image Lab)", "🧬", None), ("Zeta / DLS", "⚡", None),
        ("Defect calculator", "🧮", "Tools"), ("Figure composer", "🧩", None), ("Reticon", "🎨", None), ("Batch processing", "🗂️", None),
-       ("SI export bundle", "📦", None), ("Sample database", "🗃️", None), ("Export guide", "📘", None)]
+       ("SI export bundle", "📦", None), ("Sample database", "🗃️", None), ("Export guide", "📘", None),
+       ("Help and info", "❓", "Help")]
 PAGES = [p for p, _, _ in NAV]
 ICON = {p: i for p, i, _ in NAV}
 
