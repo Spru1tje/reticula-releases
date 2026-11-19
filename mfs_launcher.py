@@ -6,7 +6,7 @@ Closing the control window (or 'Quit') stops the server. No console window."""
 import os, sys, socket, subprocess, threading, time, webbrowser
 
 APP_NAME = "Reticula"
-TAGLINE = "Publication figures for framework materials"
+TAGLINE = "From raw data to figures, the easy way."
 FROZEN = getattr(sys, "frozen", False)
 BASE = sys._MEIPASS if FROZEN else os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.environ.get("MFS_APP_DIR") or os.path.join(BASE, "app")
@@ -206,7 +206,7 @@ pre{font-size:11px;color:#6F86A6;text-align:left;width:560px;max-width:90vw;whit
 .err{color:#FCA5A5}
 </style></head><body><div class="wrap">
 <img src="data:image/png;base64,%(logo)s" alt="Reticula">
-<h1>Reticula</h1><div class="tag">Publication figures for framework materials · version %(ver)s</div>
+<h1>Reticula</h1><div class="tag">From raw data to figures, the easy way. · version %(ver)s</div>
 <div class="msg" id="msg"><span class="spin"></span>Starting Reticula…</div>
 <div class="bar"><div class="fill" id="fill"></div></div>
 <div class="stage" id="stage">starting the Python runtime…</div>

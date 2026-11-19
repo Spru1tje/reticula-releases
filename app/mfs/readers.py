@@ -8,7 +8,7 @@ semicolon delimiters, decimal commas (Belgian/European locale), metadata
 headers and footers.
 """
 from __future__ import annotations
-import io, os, re, zipfile, tempfile
+import io, os, re, struct, zipfile, tempfile
 import numpy as np
 import pandas as pd
 
@@ -248,14 +248,72 @@ def read_opus(src):
     raise ValueError("No absorbance/transmittance/Raman block found in OPUS file")
 
 
+def read_spa(src):
+    """v2.18.2: Thermo OMNIC .spa (one spectrum per file). The directory of 16-byte entries starts at byte 304 (type, offset, size);
+    entry 2 holds the point count, first and last x (cm-1), entry 3 the float32 intensities. Verified against OMNIC CSV exports
+    (x within 0.001 cm-1, y identical). Returns x ascending and y."""
+    b = _to_bytes(src)
+    if not b.startswith(b"Spectral Data File") and b[:5] != b"Spect":
+        raise ValueError("Not an OMNIC .spa file")
+    ent = {}
+    for i in range(64):
+        o = 304 + 16 * i
+        if o + 16 > len(b) or (b[o] == 0 and i > 2):
+            break
+        ent.setdefault(b[o], struct.unpack_from("<II", b, o + 2))
+    if 2 not in ent or 3 not in ent:
+        raise ValueError("OMNIC .spa: no data block found")
+    p2, p3 = ent[2][0], ent[3][0]
+    nx = struct.unpack_from("<i", b, p2 + 4)[0]
+    fx, lx = struct.unpack_from("<ff", b, p2 + 16)
+    if nx < 2 or p3 + 4 * nx > len(b):
+        raise ValueError("OMNIC .spa: unexpected data layout")
+    y = np.frombuffer(b, "<f4", count=nx, offset=p3).astype(float)
+    x = np.linspace(fx, lx, nx)
+    if x[0] > x[-1]:
+        x, y = x[::-1], y[::-1]
+    out = pd.DataFrame({"x": x, "y": y})
+    out.attrs["source"] = "OMNIC .spa"
+    return out
+
+
 def read_ftir(src, name: str = ""):
     ext = os.path.splitext(name or getattr(src, "name", ""))[1].lower()
+    if ext == ".spa" or _to_bytes(src)[:18] == b"Spectral Data File":
+        return read_spa(src)
     if re.fullmatch(r"\.\d+", ext or ""):
         return read_opus(src)
     raw = _to_bytes(src)
     if raw[:4] == b"\n\n\xfe\xfe" or (b"\x00" in raw[:64] and not raw[:2] in (b"\xff\xfe", b"\xfe\xff")):
         return read_opus(io.BytesIO(raw))
     return read_xy(io.BytesIO(raw))  # OPUS 'Save as Data Point Table' (.dpt) / CSV
+
+
+def read_ftir_multi(src, name: str = ""):
+    """v2.18.2: every spectrum in a text file with one column per spectrum (first column = x, later columns = y, the header names them).
+    Returns a list of (label, DataFrame x, y); a single-spectrum file gives one entry. OPUS binaries give one entry."""
+    ext = os.path.splitext(name or getattr(src, "name", ""))[1].lower()
+    if ext == ".spa" or _to_bytes(src)[:18] == b"Spectral Data File":
+        return [(None, read_spa(src))]                  # an .spa holds one spectrum (series are .spg)
+    if re.fullmatch(r"\.\d+", ext or "") or _to_bytes(src)[:4] == b"\n\n\xfe\xfe":
+        return [(None, read_ftir(src, name))]
+    df = read_table(src)
+    x = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    out = []
+    for j in range(1, df.shape[1]):
+        y = pd.to_numeric(df.iloc[:, j], errors="coerce")
+        if y.notna().mean() < 0.5:                  # text column (sample name, comment): not a spectrum
+            continue
+        label = str(df.columns[j]).strip()
+        if not label or label.lower().startswith("unnamed") or label == "nan" or re.fullmatch(r"(col|c)\d+", label.lower()):
+            label = f"spectrum {len(out) + 1}"
+        d = pd.DataFrame({"x": x, "y": y}).dropna(subset=["x", "y"]).reset_index(drop=True)
+        out.append((label, d))
+    if not out:
+        raise ValueError("No spectrum column found (expected: first column = wavenumber, next columns = intensities)")
+    if len(out) == 1 and out[0][0] == "spectrum 1":
+        out = [(None, out[0][1])]                       # one unnamed spectrum: keep the sample name as it is
+    return out
 
 
 # --------------------------------------------------------------------------- NMR
@@ -813,6 +871,72 @@ def _dts_cumulants(d: bytes):
         return nan
 
 
+def _dts_stored_summary(d: bytes):
+    """v2.18.2: Z-average (nm) and PDI as the software stored them in ONE .dts record (software 8.x and later). The two float32 values
+    stand directly before the start of the correlogram: a Z-average between 10 and 10 000 nm, then a PDI between 0.005 and 0.9, then ten
+    values that fall from about 0.9 (the correlation function). Checked on 6 records of 2 files (software 8.02): all six equal the Z-average
+    and PDI the Zetasizer software shows. Returns (z_avg, pdi), or None when no such pair is found (exactly one pair is expected per record)."""
+    try:
+        hits = []
+        for al in range(4):
+            m = (len(d) - al) // 4
+            a = np.frombuffer(d[al:al + m * 4], "<f4")
+            for k in range(m - 14):
+                z, p = a[k], a[k + 1]
+                if not (np.isfinite(z) and np.isfinite(p)) or not (10.0 <= z <= 1e4 and 0.005 < p < 0.9):
+                    continue
+                seg = a[k + 3:k + 13]
+                if np.all(np.isfinite(seg)) and np.all((seg > 0.5) & (seg < 1.05)) and np.all(np.diff(seg) <= 0.0005):
+                    hits.append((float(z), float(p)))
+        return hits[0] if hits else None
+    except Exception:
+        if os.environ.get("MFS_DEBUG"):
+            raise
+        return None
+
+
+def _dts_zeta_record(d: bytes):
+    """v2.18.2: a ZETA record of a Zetasizer .dts (software 8.x). The result block lies at fixed distances from the END of the record
+    (checked on 11 records against the Zeta Potential Reports of the software: zeta, deviation, conductivity, count rate, the three
+    peaks with mean / area / SD all equal). Returns a dict or None when this is not a plausible zeta record."""
+    try:
+        n = len(d)
+        if n < 1000:
+            return None
+        f = lambda r: struct.unpack_from("<f", d, n + r)[0]
+        zp, zsd = f(-552), f(-548)
+        if not (np.isfinite(zp) and np.isfinite(zsd)) or abs(zp) > 200 or not (0.0 < zsd < 200):
+            return None
+        peaks = [(f(-584 + 4 * i), f(-488 + 4 * i), f(-512 + 4 * i)) for i in range(3)]       # mean (mV), area (%), SD (mV)
+        area = sum(p[1] for p in peaks)
+        if not (60.0 <= area <= 100.5):                                      # only three peaks are stored: a fourth small one may be missing
+            return None
+        cond = struct.unpack_from("<d", d, n - 564)[0]
+        cr = struct.unpack_from("<d", d, n - 200)[0]
+        out = {"zeta": float(zp), "zeta_sd": float(zsd), "cond_mS_cm": float(cond) if np.isfinite(cond) else float("nan"),
+               "count_kcps": float(cr) if np.isfinite(cr) and 0 < cr < 1e5 else float("nan"),
+               "peaks": [(float(m), float(a), float(s)) for m, a, s in peaks if a > 0]}
+        ax = None                                                          # apparent zeta potential axis (89 points, about -150 … +150 mV)
+        for al in range(4):
+            b = np.frombuffer(d, "<f4", (n - al) // 4, al)
+            for i in np.where((b > -160) & (b < -140))[0]:
+                s = b[i:i + 89]
+                if len(s) == 89 and np.all(np.isfinite(s)) and np.all(np.diff(s) > 0) and 140 < s[-1] < 160:
+                    ax = al + 4 * int(i); break
+            if ax is not None:
+                break
+        if ax is not None and ax + 1336 + 356 <= n:
+            x = np.frombuffer(d, "<f4", 89, ax).astype(float)
+            c = np.frombuffer(d, "<f4", 89, ax + 1336).astype(float)
+            if np.all(np.isfinite(c)) and c.min() >= 0 and c.sum() > 0 and abs((x * c).sum() / c.sum() - zp) < 0.5 and c.max() > 1e3:                  # strict: records whose block does not reproduce zeta get no distribution
+                out["dist"] = (x, c)
+        return out
+    except Exception:
+        if os.environ.get("MFS_DEBUG"):
+            raise
+        return None
+
+
 def _zeta_dts(raw: bytes):
     """v2.14: Zetasizer Nano / Classic software `.dts` file (an OLE container with one stream REC<n> per record). Verified on real files:
     the sample name and the 70-bin size axis (0.4-10 000 nm) with the INTENSITY size distribution (sums to 100 %). Z-average and PDI are CALCULATED from the stored
@@ -830,11 +954,29 @@ def _zeta_dts(raw: bytes):
     if not recs or "Header" not in names:
         return None
     sig = np.array([0.4, 0.46323168, 0.53645897], "<f4").tobytes()
-    rows, summ = [], []
+    rows, summ, sw_ver, zrows = [], [], "", []
     for n in recs:
         d = ole.openstream(n).read()
         i = d.find(sig)
         if i < 0 or i + 560 > len(d):
+            zr = _dts_zeta_record(d)                                        # v2.18.2: a zeta potential record
+            if zr is None:
+                continue
+            strs = [x.decode("utf-16le") for x in re.findall(rb"(?:[\x20-\x7e]\x00){3,}", d)]
+            nm = next((s_.strip() for s_ in strs if re.fullmatch(r".+ \d+\s*", s_) and not s_.startswith(("C:", "Z:"))), f"record {int(n[3:])}")
+            if strs and not sw_ver:
+                sw_ver = strs[0].strip()
+            mm = re.fullmatch(r"(.*\S)\s+(\d+)", nm)
+            base, run = (mm.group(1), int(mm.group(2))) if mm else (nm, len(summ) + 1)
+            k_rec = len(summ)
+            pk = zr["peaks"] + [(float("nan"), float("nan"), float("nan"))] * (3 - len(zr["peaks"]))
+            row = {"sample": base, "run": run, "rec": k_rec, "z_avg": np.nan, "pdi": np.nan, "zeta": zr["zeta"], "zeta_sd": zr["zeta_sd"],
+                   "cond_mS_cm": zr["cond_mS_cm"], "count_kcps": zr["count_kcps"]}
+            for j, (m_, a_, s_) in enumerate(pk, 1):
+                row[f"peak{j}_mV"], row[f"peak{j}_area_pct"], row[f"peak{j}_sd_mV"] = m_, a_, s_
+            summ.append(row)
+            if "dist" in zr:
+                zrows += [(base, float(a), float(b), k_rec) for a, b in zip(*zr["dist"])]
             continue
         sizes = np.frombuffer(d[i:i + 280], "<f4").astype(float)
         inten = np.frombuffer(d[i + 280:i + 560], "<f4").astype(float)
@@ -842,8 +984,16 @@ def _zeta_dts(raw: bytes):
             continue
         strs = [x.decode("utf-16le") for x in re.findall(rb"(?:[\x20-\x7e]\x00){3,}", d)]
         nm = next((s_.strip() for s_ in strs if re.fullmatch(r".+ \d+\s*", s_) and not s_.startswith("C:")), f"record {int(n[3:])}")
-        verified = bool(strs) and strs[0].strip().startswith(DTS_VERIFIED_VERSION)        # only the software version that was checked against the instrument
-        za, pd_ = _dts_cumulants(d) if verified else (float("nan"), float("nan"))
+        stored = _dts_stored_summary(d)                                                     # v2.18.2: Z-ave and PDI as stored by the software (8.x)
+        verified = bool(strs) and strs[0].strip().startswith(DTS_VERIFIED_VERSION)        # 7.11: the cumulant route was checked against the instrument
+        if stored is not None:
+            za, pd_ = stored
+        elif verified:
+            za, pd_ = _dts_cumulants(d)
+        else:
+            za, pd_ = float("nan"), float("nan")
+        if strs and not sw_ver:
+            sw_ver = strs[0].strip()
         mm = re.fullmatch(r"(.*\S)\s+(\d+)", nm)                      # 'ZrO2-aliquot2 3' = sample 'ZrO2-aliquot2', run 3
         base, run = (mm.group(1), int(mm.group(2))) if mm else (nm, len(summ) + 1)
         k_rec = len(summ)
@@ -852,13 +1002,23 @@ def _zeta_dts(raw: bytes):
     if not summ:
         return None
     sm = pd.DataFrame(summ)
+    dist = pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number", "rec"])
+    if zrows:                                                          # v2.18.2: zeta potential records
+        zd = pd.DataFrame(zrows, columns=["sample", "zeta_mV", "counts", "rec"])
+        n_z = int(sm["zeta"].notna().sum())
+        note = (f"From this .dts file (software {sw_ver or 'unknown'}): {n_z} zeta potential record(s) – zeta potential, its deviation (SD of the distribution), "
+                "conductivity, count rate, the three zeta peaks (mean, area %, SD) and the zeta distribution, as stored by the software "
+                "(each value equals the Zeta Potential Report).")
+        if sm["z_avg"].notna().any():
+            note += " Size records give the intensity size distribution, Z-average and PDI."
+        return {"summary": sm, "dist": dist if len(dist) else None, "zdist": zd, "note": note}
     if sm["z_avg"].isna().all():
-        return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number", "rec"]),
-                "note": "From this .dts file: sample names and the intensity size distribution. Z-average and PDI are only calculated for files of Zetasizer software "
-                        f"version {DTS_VERIFIED_VERSION} (the version they were checked on); for other versions, and for ζ, use the Excel / CSV export."}
-    return {"summary": sm, "dist": pd.DataFrame(rows, columns=["sample", "size_nm", "intensity", "volume", "number", "rec"]),
-            "note": "From this .dts file: sample names, the intensity size distribution, and Z-average and PDI **calculated from the stored correlation "
-                    "function** (cumulant analysis, ISO 22412, with the angle, wavelength, refractive index, viscosity and temperature of the record). "
+        return {"summary": sm, "dist": dist,
+                "note": f"From this .dts file (software {sw_ver or 'unknown'}): sample names and the intensity size distribution. Z-average and PDI could not be read from these records "
+                        f"(they are read for software 8.x, and for {DTS_VERIFIED_VERSION} by calculation); for ζ, use the Excel / CSV export."}
+    return {"summary": sm, "dist": dist,
+            "note": f"From this .dts file (software {sw_ver or 'unknown'}): sample names, the intensity size distribution, and Z-average and PDI as stored in each record "
+                    "by the Zetasizer software (for software 7.11 calculated from the stored correlation function). "
                     "The ζ-potential is not in size records – export it from the Zetasizer software (File → Export → Excel / CSV)."}
 
 
@@ -869,6 +1029,8 @@ def select_records(z: dict, keep) -> dict:
     out["summary"] = z["summary"][z["summary"]["rec"].isin(keep)].reset_index(drop=True)
     if z.get("dist") is not None:
         out["dist"] = z["dist"][z["dist"]["rec"].isin(keep)].reset_index(drop=True)
+    if z.get("zdist") is not None:
+        out["zdist"] = z["zdist"][z["zdist"]["rec"].isin(keep)].reset_index(drop=True)
     return out
 
 

@@ -59,8 +59,8 @@ def page_zeta():
     st.header("Zeta potential / DLS – Malvern Zetasizer")
     st.caption("Zetasizer Ultra / Nano: export the records with Sample Name, Z-Average, PDI, Zeta Potential, Zeta Deviation and the size distribution "
                "(Sizes / Intensities) as **CSV or Excel (.xlsx / .xls)** and drop the file here. "
-               "ℹ️ `.dts` files (Zetasizer software) are read for the sample names, the size distribution and Z-average / PDI "
-               "(calculated from the correlation function); ζ needs the Excel / CSV export.")
+               "ℹ️ `.dts` files (Zetasizer software) are read for the sample names, the size distribution, Z-average / PDI and – for zeta records – "
+               "the ζ-potential with its deviation, conductivity, count rate, the zeta peaks and the zeta distribution (software 8.x).")
     files = files_input("Zetasizer export (CSV / Excel / .dts)", ["csv", "txt", "xlsx", "xls", "dts"], "Zeta-DLS/*.csv", "zeta", multiple=False)
     if not files:
         return
@@ -83,8 +83,13 @@ def page_zeta():
     z["summary"] = _apply_sample_list(z["summary"], "sample", None, _sel)
     if z.get("dist") is not None:
         z["dist"] = _apply_sample_list(z["dist"], "sample", None, _sel)
-    zs = z["summary"].groupby("sample", sort=False).agg(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean"),
-                                                         n_runs=("sample", "size")).reset_index()
+    _agg = dict(zeta=("zeta", "mean"), zeta_sd=("zeta", "std"), z_avg=("z_avg", "mean"), pdi=("pdi", "mean"), n_runs=("sample", "size"))
+    for _c, _n_ in (("cond_mS_cm", "conductivity_mS_cm"), ("count_kcps", "count_rate_kcps"), ("zeta_sd", "zeta_deviation_mV")):   # v2.18.2: from .dts zeta records
+        if _c in z["summary"].columns and z["summary"][_c].notna().any() and _c != "zeta_sd":
+            _agg[_n_] = (_c, "mean")
+    if "zeta_sd" in z["summary"].columns and z["summary"]["zeta_sd"].notna().any():
+        _agg["zeta_deviation_mV"] = ("zeta_sd", "mean")        # width (SD) of the zeta distribution of one record, averaged; zeta_sd above = spread between records
+    zs = z["summary"].groupby("sample", sort=False).agg(**_agg).reset_index()
     st.dataframe(zs, width="stretch")
     for _r in zs.itertuples():                                   # v2.16: the cross-technique checks compare DLS with the image sizes
         store_put(str(_r.sample), "dls", {"z_avg_nm": None if pd.isna(_r.z_avg) else float(_r.z_avg), "pdi": None if pd.isna(_r.pdi) else float(_r.pdi),
@@ -125,7 +130,7 @@ def page_zeta():
             ax.legend([Patch(facecolor=c, edgecolor="k", lw=0.6) for c in cols], list(zs.label), loc="best")
     fig, ax = newfig(); draw_zeta(ax)
     show(fig, "zeta", zs, draw_zeta, "Zeta potential")
-    if z["dist"] is not None:
+    if z.get("dist") is not None:
         kinds = [(k_, lab_) for k_, lab_ in (("intensity", "Intensity"), ("volume", "Volume"), ("number", "Number"))
                  if k_ in z["dist"].columns and z["dist"][k_].notna().any()]
         kind = st.radio("Size distribution by", [k_ for k_, _ in kinds], horizontal=True, key="zeta_dist_kind",
@@ -156,6 +161,15 @@ def page_zeta():
                 ax.set_ylim(0, hi_ * (1.0 + 0.11 * k + 0.04))
         fig, ax = newfig(); draw_dls(ax)
         show(fig, "DLS", dd, draw_dls, "DLS")
+    if z.get("zdist") is not None and len(z["zdist"]):                   # v2.18.2: zeta potential distribution (counts vs apparent zeta potential)
+        zd = z["zdist"].groupby(["sample", "zeta_mV"], sort=False)["counts"].mean().reset_index()
+        trz = [(s_.replace("ZrO2", "ZrO$_2$"), g_.zeta_mV.values, g_.counts.values) for s_, g_ in zd.groupby("sample", sort=False)]
+
+        def draw_zd(ax, trz=trz):
+            P.draw_overlay(ax, trz, "Apparent zeta potential (mV)", "Total counts", legend=True); ax.set_ylim(bottom=0)
+        fig, ax = newfig(); draw_zd(ax)
+        show(fig, "zeta_distribution", zd, draw_zd, "Zeta potential distribution")
+        st.caption("The distribution is shown for the records whose stored block reproduces the zeta potential of the software; other records have none.")
     with st.expander("📝 Methods / SI text (edit the [brackets])", expanded=False):
         _txt = MT.dls_methods(_q.to_dict("records"), with_sd=with_sd)
         st.caption("Generated from this data only; fill in instrument, temperature, medium and concentration yourself.")

@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.18.2 — 2026-11-19
+
+### Zetasizer (.dts)
+- **Software 8.x .dts files are read**: sample names, the intensity size distribution, and **Z-average and PDI as stored by the software** for every record. Checked on two real files (040626-ll-MUA, ZrO2@HfMOF801_XL, software 8.02): all six records equal the values the Zetasizer software shows (167.0 / 166.0 / 166.3 nm and PDI 0.139 / 0.133 / 0.126; 2238 / 2363 / 2219 nm and PDI 0.155 / 0.527 / 0.631).
+- **Zeta potential records are read** (software 8.x): ζ-potential, zeta deviation, conductivity, count rate, the three zeta peaks (mean, area %, SD) and the zeta distribution. Checked on 11 records of a real file against the Zeta Potential Reports of the software (ζ, deviation, conductivity, peaks and areas equal). The Zeta / DLS page adds conductivity, count rate and deviation to its table (and so to the SI data) and draws the ζ distribution. A distribution is only shown for records whose stored block reproduces the software's ζ (8 of 11 in the test file).
+- Software 7.11 files keep the earlier route (Z-average and PDI calculated from the stored correlation function).
+
+### Reticon (schemes)
+- **The scheme editor loads when the page opens** (no extra "open the editor" step).
+- **Full screen** is the prominent button at the start of the top bar (accent colour).
+- In full screen the top bar sits below the screen edge; the handles follow it.
+- The icon library can be widened by dragging its edge, in the browser and in full screen; entering full screen starts it at least 340 px wide (a wider width you chose stays).
+
+### FTIR / Raman
+- **Several spectra in one text file**: tick *The file(s) contain several spectra* and every column after the wavenumber column becomes its own spectrum, named by its column header. Without the tick, the behaviour is unchanged.
+- **OMNIC `.spa` files are read** (one spectrum per file; series files `.spg` are not). Verified on a real file against its OMNIC CSV export: same points, same intensities (x within 0.001 cm⁻¹). The full measured range is read, also beyond the 400–4000 cm⁻¹ of the CSV export.
+- Header-less OMNIC CSV exports (scientific notation, e.g. `3.996813e+002`) are read as one spectrum.
+
+### Methods and export guide
+- The SEM / TEM / EDX Methods paragraph names the instruments: **JEOL JEM-1010** (bright-field TEM, 100 kV, tungsten filament, CCD camera, 0.4 nm point resolution, up to 500 000×, dual-sample holder) and **JEOL JEM-2200FS** (HRTEM, 200 kV FEG, image-lens Cs corrector, EELS and EDX). SEM stays a placeholder.
+- `docs/EXPORT_GUIDE.md`: separate rows for the JEM-1010 (camera TIFF) and the JEM-2200FS (raw Digital Micrograph / Velox files).
+
+### Tagline
+- The tagline is now "From raw data to figures, the easy way." (app, launcher, installer, README).
+
+### Simple mode (every technique)
+- The *Simple mode – all black* switch in the Style tab of every figure is redrawn for a sleek journal look: data points get one black symbol per sample, continuous curves (spectra, patterns, fits) one black line style per sample and no markers, scatter groups filled / open, bars and histograms light grey with a hatch per series, filled bands light grey.
+- Legends that already exist follow the same look (they used to keep the colours).
+- Not covered: CIF structure views and the Hirshfeld map (their colours carry the information).
+
+### Rietveld: instrument profile from a standard
+- *Instrument profile → fixed from a standard* (Advanced): upload a Si SRM 640 pattern measured on the same instrument. The standard is fitted by Le Bail with its certificate cell (a = 5.4312 Å, not refined); U, V, W, X, Y are then kept fixed for the sample refinement.
+- Checked on synthetic data: the Si cell stays at the certificate; a Ge-type sample (a = 5.658 Å) refines to 5.6580 Å with the fixed profile, the same Rwp as with a refined profile. The fitted profile reproduces the peak width up to about 65° 2θ; above 80° the Lorentzian term is less well determined. Check the standard's width curve against your own data.
+- LaB₆ is not built in yet (its cell can be given as a Phase; see `instrument_profile_from_standard`).
+
+### Tests
+- The Word (DOCX) export test no longer needs python-docx (the app writes DOCX without it); the Reticon tests follow the editor loading on page open.
+
 ## 2.18.1 — 2026-11-19 (quick fix)
 
 - **The Schemes & Icons module is now called Reticon** (menu, page title, figure composer label, gallery tile).

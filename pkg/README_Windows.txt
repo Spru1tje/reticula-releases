@@ -1,5 +1,5 @@
 Reticula for Windows (64-bit Windows 10/11)
-Publication figures for framework materials
+From raw data to figures, the easy way.
 ============================================
 
 INSTALL

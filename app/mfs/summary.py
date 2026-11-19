@@ -32,7 +32,9 @@ TECHNIQUE_METHODS = {
            "determined between the temperatures given in the figure; the residual mass was taken at [T] °C.",
     "DSC": "Differential scanning calorimetry was carried out on a [instrument] from [T1] to [T2] °C at [rate] K min−1 under [gas]. Transition "
            "temperatures were taken as [onset / peak] values; enthalpies were obtained by integration with a [baseline type] baseline.",
-    "SEM / TEM / EDX": "Electron micrographs were recorded on a [microscope] at [kV]. Particle sizes were determined from [n] particles per sample "
+    "SEM / TEM / EDX": "Bright-field TEM images were recorded on a JEOL JEM-1010 at 100 kV (tungsten filament, CCD camera, point resolution 0.4 nm); "
+                       "high-resolution TEM images on a JEOL JEM-2200FS field-emission microscope at 200 kV (image-lens Cs corrector, EELS and EDX). "
+                       "SEM images were recorded on a [SEM model] at [kV]. Particle sizes were determined from [n] particles per sample "
                        "by automatic segmentation of calibrated images (scale bar [value]) and are given as mean ± standard deviation. Elemental "
                        "maps / spectra were acquired by EDX.",
     "Kinetics & adsorption": "Kinetic data were fitted with the [pseudo-first / pseudo-second order] model by non-linear least squares; uptake capacities "

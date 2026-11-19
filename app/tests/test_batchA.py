@@ -32,7 +32,7 @@ def test_si_export_xlsx_docx():
     x = SI.to_xlsx(df, notes="n"); assert x[:2] == b"PK"
     pd.read_excel(io.BytesIO(x))
     d = SI.to_docx(df, notes="n"); assert d[:2] == b"PK"
-    import docx
+    docx = pytest.importorskip("docx")      # python-docx is optional: the app writes DOCX without it (the Windows build does not ship it)
     doc = docx.Document(io.BytesIO(d)); assert len(doc.tables[0].rows) == 3
 
 

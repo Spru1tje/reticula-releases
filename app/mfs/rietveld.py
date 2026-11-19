@@ -276,7 +276,7 @@ def _pv(dx, H, eta):
 class Refinement:
     """Rietveld / Le Bail refinement of one pattern with one or more phases."""
 
-    def __init__(self, x, y, phases, radiation="Cu Kα1", bg_order=6, mode="rietveld", mono_2theta=0.0, instrument=None, counts=None, progress=None, offset="displacement"):
+    def __init__(self, x, y, phases, radiation="Cu Kα1", bg_order=6, mode="rietveld", mono_2theta=0.0, instrument=None, counts=None, progress=None, offset="displacement", glass_bg=True, bg_pattern=None):
         self.x = np.asarray(x, float)
         y = np.asarray(y, float)
         if counts is None:
@@ -299,7 +299,28 @@ class Refinement:
         self.progress = progress or (lambda frac, text: None)
         self.instrument = instrument
         xr = (self.x - self.x.min()) / max(self.x.max() - self.x.min(), 1e-9) * 2 - 1
-        self.T = np.polynomial.chebyshev.chebvander(xr, self.nb - 1)          # (N, nb)
+        self.nb_poly = self.nb
+        T = np.polynomial.chebyshev.chebvander(xr, self.nb - 1)               # (N, nb)
+        # v2.18.2: an amorphous hump of a glass sample holder (broad, 15-35 deg 2theta) is modelled by three broad Gaussians next to the
+        # polynomial (switch off with glass_bg=False); a measured background pattern (empty holder) can be added as one more column.
+        extra = []
+        if glass_bg:
+            for c_ in (18.0, 24.0, 30.0):
+                if self.x.min() - 6 < c_ < self.x.max() + 6 and (self.x.max() - self.x.min()) > 15:
+                    extra.append(np.exp(-0.5 * ((self.x - c_) / 4.0) ** 2))
+        self.bg_extra = len(extra)
+        self.bg_measured = False
+        if bg_pattern is not None:
+            bx, by = np.asarray(bg_pattern[0], float), np.asarray(bg_pattern[1], float)
+            o = np.argsort(bx)
+            bgi = np.interp(self.x, bx[o], by[o], left=by[o][0], right=by[o][-1]) * self.scale_y
+            if np.ptp(bgi) > 0:
+                extra.append(bgi / max(float(np.max(np.abs(bgi))), 1e-12) * float(np.max(self.y)) * 0.1)
+                self.bg_measured = True
+        if extra:
+            T = np.hstack([T, np.stack(extra, 1)])
+            self.nb = T.shape[1]
+        self.T = T
         self.dx = np.gradient(self.x)
         tt_max = float(self.x.max()) + 2.0
         lam = min(l for l, _ in self.rad)
@@ -338,10 +359,13 @@ class Refinement:
                     P[f"sx{i}.{k}"] = _P(f"sx{i}.{k}", 0.0, -lim, lim, False, max(lim / 20, 5e-4), f"{ph.name}: {labs[r_]} shift {c_ + 1}")
                 for el in ph.model.elements:
                     P[f"sB{i}.{el}"] = _P(f"sB{i}.{el}", 1.0, 0.05, 15.0, False, 0.1, f"{ph.name}: B({el}) (Å²)")
-        if self.instrument:
-            for k, v in self.instrument.items():
-                if k in ("U", "V", "W", "X", "Y"):
-                    pass
+        # v2.18.2: an instrument profile measured on a standard (e.g. Si SRM 640, LaB6 SRM 660) is FIXED: U, V, W, X, Y keep these values
+        self.fixed_profile = bool(self.instrument and self.instrument.get("fixed"))
+        self.fix_cell = False                                           # v2.18.2: a standard's cell is known (certificate): not refined when True
+        if self.fixed_profile:
+            for k in ("U", "V", "W", "X", "Y"):
+                if k in self.instrument:
+                    P[k].value = float(self.instrument[k])
         self.P = P
 
     def free_names(self):
@@ -654,9 +678,11 @@ class Refinement:
         n_ph = len(self.phases)
         cell_names = [n for n in P if n.startswith("c")]
         prog(0.02, "Looking for the best start values (cell scale)")
-        self._prealign()
+        if not self.fix_cell:                                   # v2.18.2: a standard's cell (certificate) is not rescaled
+            self._prealign()
         prog(0.10, "Estimating the peak width")
-        self._width_scan()
+        if not self.fixed_profile:                              # v2.18.2: a measured instrument profile is not re-estimated
+            self._width_scan()
         off = {"displacement": ["disp"], "zero": ["zero"], "both": ["zero", "disp"]}[self.offset_mode]
         stages = [("Scale and background", [], 0.14),
                   ("Instrument offset and cell", off + cell_names, 0.25),
@@ -681,6 +707,9 @@ class Refinement:
                        off + ["U", "V", "W", "X", "Y"] + (["asym"] if low_angle else []) + cell_names
                        + ([f"B{i}" for i in range(n_ph)] + [f"po{i}" for i, ph_ in enumerate(self.phases) if ph_.po_axis is not None]
                           if self.mode == "rietveld" else []), 0.85))
+        if self.fixed_profile or self.fix_cell:                 # v2.18.2: a fixed profile (U, V, W, X, Y) and/or a fixed cell are not free stages
+            drop = (("U", "V", "W", "X", "Y") if self.fixed_profile else ()) + (tuple(cell_names) if self.fix_cell else ())
+            stages = [(nm_, [n for n in nms if n not in drop], fr_) for nm_, nms, fr_ in stages]
         for nm, names, frac in stages:
             prog(frac, nm)
             self.restraint_sigma = self.restraint_scale * (0.06 if "soft" in nm else (0.025 if ("tight" in nm or "Fine" in nm) else 0.0))
@@ -776,7 +805,7 @@ class Refinement:
         notes = self._notes(st, phases, size)
         return {"x": self.x, "y": self.y / self.scale_y, "calc": calc / self.scale_y, "bg": bg / self.scale_y, "resid": (self.y - calc) / self.scale_y,
                 "stats": st, "phases": phases, "global": glob, "mode": self.mode, "counts": self.counts, "radiation": self.radiation,
-                "size_nm_apparent": size, "strain_apparent": strain, "notes": notes, "bg_order": self.nb - 1,
+                "size_nm_apparent": size, "strain_apparent": strain, "notes": notes, "bg_order": self.nb_poly - 1, "glass_bg": bool(self.bg_extra), "bg_measured": self.bg_measured,
                 "free": names_free, "lebail_I": {i: self.I_free[i] for i in self.I_free} if self.mode == "lebail" else None}
 
     def structure_report(self, i):
@@ -914,8 +943,9 @@ class Refinement:
         return n
 
 
-def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None, refine_structure=False, restraint_scale=1.0):
-    """One call: cifs = list of CIF paths / bytes (or Phase objects). Returns the result dict of Refinement.run()."""
+def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None, bg_order=6, progress=None, mono_2theta=0.0, names=None, offset="displacement", po_axes=None, refine_structure=False, restraint_scale=1.0, instrument=None, glass_bg=True, bg_pattern=None):
+    """One call: cifs = list of CIF paths / bytes (or Phase objects). Returns the result dict of Refinement.run().
+    instrument: {"U", "V", "W", "X", "Y", "fixed": True} keeps a measured instrument profile fixed (see instrument_profile_from_standard)."""
     x = np.asarray(x, float)
     y = np.asarray(y, float)
     if tt_range:
@@ -929,9 +959,34 @@ def quick_refine(x, y, cifs, radiation="Cu Kα1", mode="rietveld", tt_range=None
     for k, ax_ in enumerate(po_axes or []):
         if ax_ is not None and k < len(phases):
             phases[k].po_axis = tuple(int(v) for v in ax_)
-    R = Refinement(x, y, phases, radiation, bg_order, mode, mono_2theta, progress=progress, offset=offset)
+    R = Refinement(x, y, phases, radiation, bg_order, mode, mono_2theta, progress=progress, offset=offset, instrument=instrument, glass_bg=glass_bg, bg_pattern=bg_pattern)
     R.restraint_scale = float(restraint_scale)
     return R.run()
+
+
+# Silicon, NIST SRM 640 (lattice parameter a = 5.431195 Å at 22.5 °C; the value used for the cell start)
+SI_CELL = (5.4312, 5.4312, 5.4312, 90.0, 90.0, 90.0)
+
+
+def instrument_profile_from_standard(x, y, radiation="Cu Kα1", tt_range=None, bg_order=6, standard="Si"):
+    """v2.18.2: the instrument line profile (Caglioti-free TCH: U, V, W Gaussian and X, Y Lorentzian, in °2θ) measured on a line-profile
+    standard: a Le Bail fit of the standard's own cell (Si SRM 640 by default). The returned values are then passed as
+    instrument={..., 'fixed': True} to a sample refinement, which keeps them fixed. Returns {"U","V","W","X","Y","zero","rwp","cell_a"}."""
+    if standard != "Si":
+        raise ValueError("Only Si (SRM 640) is built in; for LaB6 give its cell with Phase.from_cell and call quick_refine(mode='lebail').")
+    ph = Phase.from_cell(SI_CELL, "Si standard")
+    if tt_range:
+        m = (np.asarray(x, float) >= tt_range[0]) & (np.asarray(x, float) <= tt_range[1])
+        x, y = np.asarray(x, float)[m], np.asarray(y, float)[m]
+    R = Refinement(np.asarray(x, float), np.asarray(y, float), [ph], radiation, bg_order, "lebail", 0.0)
+    R.fix_cell = True                                            # the standard's lattice parameter is known; only the line profile is fitted
+    res = R.run()
+    g = res["global"]
+    out = {n: float(g[n]["value"]) for n in ("U", "V", "W", "X", "Y")}
+    out["zero"] = float(g["zero"]["value"])
+    out["rwp"] = float(res["stats"]["Rwp"])
+    out["cell_a"] = float(res["phases"][0]["cell"][0])
+    return out
 
 
 PHASE_COLOURS = ["#D55E00", "#0072B2", "#009E73", "#CC79A7", "#E69F00"]

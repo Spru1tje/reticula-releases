@@ -50,9 +50,7 @@ def test_page_renders_closed_and_open_without_errors():
               "import sys\nsys.path.insert(0, %r)\npage_schemes()\n" % os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     at = AppTest.from_string(script, default_timeout=120).run()
     assert not at.exception
-    assert any("only when you open them" in i.value for i in at.info)
-    at.toggle(key="optin|schemes").set_value(True).run()
-    assert not at.exception
+    assert not any("only when you open them" in i.value for i in at.info)   # v2.18.2: the editor loads with the page, no opt-in step
     assert any("Create a scheme" in c.value for c in at.caption)
 
 

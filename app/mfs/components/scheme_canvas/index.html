@@ -40,7 +40,7 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 #paper{position:absolute;left:40px;top:30px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.12),0 8px 24px rgba(15,23,42,.06);transform-origin:0 0}
 #canvas{display:block;user-select:none;touch-action:none}
 #right{background:var(--panel);border-left:1px solid var(--line);padding:10px;overflow:auto;position:relative}
-#rsplit{position:fixed;top:44px;bottom:0;right:calc(var(--rw,250px) - 4px);width:8px;cursor:col-resize;z-index:2}   /* drag to resize the right panel; double-click resets */
+#rsplit{position:fixed;top:var(--top,44px);bottom:0;right:calc(var(--rw,250px) - 4px);width:8px;cursor:col-resize;z-index:2}   /* drag to resize the right panel; double-click resets */
 #rsplit:hover{background:rgba(37,99,235,.15)}
 #right h3{margin:4px 0 10px;font-size:13px}
 #right label{display:block;margin:8px 0 3px;font-size:11px;color:#64748B}
@@ -71,11 +71,14 @@ html,body{margin:0;height:100%;font:13px/1.35 system-ui,-apple-system,"Segoe UI"
 .status{font:12px Helvetica,Arial,sans-serif;color:#64748B;margin-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
 #app.focus{grid-template-columns:1fr}
 /* full screen: the editor covers the window; larger tiles and labels for use at a distance */
-body.max #app{position:fixed;inset:0;z-index:60;background:#fff;height:100vh}
-body.max #tiles{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+body.max #app{position:fixed;inset:0;z-index:60;background:#fff;height:100vh;padding-top:14px}   /* v2.18.2: the top bar no longer touches the screen edge */
+body.max{--top:58px}                                                                            /* where the top bar ends in full screen (handles follow it) */
+body.max #tiles{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
 body.max .tile div{font-size:12px !important}
 body.max #bar button{font-size:13px}
-#lsplit{position:fixed;top:44px;bottom:0;left:calc(var(--lw,260px) - 4px);width:8px;cursor:col-resize;z-index:2}   /* drag to widen the icon library; double-click resets */
+#fsbtn.fsmain{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;padding:0 14px}   /* v2.18.2: the main way of working: prominent */
+#fsbtn.fsmain:hover{background:#0B5F58}
+#lsplit{position:fixed;top:var(--top,44px);bottom:0;left:calc(var(--lw,260px) - 4px);width:8px;cursor:col-resize;z-index:2}   /* drag to widen the icon library; double-click resets */
 #lsplit:hover{background:rgba(37,99,235,.15)}
 #app.focus #lsplit{display:none}
 .tip summary{cursor:pointer;color:#475569;font-size:12px;margin-top:12px;user-select:none}   /* collapsible tips in the side panel */
@@ -113,6 +116,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 <body>
 <div id="app">
   <div id="bar">
+    <button id="fsbtn" class="fsmain" title="Full screen: the editor fills the window, larger and easier to use (Ctrl+Shift+M)">⛶ Full screen</button>
+    <span class="sep"></span>
     <button data-mode="select" class="on" title="Select / move (V)">↖ Select</button>
     <button data-mode="arrow" title="Connect icons (A)">➝ Arrow</button>
     <button data-mode="text" title="Add text (T)">T Text</button>
@@ -132,7 +137,6 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button id="zin" title="Zoom in">＋</button><button id="zout" title="Zoom out">－</button><button id="zfit" title="Zoom to fit the content (0)">Fit</button><button id="zlabel" title="Click to reset to 100% (1)">100%</button><button id="grid" title="Show the grid (G)">Grid</button><button id="snapbtn" class="on" title="Snap to grid and guides (S). Hold Shift to snap the other way.">Snap</button>
     <select id="theme" title="Colour theme"></select>
     <span id="status" class="status"></span>
-    <button id="fsbtn" title="Full screen: the editor fills the window, larger and easier to use (Ctrl+Shift+M)">⛶ Full screen</button>
     <button id="helpbtn" title="Keyboard shortcuts (?)">?</button>
     <span class="grow"></span>
     <button id="tpl" title="Load a template">Templates</button>
@@ -892,6 +896,10 @@ function toggleFull(){
     document.documentElement.requestFullscreen().catch(() => {});
   }
   document.body.classList.toggle("max", on);
+  if (on) {                                   // v2.18.2: in full screen the icon library starts wider (at least 340 px); a wider width the user chose stays
+    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--lw"), 10) || 260;
+    document.documentElement.style.setProperty("--lw", Math.max(cur, 340) + "px");
+  }
   $("fsbtn").textContent = on ? "✕ Exit full screen" : "⛶ Full screen";
   send("streamlit:setFrameHeight", {height: on ? Math.max(900, window.innerHeight || 900) : 980});
   setTimeout(() => renderAll(), 50);

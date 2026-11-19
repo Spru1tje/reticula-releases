@@ -18,7 +18,9 @@ def test_simple_black_recolours_and_gives_each_series_its_own_symbol():
     F.apply(fig, cfg)
     lines = [ln for ln in ax.get_lines() if ln.get_label().startswith("s")]
     assert all(ln.get_color() in ("black", "#000000") for ln in lines)
-    assert len({ln.get_marker() for ln in lines}) == 4                    # one symbol per sample
+    # v2.18.2: continuous curves get one line style per sample (no markers, so the graph stays sleek)
+    assert len({ln.get_linestyle() for ln in lines}) == 4
+    assert all(ln.get_marker() in ("None", None, "") for ln in lines)
     assert all(np.allclose(c.get_facecolor()[0][:3], 0) for c in ax.collections)
     plt.close(fig)
 

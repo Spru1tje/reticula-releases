@@ -1,6 +1,6 @@
 # Reticula
 
-**Publication figures and analysis for framework materials** (MOFs, COFs, zeolites, …) - one local app, your data never leave your computer.
+**From raw data to figures, the easy way** – for framework materials (MOFs, COFs, zeolites, …) - one local app, your data never leave your computer.
 
 PXRD · FTIR / Raman · ¹H NMR · N₂ sorption (BET / Rouquerol, PSD) · TGA · DSC · SEM / TEM particle sizing · XPS · UV/Vis · ICP / XRF · kinetics ·
 crystal structures from CIF · defect calculator for MOFs · figure composer · batch processing · SI export bundle.

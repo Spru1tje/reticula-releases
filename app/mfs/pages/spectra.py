@@ -292,6 +292,22 @@ def _rv_progress(bar):
     return cb
 
 
+def _std_profile(up):
+    """v2.18.2: the instrument profile fitted on an uploaded Si standard pattern (cached per file content).
+    Returns ({U, V, W, X, Y, fixed: True} for Refinement, the full result of the standard fit)."""
+    import hashlib
+    from mfs import rietveld as RV
+    from mfs import readers as R
+    raw = up.getvalue()
+    key = hashlib.md5(raw).hexdigest()
+    cache = st.session_state.setdefault("rv_std_cache", {})
+    if key not in cache:
+        df = R.read_pxrd(io.BytesIO(raw), up.name)
+        cache[key] = RV.instrument_profile_from_standard(df["x"].values, df["y"].values)
+    s_ = cache[key]
+    return {k: s_[k] for k in ("U", "V", "W", "X", "Y")} | {"fixed": True}, s_
+
+
 def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     """v2.15: Rietveld / Le Bail refinement - pick phases, press Refine. Opt-in (shown only after a click)."""
     import math
@@ -364,6 +380,9 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                            "use it when the structure is not right.")
     hf = d3.checkbox("Replace Zr by Hf", subst.startswith("Hf"), key="rv_hf", help="For Hf analogues of the bundled Zr structures.")
     bgo, mono, offm, rscale = 6, 0.0, "sample displacement", 1.0
+    from mfs import readers as R_
+    glass_on, bg_pat = True, None                     # v2.18.2: glass-holder background (automatic) and an optional measured background
+    inst_fix = None                                  # v2.18.2: {U..Y, fixed} from a measured standard (None = refined from the pattern)
     if LV.at_least("Advanced"):
         e1, e2 = box.columns(2)
         rscale = box.slider("Bond restraints (structure refinement)", 0.3, 3.0, 1.0, 0.1, key="rv_rscale",
@@ -372,6 +391,31 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
         mono = e2.number_input("Monochromator 2θ (° – 0 = none, 26.6 = graphite)", 0.0, 60.0, 0.0, 0.1, key="rv_mono")
         offm = box.radio("Instrument offset", ["sample displacement (reflection geometry – default)", "zero shift (transmission / capillary / calibrated)", "both (only with a measured standard)"],
                          key="rv_off", horizontal=True, help="Zero shift and displacement are strongly correlated; refining both biases the cell (≈ 0.05 % on a real pattern).")
+        glass_on = box.checkbox("Model the amorphous background of a glass sample holder (automatic)", True, key="rv_glass",
+                                help="Adds broad humps (15–35° 2θ) to the background. Switch off for a zero-background holder.")
+        bgf = box.file_uploader("Measured background (empty holder, .xy / .dat / .txt) – optional", key="rv_bgfile",
+                                help="Pattern of the empty holder on the same instrument. It is scaled and subtracted in the refinement.")
+        if bgf is not None:
+            try:
+                _d = R_.read_pxrd(io.BytesIO(bgf.getvalue()), bgf.name)
+                bg_pat = (_d["x"].values, _d["y"].values)
+            except Exception as e:
+                box.error(f"Could not read the background file: {e}")
+        prof_m = box.radio("Instrument profile", ["refined from this pattern (default)", "fixed from a standard measured on this instrument (Si SRM 640)"],
+                           key="rv_prof", horizontal=True,
+                           help="The peak shape (U, V, W, X, Y) is refined from the pattern by default. A standard (Si SRM 640 or LaB₆) measured on the same instrument "
+                                "gives the instrument profile; it is then kept fixed, so the sample's peak widths are interpreted with the instrument's own contribution.")
+        if prof_m.startswith("fixed"):
+            std_up = box.file_uploader("Si standard pattern (.xy / .dat / .txt, same instrument and radiation)", key="rv_std")
+            if std_up is not None:
+                try:
+                    inst_fix, inst_std = _std_profile(std_up)
+                    box.caption(f"Instrument profile from the standard: U = {inst_std['U']:.4f}, V = {inst_std['V']:.4f}, W = {inst_std['W']:.4f}, "
+                                f"X = {inst_std['X']:.4f}, Y = {inst_std['Y']:.4f} (°²/°). Standard fit: Rwp = {100 * inst_std['rwp']:.1f} %, cell a = {inst_std['cell_a']:.4f} Å (SRM 640: 5.4312 Å).")
+                except Exception as e:
+                    box.error(f"Could not fit the standard: {e}")
+            else:
+                box.caption("Upload the standard pattern to fix the profile; until then the profile is refined from the pattern.")
     phases_src = [(k.rsplit(" (", 1)[0], bundled[k]) for k in pick]
     for u in ups or []:
         phases_src.append((os.path.splitext(u.name)[0], u.getvalue()))
@@ -419,7 +463,8 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
                 ph_.po_axis = _axis(po_txt.get(name, ""))
             res = RV.quick_refine(x, y, ph, rad, "lebail" if mode_l.startswith("Le Bail") else "rietveld", tt_range=rng, bg_order=bgo,
                                   mono_2theta=mono, offset={"s": "displacement", "z": "zero", "b": "both"}[offm[0]], progress=_rv_progress(bar),
-                                  refine_structure=mode_l.startswith("Rietveld + refine"), restraint_scale=rscale)
+                                  refine_structure=mode_l.startswith("Rietveld + refine"), restraint_scale=rscale, instrument=inst_fix, glass_bg=glass_on, bg_pattern=bg_pat)
+            res["profile_fixed"] = bool(inst_fix)
             store[nm] = res
             bar.empty()
         except Exception as e:
@@ -432,6 +477,8 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     stt = res["stats"]
     rw = stt["Rwp"]
     verdict = "✅ good" if rw < 0.10 else ("🟡 acceptable" if rw < 0.20 else "🔴 poor")
+    if res.get("profile_fixed"):
+        box.caption("🔒 Peak profile (U, V, W, X, Y) fixed from the Si standard; the sample's cell and atoms are refined on top of it.")
     m = st.columns(2 + len(res["phases"]))
     m[0].metric("Rwp", f"{100 * rw:.1f} %", verdict)
     m[1].metric("GoF" if res["counts"] else "Rp", f"{math.sqrt(stt['chi2']):.2f}" if res["counts"] else f"{100 * stt['Rp']:.1f} %",
@@ -567,15 +614,19 @@ def page_ftir():
             a, b = [float(v) for v in rng_.split("-")]; highlight.append((a, b, lab.strip()))
         except Exception:
             pass
+    multi = st.checkbox("The file(s) contain several spectra: one column per spectrum (first column = wavenumber)", False, key="ft_multi",
+                        help="v2.18.2: each column after the first becomes its own spectrum; the column header is used as its name.")
     traces, rows = [], []
     for nm, f in samples:
         try:
-            d = R.read_ftir(f, f.name)
+            parts = R.read_ftir_multi(f, f.name) if multi else [(None, R.read_ftir(f, f.name))]
         except Exception as e:
             st.error(f"{f.name}: {e}"); continue
-        y = A.transmittance_to_absorbance(d.y.values) if conv else d.y.values
-        y = A.process(d.x.values, y, **opts)
-        traces.append((nm, d.x.values, y)); rows.append(pd.DataFrame({"sample": nm, "wavenumber": d.x, "y_processed": y}))
+        for lab, d in parts:
+            nm_ = nm if lab is None else f"{nm} · {lab}"
+            y = A.transmittance_to_absorbance(d.y.values) if conv else d.y.values
+            y = A.process(d.x.values, y, **opts)
+            traces.append((nm_, d.x.values, y)); rows.append(pd.DataFrame({"sample": nm_, "wavenumber": d.x, "y_processed": y}))
     kind = "raman" if "Raman" in mode else ("ftir_A" if ("absorbance" in mode or conv) else "ftir_T")
     from mfs import spectra as SP
     is_T = kind == "ftir_T"

@@ -1,5 +1,5 @@
 Reticula for macOS (Apple Silicon)
-Publication figures for framework materials
+From raw data to figures, the easy way.
 ============================================
 
 INSTALL

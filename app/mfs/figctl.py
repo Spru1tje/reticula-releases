@@ -361,34 +361,119 @@ def apply_panel(ax, cfg, families=None, idx=0):
 _SIMPLE_MARKERS = ["o", "s", "^", "D", "v", "P", "X", "<", ">", "h", "*", "d"]
 
 
+_SIMPLE_LINESTYLES = ["-", "--", ":", "-."]
+_SIMPLE_HATCHES = ["", "//", "..", "xx", "\\\\"]
+_NO_MARK = ("None", None, "", " ")
+
+
+def _is_points(ln):
+    """A series of data points (markers, or markers only) - as opposed to a continuous line (spectrum, pattern, fitted curve)."""
+    return ln.get_marker() not in _NO_MARK or ln.get_linestyle() in ("None", "", " ")
+
+
+def _source_artist(fig, label):
+    """The first artist of the figure with this label (used to bring the legend up to date). Bars carry their label on the container."""
+    for ax in fig.axes:
+        for c in ax.containers:
+            try:
+                if c.get_label() == label and len(c.patches):
+                    return c.patches[0]
+            except Exception:
+                continue
+        for art in list(ax.get_lines()) + list(ax.collections) + list(ax.patches):
+            try:
+                if art.get_label() == label:
+                    return art
+            except Exception:
+                continue
+    return None
+
+
+def _sync_legends(fig):
+    """Legend entries that already exist keep the colours they were drawn with: copy the simple-mode look onto them."""
+    from matplotlib.lines import Line2D
+    from matplotlib.legend import Legend
+    legs = list(fig.legends) + [c for ax in fig.axes for c in ax.get_children() if isinstance(c, Legend)]
+    for lg in legs:
+        handles = getattr(lg, "legend_handles", None) or getattr(lg, "legendHandles", None) or []
+        for h, t in zip(handles, lg.get_texts()):
+            src = _source_artist(fig, t.get_text())
+            if src is None:
+                continue
+            try:
+                if isinstance(h, Line2D) and isinstance(src, Line2D):
+                    h.set_linestyle(src.get_linestyle()); h.set_marker(src.get_marker()); h.set_color(src.get_color())
+                    h.set_markerfacecolor(src.get_markerfacecolor()); h.set_markeredgecolor(src.get_markeredgecolor())
+                    h.set_markersize(src.get_markersize()); h.set_linewidth(src.get_linewidth())
+                elif hasattr(h, "set_facecolor") and hasattr(src, "get_facecolor"):
+                    h.set_facecolor(src.get_facecolor()); h.set_edgecolor(src.get_edgecolor())
+                    if hasattr(src, "get_hatch") and hasattr(h, "set_hatch"):
+                        h.set_hatch(src.get_hatch())
+            except Exception:
+                continue
+
+
 def simple_black(fig):
-    """v2.17 simple mode: every data line and scatter in black; each series gets its own marker (and the marker is thinned so the curve stays clean).
-    Legend, axes and text are left as they are; only the data marks change. Works on finished figures, so the same settings apply to every figure."""
+    """v2.17/v2.18.2 simple mode, for every technique: black only, told apart by shape and line style.
+    - data points (markers): black filled, one marker shape per series (the marker is thinned on dense data);
+    - continuous lines (spectra, patterns, fitted curves): black, one line style per series (solid, dashed, dotted, dash-dot), no markers;
+    - scatter: black; filled areas (fill_between): light grey; bars and histograms: light grey with a black edge;
+    - legend entries that already exist are brought up to date.
+    Axes, text and layout are left as they are. Works on finished figures, so the same settings apply to every figure."""
+    from matplotlib.collections import PolyCollection
     for ax in fig.axes:
         if not ax.axison:
             continue
-        k = 0
+        k_pt = k_ln = 0
         for ln in ax.get_lines():
             try:
-                xd = ln.get_xdata()
-                if len(xd) < 2 or ln.get_label().startswith("_") and ln.get_linestyle() in ("None", "", " "):
+                n = len(ln.get_xdata())
+                if n < 2 or (ln.get_label() or "").startswith("_") and not _is_points(ln):
                     continue
             except Exception:
                 continue
             ln.set_color("black")
-            mk = _SIMPLE_MARKERS[k % len(_SIMPLE_MARKERS)]
-            ln.set_marker(mk)
-            ln.set_markersize(max(3.0, float(ln.get_markersize() or 3.0)))
-            ln.set_markerfacecolor("black")
-            ln.set_markeredgecolor("black")
-            ln.set_markevery(max(1, len(xd) // 14))
-            k += 1
+            if _is_points(ln):
+                ln.set_marker(_SIMPLE_MARKERS[k_pt % len(_SIMPLE_MARKERS)])
+                ln.set_markersize(4.5)
+                ln.set_markerfacecolor("black")
+                ln.set_markeredgecolor("black")
+                ln.set_markeredgewidth(0.6)
+                ln.set_markevery(max(1, n // 14) if n > 14 else None)
+                k_pt += 1
+            else:
+                ln.set_marker("None")
+                ln.set_linestyle(_SIMPLE_LINESTYLES[k_ln % len(_SIMPLE_LINESTYLES)])
+                ln.set_linewidth(max(1.0, float(ln.get_linewidth() or 1.0)))
+                k_ln += 1
+        k_sc = 0
         for coll in ax.collections:
             try:
-                coll.set_facecolor("black")
-                coll.set_edgecolor("black")
+                if isinstance(coll, PolyCollection):          # fill_between / shaded bands
+                    coll.set_facecolor("0.86"); coll.set_edgecolor("black")
+                elif len(coll.get_offsets()) and coll.get_facecolor() is not None and getattr(coll, "get_paths", None) and coll.get_paths():
+                    # scatter groups: filled black for the first, open (white inside, black edge) for the next ones
+                    if k_sc % 2 == 0:
+                        coll.set_facecolor("black"); coll.set_edgecolor("black")
+                    else:
+                        coll.set_facecolor("white"); coll.set_edgecolor("black"); coll.set_linewidth(1.0)
+                    k_sc += 1
+                else:                                          # error bars and other line collections
+                    coll.set_color("black")
             except Exception:
                 pass
+        for p in ax.patches:                                   # bars and histograms
+            try:
+                p.set_facecolor("0.86"); p.set_edgecolor("black")
+            except Exception:
+                pass
+        for j, c in enumerate(ax.containers):                  # grouped bars: one hatch per series (light grey alone would not tell them apart)
+            for p in getattr(c, "patches", []):
+                try:
+                    p.set_hatch(_SIMPLE_HATCHES[j % len(_SIMPLE_HATCHES)])
+                except Exception:
+                    pass
+    _sync_legends(fig)
 
 
 def apply(fig, cfg, families=None):

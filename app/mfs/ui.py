@@ -5,7 +5,7 @@ import base64, functools, os
 import streamlit as st
 
 NAME = "Reticula"
-TAGLINE = "Publication figures for framework materials"
+TAGLINE = "From raw data to figures, the easy way."
 TEAL, INDIGO = "#0F766E", "#312E81"
 
 # (page, icon, group) - order defines the sidebar; group headers are drawn by CSS before the first page of a group

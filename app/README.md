@@ -1,6 +1,6 @@
 # Reticula
 
-*Publication figures and analysis for framework materials (MOFs, COFs, zeolites, …).*
+*From raw data to figures, the easy way – for framework materials (MOFs, COFs, zeolites, …).*
 
 One local web app (Streamlit) that turns raw instrument exports into journal-style figures (ACS, RSC, Wiley, Nature, Elsevier, …) and
 does the usual analysis on the way: PXRD, FTIR/Raman, ¹H NMR, N₂ sorption (BET/Rouquerol, t-plot, PSD), TGA, DSC, SEM/TEM particle sizing,

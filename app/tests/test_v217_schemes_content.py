@@ -57,9 +57,7 @@ def test_page_shows_the_content_tabs_when_the_editor_is_open():
     script = ("import streamlit as st\nimport sys\nsys.path.insert(0, %r)\nfrom mfs.pages.schemes import page_schemes\n"
               "st.session_state.setdefault('schemes', {'Demo': {'version': 1, 'width': 300, 'height': 200, 'background': '#FFFFFF', "
               "'theme': 'default', 'items': []}})\npage_schemes()\n" % root)
-    at = AppTest.from_string(script, default_timeout=120).run()
-    assert not at.exception
-    at.toggle(key="optin|schemes").set_value(True).run()
+    at = AppTest.from_string(script, default_timeout=120).run()     # v2.18.2: the editor (and its content tabs) load with the page
     assert not at.exception
     labels = [t.label for t in at.tabs] if at.tabs else []
     assert any("Methods" in l for l in labels)
