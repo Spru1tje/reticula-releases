@@ -195,7 +195,7 @@ def test_help_documents_cover_every_module_and_render_as_pdf():
     for k, d in HD.DOCS.items():
         assert d["title"] and any(kind == "h" for kind, _ in d["sections"]), k
         assert d["sections"][1][0] == "p" or d["sections"][0][0] == "h", k
-        txt = " ".join(t for _, t in d["sections"])
+        txt = " ".join((t["caption"] if isinstance(t, dict) else t) for _, t in d["sections"])   # v2.18.6: figures carry a caption dict
         assert "Terms" in txt, f"{k}: no terms section (abbreviations must be written out first)"
     pdf = helppdf.render_pdf(HD.DOCS["Photoluminescence"])
     assert pdf[:5] == b"%PDF-" and len(pdf) > 20000

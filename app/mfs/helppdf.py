@@ -67,6 +67,21 @@ def _render(doc: dict, png_dpi: int = 0):
                                           transform=fig.transFigure, fc="#F1F5F9", ec=ACC, lw=1))
             fig.text(0.5, y - hh / 2 - 0.002, text, fontsize=13, ha="center", va="center", color=BG)
             y -= hh + 0.018
+        elif kind == "i":
+            # v2.18.6: a figure: text = {"path": PNG file, "caption": str, "height": fraction of the page height}
+            from matplotlib import image as _mpimg
+            h = float(text.get("height", 0.27))
+            cap_lines = textwrap.wrap(text.get("caption", ""), W_CHARS) if text.get("caption") else []
+            need_i = h + 0.02 + 0.016 * len(cap_lines)
+            if y - need_i < 0.06:
+                new_page(); fig = st["fig"]; y = st["y"]
+            img = _mpimg.imread(text["path"])
+            ax = fig.add_axes([0.1, y - h, 0.8, h])
+            ax.imshow(img); ax.axis("off")
+            y -= h + 0.006
+            for l in cap_lines:
+                fig.text(0.1, y, l, fontsize=8.2, va="top", color=MUTED); y -= 0.016
+            y -= 0.012
         elif kind == "k":
             lines = textwrap.wrap(text, W_CHARS - 8)
             h = 0.018 * len(lines) + 0.016

@@ -2,8 +2,10 @@
 Sources: the user guide (app/README.md), the program's own code and tests. Advice that is general practice (not something the program checks)
 is marked 'General practice'. A document = {"title", "subtitle", "sections": [(kind, text), ...]}, kinds: h p b n f k (see helppdf.py)."""
 from __future__ import annotations
+import os
 
 GP = "General practice (not checked by the program): "
+ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "docs")
 
 
 def _doc(title, sub, *sections):
@@ -16,6 +18,7 @@ def B(t): return ("b", t)
 def N(t): return ("n", t)
 def F(t): return ("f", t)
 def K(t): return ("k", t)
+def I(file, caption, height=0.3): return ("i", {"path": os.path.join(ASSETS, file), "caption": caption, "height": height})
 
 
 def terms(*items):
@@ -328,6 +331,9 @@ DOCS["Photoluminescence"] = _doc(
     B("Processing: the Boltzmann law is refitted on the ratios obtained with every reasonable alternative – other fit range or margin, the other peak model, the other background subtractions, wider and narrower windows. The difference in ΔE is what the CHOICE costs."),
     B("Runs: the standard deviation of ΔE between independent runs divided by the square root of their number. Birge ratio (version 2.18.5): the errors are scaled by √χ² only when the excess scatter is significant (χ² above 1 by more than two standard deviations of χ²); scaling on every χ² above 1 biased the errors upwards."),
     B("Ratio noise (version 2.18.6): when the reduced chi-squared (the fit misfit divided by the stated error) is above 10, the counting error is too small to be used as a weight. The fit is then repeated with a constant relative error equal to the measured scatter of the ratio, and the report shows a 'Ratio noise' warning. General practice, not checked by the program: look at the integration time, the spectral-response correction and whether the spectra were averaged or normalised before the ratio was taken."),
+    B("Poisson maximum likelihood (version 2.18.6): on counts the ratio is fitted to the raw counts of the two integration windows, with the background counts from the background plan. Each point is weighted by its Poisson error (the variance of a count equals the count), no subtraction is needed before the ratio, and no point is dropped. The uncertainty of the energy gap comes from the observed information (the curvature of the likelihood). The result is shown next to the subtraction result as a check. General practice, not checked by the program: the windows should contain the whole band."),
+    B("Emission-masked baseline (version 2.18.6): when no signal-free window exists, the baseline is a straight line (order 1 at most) fitted only outside the emission. The emission is found from the data by iteration. This replaces the rubber band as the default, because SNIP and arPLS remove the tails of a broad band (measured area errors +13 % and −26 %). Order 2 is not used: it extrapolates into the band (measured −30 %). The rubber band stays as an alternative. A safety check falls back to the rubber band, and says so in the notes, when the emission covers the whole range and the masked baseline would rise above the spectrum by more than three noise units. General practice, not checked by the program: a blank or solvent spectrum is the reliable background for broad emission."),
+    B("Analysis report (PDF, version 2.18.6): next to the CSV and the JSON record, the thermometry tab offers a PDF with the verdict, the settings, the equations, the calibration figure, the table, the uncertainty budget, every check with its advice, and the limitations. The report states what the program computed; advice the program does not check is marked as general practice."),
     B("Two temperature uncertainties are given: the resolution σT,res = (σΔ/Δ)/Sᵣ, the precision of ONE reading; and the calibration uncertainty σT,cal, the accuracy of the curve T(Δ) at that temperature (Monte Carlo over ratios and sensor). Report both."),
     F(r"$T(\Delta) = \dfrac{\Delta E}{k_B \ln\!\left(\alpha / (\Delta - C)\right)},\qquad \sigma_{T,\mathrm{res}} = \dfrac{\sigma_\Delta / \Delta}{S_r}$"),
     H("6d. Experiment checks and the self-check (new in 2.18.4)"),
@@ -364,6 +370,17 @@ DOCS["Photoluminescence"] = _doc(
     B(GP + "measure the series up and back down, repeat it in two or three runs, and fill in the temperature-sensor uncertainty: these are the checks that make a calibration trustworthy."),
     B(GP + "laser heating falsifies the temperature: check that the ratio does not change with power."),
     B(GP + "report ΔE, Sr at a reference temperature and σT, not only the curve."),
+    H("10. What changed in version 2.18.6, and the gain"),
+    P("Three changes make the ratio and the background more reliable. The gains below are measured on synthetic spectra with a known answer (see the figures). They are not claims about one particular material."),
+    I("pl_fig_ratio.png", "Figure 1. Ratio fit on 300 synthetic series with a true energy gap of 700 cm⁻¹ (80–400 K, 50 background counts per window). Left: share of the results inside the 1σ and 2σ intervals (ideal: about 68 % and 95 %). Right: bias of the energy gap.", 0.3),
+    B("New: a Poisson maximum-likelihood fit on the raw counts of the two windows. Before: the background was subtracted, points with zero or negative signal were dropped, and a logarithm was fitted with weights. Gain: the bias fell from about −2.7 % to about 0 %; the share inside 1σ rose from about 29 % to about 69 %, and inside 2σ from about 57 % to about 95 %. The error bars now have the right size."),
+    B("New: the maximum-likelihood result is shown next to the subtraction result as a check. If the two disagree by more than twice their combined uncertainty, the program warns."),
+    B(GP + "the maximum-likelihood fit needs counts (not normalised intensities), and the windows should contain the whole band."),
+    I("pl_fig_background.png", "Figure 2. Area error of one band with two background methods (40 synthetic spectra each, the true area is known). Shaded: ±2 %. Case D (a concave background) is not corrected by either method.", 0.3),
+    B("New: when no signal-free window exists, the baseline is a straight line (order 1 at most), fitted only outside the emission. The emission is found from the data by iteration. Gain: on a broad band over the whole range the area error fell from about +6 % (rubber band) to about −2 %; on sharp peaks on a slope from about +78 % to about +1 %; on noisy spectra from about +89 % to about 0 %."),
+    B("Limit: a concave background (a dip in the middle) is corrected by neither method (about +715 % and +485 % in Figure 2). The program does not yet detect this case. For such a background, use a blank or solvent spectrum."),
+    B(GP + "a blank or solvent spectrum, measured under the same settings, is the reliable background for broad emission."),
+    K("Summary: where a signal-free window exists, nothing changes. Without one, the emission-masked polynomial replaces the rubber band as the default. The energy gap is reported with the maximum-likelihood uncertainty, and every analysis can be saved as a PDF report."),
 )
 
 DOCS["1H NMR (digest)"] = _doc(

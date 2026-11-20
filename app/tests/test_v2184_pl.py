@@ -104,7 +104,7 @@ def test_no_free_window_falls_back_to_a_flexible_baseline():
     x = np.linspace(400, 700, 301)
     y = 1000 + 3 * (x - 400) + 5000 * np.exp(-0.5 * ((x - 520) / 60) ** 2) + 4000 * np.exp(-0.5 * ((x - 640) / 50) ** 2) + np.random.default_rng(3).normal(0, 20, len(x))
     plan = BG.autoselect(x, [y])
-    assert plan["method"] == "rubber" and not plan["windows"]
+    assert plan["method"] == "rubber" and not plan["windows"]          # v2.18.6: here the emission covers the whole range, so the masked baseline would rise above the data and the safety check falls back to the rubber band
     r = BG.apply_plan([{"wl": x, "I": y}], plan)[0]
     assert r["y"].min() > -150 and r["y"].max() > 3500                                  # the floor goes, the broad bands stay; the rubber band never rises above the data
     assert {c["method"] for c in plan["candidates"]} >= {"rubber", "arpls", "snip", "modpoly"}

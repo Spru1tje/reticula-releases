@@ -318,6 +318,35 @@ def _centroid_cm1(spec, lo, hi):
     return float(np.sum(y[m] * 1e7 / x[m]) / np.sum(y[m]))
 
 
+def _mle_window_block(t_order, info, swapped, counts):
+    """v2.18.6: Poisson maximum-likelihood ratio fit on the RAW counts of the two integration windows (background counts from the
+    background plan). Returns the fit dict of mfs/plmle.fit, or None when it does not apply (not counts, not windows, too few points)."""
+    from mfs import plmle as PM
+    wins = info.get("windows")
+    if not counts or not wins or len(wins) != 2 or any("I_raw" not in p for p in t_order):
+        return None
+    (a1, b1), (a2, b2) = wins
+    N1, N2, B1, B2, TT = [], [], [], [], []
+    for p in t_order:
+        wl = np.asarray(p["wl"], float)
+        raw = np.asarray(p["I_raw"], float)
+        base = np.asarray(p.get("baseline", np.zeros_like(raw)), float)
+        m1 = (wl >= min(a1, b1)) & (wl <= max(a1, b1))
+        m2 = (wl >= min(a2, b2)) & (wl <= max(a2, b2))
+        N1.append(raw[m1].sum()); B1.append(base[m1].sum())
+        N2.append(raw[m2].sum()); B2.append(base[m2].sum())
+        TT.append(float(p["T"]))
+    N1, N2, B1, B2, TT = (np.asarray(v, float) for v in (N1, N2, B1, B2, TT))
+    if swapped:                      # the rising ratio is band 2 / band 1 in the model
+        N1, N2, B1, B2 = N2, N1, B2, B1
+    ok = np.isfinite(N1) & np.isfinite(N2) & (N1 > 0) & (N2 > 0)
+    if ok.sum() < 4:
+        return None
+    r = PM.fit(TT[ok], N1[ok], N2[ok], B1[ok], B2[ok])
+    r["n"] = int(ok.sum())
+    return r
+
+
 def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, version="", settings=None):
     """Boltzmann calibration, quality report (verdict on top), uncertainty budget, experiment checks and downloads."""
     from mfs import plqa as QA
@@ -382,6 +411,38 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
     else:
         gap_spec = None
     checks += QA.boltzmann_checks(T, D, D_stat, bf, gap_spec if gap_spec and np.isfinite(gap_spec) else None, n_bad, len(T) if info.get("fit") else None)
+    # v2.18.6: Poisson maximum-likelihood fit on the raw counts (integration windows), compared with the subtraction result
+    mle = _mle_window_block(t_order, info, swapped, counts)
+    if mle is not None:
+        if mle.get("converged") and np.isfinite(mle.get("sigma_cm1", np.nan)):
+            diff_m = abs(abs(mle["dE_cm1"]) - abs(bf["dE_cm1"]))
+            comb_m = math.sqrt(u_dE ** 2 + mle["sigma_cm1"] ** 2)
+            stt_m = "ok" if diff_m <= 2 * comb_m else "warn"
+            checks.append(QA.check("Poisson maximum likelihood (counts)", stt_m,
+                                   f"The maximum-likelihood fit on the raw counts gives ΔE = {abs(mle['dE_cm1']):.0f} ± {mle['sigma_cm1']:.0f} cm⁻¹ "
+                                   f"({mle['n']} temperatures); the subtraction method gives {abs(bf['dE_cm1']):.0f} cm⁻¹ "
+                                   f"(difference {diff_m:.0f} cm⁻¹, {diff_m / comb_m if comb_m else float('inf'):.1f}× the combined uncertainty).",
+                                   "" if stt_m == "ok" else "The background subtraction biases the ratio: check the windows and the background plan. "
+                                                            "The maximum-likelihood value keeps every point and uses the Poisson error of the raw counts."))
+        else:
+            checks.append(QA.check("Poisson maximum likelihood (counts)", "warn",
+                                   "The maximum-likelihood fit did not converge to a reliable optimum.",
+                                   "Check the windows; a window without signal above the background makes the fit unidentifiable."))
+        if mle.get("converged"):
+            # v2.18.6: editable figure like the other PL figures (labels and legend movable, data as CSV)
+            def draw_mle(ax_):
+                Tf_ = np.linspace(float(np.min(T)), float(np.max(T)), 200)
+                ax_.errorbar(1000.0 / np.asarray(T, float), np.log(np.asarray(D, float)), yerr=np.asarray(D_stat, float) / np.asarray(D, float),
+                             fmt="o", ms=3.5, color="#1F4E79", ecolor="#7F9FBF", capsize=2, label="ratio (subtraction)")
+                ax_.plot(1000.0 / Tf_, np.log(bf["f"](Tf_)), color="#7F8C8D", lw=1.2, label="subtraction fit")
+                ax_.plot(1000.0 / Tf_, np.log(mle["alpha"] * np.exp(-mle["dE_cm1"] / PL.EV_TO_CM / (PL.KB_EV * Tf_))), color="#0F766E", lw=1.4,
+                         label="Poisson maximum likelihood")
+                ax_.set_xlabel("1000 / T (K⁻¹)"); ax_.set_ylabel("ln Δ"); ax_.legend(fontsize=7, frameon=False)
+            fig_m, ax_m = newfig(0.75); draw_mle(ax_m)
+            show(fig_m, "PL_mle_check", pd.DataFrame({"T (K)": np.asarray(T, float), "ratio": np.asarray(D, float), "ratio error": np.asarray(D_stat, float),
+                                                      "subtraction fit": bf["f"](np.asarray(T, float)),
+                                                      "Poisson ML fit": mle["alpha"] * np.exp(-mle["dE_cm1"] / PL.EV_TO_CM / (PL.KB_EV * np.asarray(T, float)))}),
+                 draw_mle, "Poisson maximum likelihood vs subtraction")
     if info.get("method") in ("fit", "manifold") and Dw is not None and np.all(Dw > 0) and np.all(np.isfinite(Dw)):
         bw = PL.fit_boltzmann(T, Dw, offset=offs, sigma=sDw if np.all(sDw > 0) else None)
         if bw.get("status") == "ok":
@@ -519,9 +580,22 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
                                                                     "fit_bands_nm": (info.get("fit") or {}).get("bands"), "fit_groups": (info.get("fit") or {}).get("groups"),
                                                                     "fit_model": (info.get("fit") or {}).get("model")},
                                                                     {**sv, "table": res.to_dict("records"), "budget": B["rows"]}, checks)
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     dl(c1, "⬇️ CSV thermometry", res.to_csv(index=False).encode("utf-8-sig"), "PL_thermometry.csv", "pl_th_csv")
     dl(c2, "⬇️ Analysis record (JSON: settings, file fingerprints, results, checks – for the SI)", rec.encode("utf-8"), "PL_thermometry_record.json", "pl_th_json")
+    # v2.18.6: analysis report (PDF): verdict, settings, equations, calibration figure, table, budget, checks, limitations
+    try:
+        from mfs import plreport as PRPT
+        rep_settings = {"sample": sample, "ratio method": info.get("method"), "windows or ranges (nm)": info.get("windows"),
+                        "band swapped (Δ inverted)": swapped, "Boltzmann offset C": offs, "counts (Poisson weights)": counts,
+                        "temperature random error (K)": sT_rand, "temperature offset (K)": sT_sys, "response uncertainty": resp_rel,
+                        "fit bands (nm)": (info.get("fit") or {}).get("bands"), "fit model": (info.get("fit") or {}).get("model")}
+        pdf_bytes = PRPT.build_pdf(sample=sample, version=version, T=T, D=D, D_stat=D_stat, bf=bf, Sr=Sr, table=res, budget_rows=B["rows"],
+                                   checks=checks, verdict=v, settings=rep_settings, u_dE_cm1=u_dE, T_res=B["T_res"], T_cal=B["T_cal"],
+                                   sigma_scaled=any(c.get("title") == "Ratio noise" for c in checks))
+        dl(c3, "📄 Report (PDF)", pdf_bytes, "PL_analysis_report.pdf", "pl_report_pdf")
+    except Exception as _e:
+        st.caption(f"Report (PDF) could not be built: {_e}")
 
 
 def _map_range(info):

@@ -22,7 +22,7 @@ import math
 import numpy as np
 
 METHODS = ("none", "offset", "poly", "rubber", "modpoly", "arpls", "snip", "dark")
-LABELS = {"none": "none", "offset": "constant pedestal (signal-free windows)", "poly": "polynomial in signal-free windows", "rubber": "rubber band (lower convex hull)",
+LABELS = {"none": "none", "masked": "polynomial under a data-derived emission mask", "offset": "constant pedestal (signal-free windows)", "poly": "polynomial in signal-free windows", "rubber": "rubber band (lower convex hull)",
           "modpoly": "ModPoly (iterative polynomial)", "arpls": "arPLS (penalised least squares)", "snip": "SNIP (peak clipping)", "dark": "measured dark / background spectrum"}
 
 
@@ -284,11 +284,61 @@ def autoselect(x, ys, dark=None, windows=None, max_order=2, use_dark=None):
         plan["order"] = order
         plan["notes"].append(f"Signal-free windows: " + ", ".join(f"{a:.0f}–{b:.0f} nm" for a, b in wins) + f". Order {order} chosen by the information criterion (BIC).")
     else:
-        plan["method"] = "rubber"
+        # v2.18.6: no signal-free window: a polynomial under a data-derived emission mask (not SNIP/arPLS, which eat broad bands)
+        # v2.18.6 safety: the masked baseline must never rise above the spectrum by more than three noise units; if it does, the
+        # emission covers too much of the range for a polynomial to be anchored, and the rubber band (which never rises above the data) is used
+        worst = min(float(np.min(y - masked_poly(x, y)[0])) for y in ys)
+        if worst < -3.0 * sig:
+            plan["method"] = "rubber"
+            plan["notes"].append("The emission covers so much of the range that no polynomial can be anchored outside it (the masked baseline would rise "
+                                 "above the spectrum): the rubber band is used. Check it, and give the signal-free windows or a blank spectrum by hand.")
+        else:
+            plan["method"] = "masked"
+        plan["max_order"] = 1
+        plan["notes"].append("No signal-free window: the baseline is a polynomial fitted only outside the emission (mask derived from the data, "
+                             "order by BIC). The rubber band is the alternative. General practice: check the baseline under the band; a blank or solvent "
+                             "spectrum is the reliable background for broad emission.")
     if kind in ("NIR", "VIS-NIR"):
         plan["notes"].append("NIR spectrum: a detector pedestal of thousands of counts is normal; after subtraction check the signal-free windows (they must be flat around zero). "
                              "For samples in water, absorption of water near 975 and 1195 nm changes band ratios (General practice: compare with a measurement in D₂O or a dry sample).")
     return plan
+
+
+def masked_poly(x, y, max_order=1, width=9, k=3.0, n_iter=8):
+    """v2.18.6: baseline under a broad emission band, from the data only. Fit a polynomial to the points outside the emission,
+    mark where the smoothed residual rises above k times its noise (plus half a window on each side), refit, repeat. The order is
+    the lowest one within ΔBIC = 10 of the best, capped at max_order (default 1: order 2 extrapolates into the band, measured −30 % area error). Returns (baseline, order, mask of the points used for the fit).
+    Why: SNIP and arPLS eat the tails of a broad band that spans the range (test: +13 % and −26 % area error); a polynomial that is
+    fitted only where there is no emission does not. Its limit: it extrapolates into the band, so a high order is dangerous."""
+    x = np.asarray(x, float)
+    y = np.asarray(y, float)
+    free = np.ones(len(y), bool)
+    base = None
+    order = 0
+    for _ in range(n_iter):
+        cand = {}
+        for o in range(0, max_order + 1):
+            if free.sum() < o + 3:
+                continue
+            b_o, _, rss, nn = poly_in_windows(x, y, free, o)
+            cand[o] = (b_o, nn * math.log(max(rss / max(nn, 1), 1e-12)) + (o + 1) * math.log(max(nn, 2)))
+        if not cand:
+            break
+        best = min(cand, key=lambda o: cand[o][1])
+        order = min(o for o in cand if cand[o][1] <= cand[best][1] + 10.0)
+        base = cand[order][0]
+        r = y - base
+        sm = np.convolve(r, np.ones(width) / width, mode="same")
+        sig = np.std(r[free]) / math.sqrt(width) if free.sum() > 3 else 0.0
+        emit = sm > k * max(sig, 1e-12)
+        new_free = ~np.convolve(emit.astype(float), np.ones(width), mode="same").astype(bool)
+        if np.array_equal(new_free, free):
+            break
+        free = new_free
+    if base is None:
+        base = np.full_like(y, float(np.percentile(y, 5)))
+        order = 0
+    return base, order, free
 
 
 def alternatives(x, plan, max_order=2):
@@ -306,6 +356,8 @@ def alternatives(x, plan, max_order=2):
         short = [(a + 0.25 * (b - a), b - 0.25 * (b - a)) for a, b in plan["windows"] if (b - a) > 6 * float(np.median(np.diff(x)))]
         if short and sum(1 for _ in short) >= 1:
             out.append(("shorter windows", {**plan, "windows": short}))
+    elif m == "masked":
+        out.append(("rubber band", {**plan, "method": "rubber", "order": None}))
     elif m in ("rubber", "arpls", "snip", "modpoly"):
         for k in ("rubber", "arpls", "snip", "modpoly"):
             if k != m:
@@ -328,6 +380,8 @@ def baseline_for(x, y, plan, dark=None):
         if free.sum() < 3:
             return np.full_like(y, float(np.percentile(y, 5)))
         return poly_in_windows(x, y, free, int(plan.get("order") or 0))[0]
+    if m == "masked":
+        return masked_poly(x, y, max_order=int(plan.get("max_order") or 1))[0]
     if m == "rubber":
         return rubberband(x, y)
     if m == "arpls":
