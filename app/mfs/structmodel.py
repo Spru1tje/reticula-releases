@@ -12,7 +12,6 @@ How it works
 Not included: anisotropic displacement, rigid bodies, magnetic scattering, anomalous dispersion."""
 from __future__ import annotations
 
-import math
 
 import numpy as np
 

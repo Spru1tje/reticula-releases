@@ -9,8 +9,8 @@ import copy, json, math, re
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.legend import Legend
-from matplotlib.ticker import (AutoMinorLocator, FixedFormatter, FixedLocator, MaxNLocator, MultipleLocator,
-                               NullLocator, NullFormatter, ScalarFormatter)
+from matplotlib.ticker import (AutoMinorLocator, FixedFormatter, FixedLocator, MultipleLocator,
+                               NullLocator, ScalarFormatter)
 
 SIDES = ("bottom", "top", "left", "right")
 TICK_PRESETS = {

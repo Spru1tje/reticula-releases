@@ -4,10 +4,9 @@ small molecules (solvents, modulators, gases, linkers) and topology nets. All or
 """
 from __future__ import annotations
 
-import copy
 import math
 
-from .core import Icon, Op, polar
+from .core import Icon, polar
 from .library import icon, REGISTRY
 from .generators import icon_from_molecule
 from . import variants as V

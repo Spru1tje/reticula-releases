@@ -22,8 +22,6 @@ from __future__ import annotations
 import json
 import math
 import re
-import shutil
-import subprocess
 from pathlib import Path
 
 INK = "#435266"
@@ -76,7 +74,7 @@ class SceneRenderer:
                            metadata=False, id_prefix=f"s-{it['id']}",
                            print_safe=self._behind(it, self._scene) if self.print_safe else False)
         svg = re.sub(r"^<\?xml[^>]*>\s*", "", svg)
-        svg = svg.replace("<svg ", f'<svg x="0" y="0" ', 1)
+        svg = svg.replace("<svg ", '<svg x="0" y="0" ', 1)
         s = it["size"]
         tf = [f"translate({it['x']:.2f} {it['y']:.2f})"]
         if it.get("rotate"):

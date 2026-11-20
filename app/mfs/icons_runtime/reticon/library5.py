@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import math
 
-from .core import Op, polar, smooth_path, lorentz_trace, _f
+from .core import Op, polar, lorentz_trace
 from .library import icon, axes
-from .library2 import rot_rect, gauss_trace
-from .library4 import arrowhead, hexagon
+from .library2 import gauss_trace
+from .library4 import arrowhead
 
 
 def bubbles(ic, pts, r=1.4, role="a"):

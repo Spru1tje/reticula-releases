@@ -3,7 +3,6 @@
 Only what the program does is stated; everything about the experiment is a [placeholder] for the author to fill in."""
 from __future__ import annotations
 
-import numpy as np
 
 TECHNIQUE_METHODS = {
     "PXRD": "Powder X-ray diffraction patterns were recorded on a [diffractometer] with [radiation, λ = … Å] in [Bragg–Brentano / transmission] geometry over "
@@ -145,7 +144,6 @@ def summary_notes(store: dict, sections=None):
 
 def summary_latex_sourced(store: dict, caption: str = "Summary of the characterisation of the samples.", label: str = "tab:summary") -> str:
     """The summary as a LaTeX table whose every value carries a footnote letter that names its source (page, files, time, program version)."""
-    import pandas as pd
     wide = sample_summary(store)
     if not len(wide):
         return ""

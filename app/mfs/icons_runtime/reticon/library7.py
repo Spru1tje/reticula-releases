@@ -8,9 +8,9 @@ from __future__ import annotations
 import math
 import random
 
-from .core import Op, polar, smooth_path, lorentz_trace, _f
+from .core import Op, polar, smooth_path, _f
 from .library import icon, axes
-from .library2 import rot_rect, gauss_trace
+from .library2 import gauss_trace
 from .library4 import arrowhead, hexagon
 
 EMIT = ["#3B5BDB", "#15AABF", "#40C057", "#FAB005", "#FD7E14", "#E03131"]   # blue → red

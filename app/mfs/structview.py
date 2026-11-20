@@ -113,9 +113,7 @@ def draw_structure(ax, data: dict, azim: float = 35.0, elev: float = 25.0, along
     order = np.argsort(Q[:, 2])
     from matplotlib.patches import Circle
     cols = data["colors"]
-    pt_per_ang = 0.0
     fig = ax.figure
-    bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
     ax.set_xlim(-ext * 1.05, ext * 1.05)
     ax.set_ylim(-ext * 1.05, ext * 1.05)
     ax.set_aspect("equal")
@@ -127,7 +125,6 @@ def draw_structure(ax, data: dict, azim: float = 35.0, elev: float = 25.0, along
                        ((0, 1, 0), (0, 1, 1)), ((0, 0, 1), (1, 0, 1)), ((0, 0, 1), (0, 1, 1)), ((1, 1, 0), (1, 1, 1)), ((1, 0, 1), (1, 1, 1)), ((0, 1, 1), (1, 1, 1))]:
             p1, p2 = (corners[a] - cen) @ Rm.T, (corners[b] - cen) @ Rm.T
             ax.plot([p1[0], p2[0]], [p1[1], p2[1]], "-", color="#888888", lw=0.5, zorder=-1e6 + (p1[2] + p2[2]) / 2)
-    bond_by_atom = {}
     for i, j, d in data["bonds"]:
         if keep[i] and keep[j]:
             ax.plot([Q[i, 0], Q[j, 0]], [Q[i, 1], Q[j, 1]], "-", color="#505050", lw=1.2 * size, solid_capstyle="round", zorder=(Q[i, 2] + Q[j, 2]) / 2 - 0.01)

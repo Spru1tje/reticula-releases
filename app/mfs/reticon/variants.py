@@ -261,7 +261,7 @@ def is_symmetric(icon) -> bool:
 
 
 def _is_symmetric(icon) -> bool:
-    import subprocess, io
+    import io
     from PIL import Image, ImageChops, ImageOps
     from .core import render_svg, Style
     svg = render_svg(icon, Style(mode="solid", color="#000000"), 48)
@@ -335,7 +335,7 @@ def pixel_bbox(ops) -> tuple | None:
     key = json.dumps([(o.tag, o.attrs, o.stroke) for o in ops], sort_keys=True, default=str)
     if key in _PXCACHE:
         return _PXCACHE[key]
-    import subprocess, io
+    import io
     from PIL import Image
     ic = _I("px")
     ic.ops = [Op("m", o.tag, {k: v for k, v in o.attrs.items() if k != "clip-path"}, o.stroke) for o in ops]

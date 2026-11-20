@@ -2,13 +2,12 @@
 from __future__ import annotations
 import re, textwrap, datetime
 from dataclasses import asdict
-import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from .defects import DefectInput, Species, results_table, SUMMARY_PITFALLS
-from . import plots, style
+from . import plots
 
 
 def input_to_dict(inp: DefectInput) -> dict:

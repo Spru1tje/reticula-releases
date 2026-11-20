@@ -291,7 +291,6 @@ def _background_block(spectra, mode, g):
 def render(g):
     show, newfig, files_input, store_put, EX, dl, safe_name, C = (g["show"], g["newfig"], g["files_input"], g["store_put"], g["EX"],
                                                                  g["dl"], g["safe_name"], g["C"])
-    from mfs import style as S
     st.header("Photoluminescence – steady-state and temperature-dependent")
     st.caption("Edinburgh Instruments `.FS` files (single scans and 'Multiple Scans') are read directly. "
                "Emission (or excitation) spectra as CSV / TXT / DAT / Excel from Horiba, Edinburgh, Ocean Optics, Hitachi … : two columns "
@@ -530,7 +529,6 @@ def render(g):
             PL.draw_trend(ax, T, fw, "FWHM (nm)", legend=False)
         panels = [("Intensity vs T (+ quenching fit)", d_int)] + ([("Arrhenius plot", d_arr)] if okq else []) + \
                  [("Peak position vs T", d_pos), ("FWHM vs T", d_fwhm)]
-        import matplotlib.pyplot as plt
         fig, axs = C.compose([f for _, f in panels], ncols=2, width=max(g["WIDTH"], 6.6), panel_aspect=0.78, label_style="A", label_inside=False, wspace=0.75, hspace=0.5)
         res = pd.DataFrame({"T (K)": T, "integrated intensity": I_T, "I / I_max": In, "peak (nm)": pos, "FWHM (nm)": fw})
         show(fig, "PL_temperature_dependence", res, None, "PL temperature dependence")

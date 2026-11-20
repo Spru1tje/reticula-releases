@@ -8,7 +8,6 @@ from .raster import svg_to_png
 import colorsys
 import io
 import re
-import subprocess
 
 HEX = re.compile(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 RGB = re.compile(r"rgb\(\s*([\d.]+)(%?)\s*,\s*([\d.]+)%?\s*,\s*([\d.]+)%?\s*\)")

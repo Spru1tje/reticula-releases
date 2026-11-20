@@ -15,7 +15,7 @@ import math
 import re
 import shlex
 
-from .core import Icon, Op
+from .core import Icon
 from .library import axes
 
 METALS = set("Li Be Na Mg Al K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Rb Sr Y Zr Nb Mo Ru Rh Pd Ag Cd In Sn Cs Ba La Ce "

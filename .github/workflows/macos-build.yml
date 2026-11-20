@@ -25,7 +25,7 @@ jobs:
       - name: Version
         run: |
           set -euo pipefail
-          VER=$(python3 -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('app/mfs/__init__.py').read()).group(1))")
+          VER=$(python3 -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open('app/mfs/__init__.py').read()).group(1))")
           echo "RETICULA_VERSION=$VER" >> "$GITHUB_ENV"
           echo "Building version $VER"
       - name: Official Python 3.12 (framework build with Tcl/Tk)

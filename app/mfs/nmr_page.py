@@ -479,7 +479,6 @@ def _qnmr(mults, mol, un, imp, skey, g):
 
 def si_pdf(sp, mults, mol, groups, imp, acs, name, solvent, mhz, purity=None, simple=False):
     """One SI page (A4): labelled spectrum, structure, characterisation string, multiplet table."""
-    import matplotlib
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
     from mfs import nmrfig as F

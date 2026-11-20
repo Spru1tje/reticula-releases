@@ -7,7 +7,6 @@ from __future__ import annotations
 import math
 import re
 
-from mfs.summary import TECH_NAMES
 
 
 def _num(rec: dict, section: str, *keys):

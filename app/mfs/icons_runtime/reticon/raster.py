@@ -7,7 +7,6 @@ Install the fallbacks with: pip install resvg-py svglib reportlab
 """
 from __future__ import annotations
 
-import io
 import re
 import shutil
 import subprocess

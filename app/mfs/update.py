@@ -219,7 +219,7 @@ def settings_box(data_dir, current):
     if s.get("result"):
         r = s["result"]
         st.caption(f"Latest release: {r['version']}" + (" – newer" if r["newer"] else " – you are up to date")
-                   + (f" (skipped)" if r["version"] == cfg.get("skip") else ""))
+                   + (" (skipped)" if r["version"] == cfg.get("skip") else ""))
     elif s.get("error") and on:
         st.caption("Last check failed (offline?) – will try again next start.")
     if st.button("Check now", key="_upd_now", disabled=not on):

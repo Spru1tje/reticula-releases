@@ -3,7 +3,6 @@ measured pattern with a least-squares scale + linear background and the residual
 from __future__ import annotations
 import re
 import numpy as np
-import pandas as pd
 from . import analysis as A
 
 

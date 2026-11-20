@@ -1,7 +1,6 @@
 """UV/Vis page (v2.9). Rendered from app.py with the app's helpers passed in (show, newfig, files_input …)."""
 from __future__ import annotations
 
-import os
 import re
 
 import numpy as np

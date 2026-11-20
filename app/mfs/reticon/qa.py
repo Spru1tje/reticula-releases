@@ -14,10 +14,13 @@ from .raster import svg_to_png
 import io
 import json
 import math
-import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # only for the string annotation below
+    from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "tests" / "goldens" / "dhash.json"
@@ -45,7 +48,6 @@ def ham(a: int, b: int) -> int:
 
 # ----------------------------------------------------------------- lint
 def lint(icons) -> list[dict]:
-    from .variants import bbox, union
     from .core import render_svg, Style
     issues = []
 

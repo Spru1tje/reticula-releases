@@ -99,7 +99,7 @@ def simulate_pxrd(cif_bytes_or_path, two_theta=(3, 50), wavelength="CuKa1", fwhm
                   substitute: dict | None = None):
     """Simulate a powder pattern from a CIF with pymatgen (kinematic, Lorentz-polarisation, Debye-Waller = 0),
     broadened with pseudo-Voigt profiles. `substitute` e.g. {'Zr': 'Hf'} for the Hf analogue."""
-    import warnings, tempfile, os
+    import warnings, tempfile
     warnings.filterwarnings("ignore")
     from pymatgen.core import Structure
     from pymatgen.analysis.diffraction.xrd import XRDCalculator

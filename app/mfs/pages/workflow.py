@@ -5,16 +5,13 @@ the sidebar values WIDTH / ASPECT / FONT, the cached reader wrapper R …) are l
 mfs.pages.bind(globals()) on every run of app.py, so the code behaves exactly as it did inside app.py."""
 # ruff: noqa: F821
 from __future__ import annotations
-import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
-import numpy as np
+import io, os, re, json
 import pandas as pd
 import streamlit as st
 from mfs import levels as LV
-import matplotlib.pyplot as plt
 
-from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
-from mfs import figctl as F, figctl_ui as FU, ui as UI, __version__
-from mfs.chem import SPECIES, FRAMEWORKS, molar_mass
+from mfs import style as S, composer as C
+from mfs import figctl as F, figctl_ui as FU, __version__
 
 INJECTED = (
     'ASPECT',

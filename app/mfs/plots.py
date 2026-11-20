@@ -4,12 +4,11 @@ from __future__ import annotations
 import math
 import re
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator, MaxNLocator, NullLocator
 from matplotlib.patches import Rectangle
 from . import style
-from .style import colours_for, new_figure, SINGLE, DOUBLE, panel_label, no_y_ticks
+from .style import colours_for, new_figure, SINGLE, DOUBLE, no_y_ticks
 
 LABELS = {
     "pxrd": (r"2$\theta$ (°)", "Intensity (a.u.)"),
@@ -216,7 +215,6 @@ def draw_isotherms(ax, isos, logx=False, legend=True, ms=3.0, ylim=None, styles=
     the points in MEASUREMENT order (ads up to p/p0 max, then des back down), p/p0 0-1 (or log for micropore filling).
     styles: {sample: {ads_color, des_color, marker, des_marker, ms, ls, lw}} (any key optional).
     One single legend: one entry per sample + two key entries (filled = adsorption, open = desorption)."""
-    from matplotlib.lines import Line2D
     styles = styles or {}
     cols = colours_for([n for n, _ in isos])
     global _ENDS
