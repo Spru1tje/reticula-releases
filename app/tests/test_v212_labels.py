@@ -53,13 +53,13 @@ def test_same_offset_for_every_sample_and_reset():
 
 def test_text_edit_legend_move_and_export():
     fig, ax = _fig()
-    ov = LM.handle(fig, {}, {"op": "text", "id": "0:Sulfo", "text": "Sulfo-MOF-801(Hf)"})
+    ov = LM.handle(fig, {}, {"op": "text", "id": "0:Sulfo", "text": "Sample B"})
     ov = LM.handle(fig, ov, {"op": "move", "id": "0:__legend__", "fx": 0.2, "fy": 0.5})
     LM.apply(fig, ov)
-    assert any(t.get_text() == "Sulfo-MOF-801(Hf)" for t in ax.texts)
+    assert any(t.get_text() == "Sample B" for t in ax.texts)
     assert 0 < ov["0:__legend__"]["lx"] < 0.5
     b = io.BytesIO(); fig.savefig(b, format="svg"); svg = b.getvalue().decode()
-    assert "Sulfo-MOF-801(Hf)" in svg or "Sulfo-MOF-801" in svg.replace("\u2010", "-") or b.tell() > 1000
+    assert "Sample B" in svg or "Sample B" in svg.replace("\u2010", "-") or b.tell() > 1000
     src, W, H, its = LM.payload(fig)
     assert src.startswith("data:image/png") and {i["id"] for i in its} >= {"0:UiO-66", "0:__legend__"}
     plt.close("all")

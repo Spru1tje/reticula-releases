@@ -397,8 +397,8 @@ def _si_capture(fig, stem, data, title, cfg):
         st.session_state["_si_err"] = str(e)
 
 
-GUESS = [(r"mof-?801hf_3flex_full", "MOF-801(Hf) batch 3 (3Flex report)"), (r"zro2.?@|composite", "ZrO$_2$@Sulfo-MOF-801(Hf)"), (r"^pm|physical", "PM"), (r"sulfo-?mof|sulfo_mof", "Sulfo-MOF-801(Hf)"),
-         (r"^zro2", "ZrO$_2$"), (r"mof-?801", "MOF-801(Hf)"), (r"sulfosucc", "2-Sulfosuccinic acid")]
+GUESS = [(r"mof-?801hf_3flex_full", "Sample A batch 3 (3Flex report)"), (r"zro2.?@|composite", "Sample C"), (r"^pm|physical", "PM"), (r"sulfo-?mof|sulfo_mof", "Sample B"),
+         (r"^zro2", "ZrO$_2$"), (r"mof-?801", "Sample A"), (r"sulfosucc", "2-Sulfosuccinic acid")]
 
 
 _EXAMPLE_FILES: set | None = None
@@ -413,7 +413,7 @@ def _example_files():
 
 def guess_name(fn):
     """Sample name from a file name: the file stem. Only the bundled example files get their display names
-    (e.g. 'MOF801_STOE.xy' -> 'MOF-801(Hf)'); a user's own files are never renamed by guesswork."""
+    (e.g. 'SampleA_STOE.xy' -> 'Sample A'); a user's own files are never renamed by guesswork."""
     base = os.path.basename(fn)
     stem = os.path.splitext(base)[0]
     if base in _example_files():

@@ -13,17 +13,17 @@ ex = lambda *p: os.path.join(EX, *p)
 
 # ------------------------------------------------------------------ readers
 @pytest.mark.parametrize("path,fn,n", [
-    ("PXRD/MOF801_STOE.xy", R.read_pxrd, 1000), ("FTIR/MOF801_ATR.dpt", R.read_ftir, 1000),
-    ("Raman/MOF801_RAMII.dpt", R.read_ftir, 500), ("NMR/MOF801_digest_totxt.txt", R.read_nmr, 10000),
-    ("NMR/MOF801_digest_TopSpin_expno10.zip", R.read_nmr, 10000), ("XPS/MOF801_Hf4f_CasaXPS.csv", R.read_xps, 50)])
+    ("PXRD/SampleA_STOE.xy", R.read_pxrd, 1000), ("FTIR/SampleA_ATR.dpt", R.read_ftir, 1000),
+    ("Raman/SampleA_RAMII.dpt", R.read_ftir, 500), ("NMR/SampleA_digest_totxt.txt", R.read_nmr, 10000),
+    ("NMR/SampleA_digest_TopSpin_expno10.zip", R.read_nmr, 10000), ("XPS/SampleA_Hf4f_CasaXPS.csv", R.read_xps, 50)])
 def test_xy_readers(path, fn, n):
     df = fn(open(ex(path), "rb"))
     assert list(df.columns)[:2] == ["x", "y"] and len(df) > n and np.isfinite(df.y).all()
 
 
 def test_topspin_native_matches_totxt_scale():
-    a = R.read_nmr(open(ex("NMR/MOF801_digest_TopSpin_expno10.zip"), "rb"))
-    b = R.read_nmr(open(ex("NMR/MOF801_digest_totxt.txt"), "rb"))
+    a = R.read_nmr(open(ex("NMR/SampleA_digest_TopSpin_expno10.zip"), "rb"))
+    b = R.read_nmr(open(ex("NMR/SampleA_digest_totxt.txt"), "rb"))
     assert a.x.max() == pytest.approx(b.x.max(), abs=0.01) and a.x.min() == pytest.approx(b.x.min(), abs=0.01)
     # fumarate CH (~6.5-6.8 ppm in NaOD/D2O digest) must sit at the same shift in both files
     pk = []
@@ -40,20 +40,20 @@ def test_tga_vendor_formats(f):
 
 
 def test_sorption_microactive_and_csv():
-    d = R.read_sorption(open(ex("Sorption/MOF801_3Flex_MicroActive.xlsx"), "rb"))
+    d = R.read_sorption(open(ex("Sorption/SampleA_3Flex_MicroActive.xlsx"), "rb"))
     assert set(d["iso"].branch) == {"ads", "des"} and d["psd"] is not None and "nan" not in d["meta"].get("sample", "")
-    d2 = R.read_sorption(open(ex("Sorption/MOF801_isotherm_plain.csv"), "rb"))
+    d2 = R.read_sorption(open(ex("Sorption/SampleA_isotherm_plain.csv"), "rb"))
     assert len(d2["iso"]) > 20 and d2["iso"].q.max() > 100
 
 
 def test_icp_imagelab_zeta_sem():
     icp = R.read_icp(open(ex("ICP/ICP-OES_Syngistix_export.csv"), "rb"))
     assert {"Hf", "Zr", "S"} <= set(icp.element)
-    il = R.read_imagelab(open(ex("SDS-PAGE/ImageLab_LanesAndBands_ZrO2@Sulfo_HEWL_60C.csv"), "rb"))
+    il = R.read_imagelab(open(ex("SDS-PAGE/ImageLab_LanesAndBands_SampleC_HEWL_60C.csv"), "rb"))
     assert il.band_pct.between(0, 100).all() and il.time.notna().any()
     z = R.read_zetasizer(open(ex("Zeta-DLS/Zetasizer_export_pD7.4_D2O.csv"), "rb"))
     assert len(z["summary"]) >= 3
-    sem = R.read_sem(open(ex("SEM/MOF-801_SEM.tif"), "rb"))
+    sem = R.read_sem(open(ex("SEM/SampleA_SEM.tif"), "rb"))
     assert sem["pixel_nm"] and sem["pixel_nm"] > 0 and sem["databar_row"] == 968
 
 
@@ -77,7 +77,7 @@ def test_example_kinetics_recovers_design():
     s = [c for c in df.columns if c.lower().startswith("sample")][0]
     tc = [c for c in df.columns if "time" in c.lower()][0]
     cc = [c for c in df.columns if "glygly" in c.lower()][0]
-    sub = df[df[s].str.contains("ZrO2@", regex=False)]
+    sub = df[df[s].str.contains("Sample C", regex=False)]          # v2.18.5: masked example name
     r = A.first_order_fit(sub[tc].values, sub[cc].values)
     assert r["k"] == pytest.approx(0.0292, rel=0.10)
 
@@ -90,7 +90,7 @@ def test_langmuir_recovers():
 
 
 def test_bet_rouquerol_on_example():
-    d = R.read_sorption(open(ex("Sorption/MOF801_3Flex_MicroActive.xlsx"), "rb"))
+    d = R.read_sorption(open(ex("Sorption/SampleA_3Flex_MicroActive.xlsx"), "rb"))
     iso = d["iso"][d["iso"].branch == "ads"]
     b = A.bet_rouquerol(iso.p_rel.values, iso.q.values)
     assert 500 < b["area"] < 900 and b["C"] > 0 and b["c1"]
@@ -110,28 +110,28 @@ def test_bet_type_ii_reference():
 
 def test_tga_plateau_matches_design():
     truth = json.load(open(ex("TGA/example_design_truth.json"), encoding="utf-8"))
-    df = R.read_tga(open(ex("TGA/MOF801_Netzsch.txt"), "rb"))
+    df = R.read_tga(open(ex("TGA/SampleA_Netzsch.txt"), "rb"))
     t = A.tga_analysis(df["T"].values, df.w.values)
     assert 250 < t["T_plateau"] < 480 and t["W_plateau"] > t["W_end"]
     assert isinstance(truth, dict)
 
 
 def test_equivalence_points():
-    df = R.read_table(open(ex("Titration/MOF801_titration_NaOH.csv"), "rb"))
+    df = R.read_table(open(ex("Titration/SampleA_titration_NaOH.csv"), "rb"))
     eq = A.equivalence_points(df.iloc[:, 0].values, df.iloc[:, 1].values)
     assert len(eq) == 3 and np.all(np.diff(eq) > 0)
 
 
 # ------------------------------------------------------------------ plotting / export
 def test_colour_mapping_fixed(example_colour_rules):
-    assert S.colour_for("ZrO$_2$@Sulfo-MOF-801(Hf)") == S.colour_for("composite") == "#D55E00"
-    assert S.colour_for("MOF-801(Hf)") == "#000000"
+    assert S.colour_for("Sample C") == S.colour_for("composite") == "#D55E00"
+    assert S.colour_for("Sample A") == "#000000"
 
 
 def test_colour_mapping_neutral_by_default():
     """v2.13: no lab-specific name rules by default - palette order, whatever the samples are called."""
     assert S.SAMPLE_COLOURS == []
-    names = ["ZrO2@Sulfo composite", "PM", "my reference", "sample 4"]
+    names = ["SampleC composite", "PM", "my reference", "sample 4"]
     assert S.colours_for(names) == ["#000000", "#0072B2", "#E69F00", "#009E73"]
     assert [S.colour_for(n, i) for i, n in enumerate(names)] == ["#000000", "#0072B2", "#E69F00", "#009E73"]
     S.SAMPLE_COLOURS[:] = [("uio", "#D55E00"), ("[broken", "#111111")]       # a user rule; an invalid regex is ignored
@@ -180,7 +180,7 @@ def test_defect_report_and_design_recovery(f, tmp_path):
     inp = REP.input_from_dict(json.load(open(f, encoding="utf-8")))
     res = D.run_all(inp)
     c = res["consensus"]
-    design = {"MOF801": 5.2, "Sulfo-MOF801": 4.7, "ZrO2@Sulfo-MOF801": 4.7}[os.path.basename(f)[13:-5]]
+    design = {"SampleA": 5.2, "SampleB": 4.7, "SampleC": 4.7}[os.path.basename(f)[13:-5]]
     assert c["L"] == pytest.approx(design, abs=0.15)
     pdf = tmp_path / "r.pdf"; REP.pdf_report(res, str(pdf))
     assert pdf.stat().st_size > 20000
@@ -190,7 +190,7 @@ def test_defect_report_and_design_recovery(f, tmp_path):
 
 def test_every_equation_renders():
     """Every LaTeX equation of every method is converted to matplotlib mathtext for the PDF report."""
-    inp = REP.input_from_dict(json.load(open(ex("Defects", "defect_input_MOF801.json"), encoding="utf-8")))
+    inp = REP.input_from_dict(json.load(open(ex("Defects", "defect_input_SampleA.json"), encoding="utf-8")))
     res = D.run_all(inp)
     eqs = [e for m in res["methods"] for e in m.equations] + list(res["h"]["equations"])
     bad = [e for e in eqs if not REP._render_ok(REP.tex_to_mathtext(e))]

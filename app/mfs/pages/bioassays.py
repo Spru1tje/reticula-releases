@@ -182,10 +182,10 @@ def page_xps():
     st.header("XPS")
     st.caption("CasaXPS / Avantage exported region (BE, counts) as CSV/TXT; simple VAMAS (.vms) regions. Shirley or Tougaard "
                "background, doublet fitting (Zr 3d, Hf 4f, S 2p with fixed spin–orbit splitting and area ratio), atomic-% with RSFs.")
-    multi = st.checkbox("➕ Use the multi-region EXAMPLE instead (ZrO₂@Sulfo-MOF-801: Zr 3d, Hf 4f, S 2p, O 1s, C 1s – synthetic)", False, key="xps_multi")
+    multi = st.checkbox("➕ Use the multi-region EXAMPLE instead (ZrO₂@Sample B: Zr 3d, Hf 4f, S 2p, O 1s, C 1s – synthetic)", False, key="xps_multi")
     files = files_input("Spectra", ["csv", "txt", "vms", "dat"], "XPS/*Hf4f*.csv", "xps")
     if multi:
-        files = [_F(p_) for p_ in sorted(glob.glob(os.path.join(EX, "XPS", "ZrO2@Sulfo-MOF801_*.csv")))]
+        files = [_F(p_) for p_ in sorted(glob.glob(os.path.join(EX, "XPS", "SampleC_*.csv")))]
     if not files:
         return
     samples = sample_table(files, "xps_tab" + ("_m" if multi else ""))
@@ -197,7 +197,8 @@ def page_xps():
             st.error(f"{f.name}: {e}"); continue
         reg = XP.guess_region(d.x.values)
         grp = re.sub(r"\s*\(\d+\)$", "", nm)
-        grp = re.sub(r"[ _-]*(Zr ?3d|Hf ?4[fd]|S ?2p|O ?1s|C ?1s|N ?1s|F ?1s|Ti ?2p)\b", "", grp, flags=re.I).strip(" _-") or nm
+        # v2.18.5: '\b' failed for names like 'Sample_S2p_CasaXPS' ('_' is a word character), so every region became its own sample
+        grp = re.sub(r"[ _-]*(Zr ?3d|Hf ?4[fd]|S ?2p|O ?1s|C ?1s|N ?1s|F ?1s|Ti ?2p)(?![A-Za-z0-9])", "", grp, flags=re.I).strip(" _-") or nm
         spec.append({"name": nm, "group": grp, "region": reg, "x": d.x.values, "y": d.y.values})
     st.dataframe(pd.DataFrame([{"spectrum": d_["name"], "sample": d_["group"], "region (from BE range)": d_["region"],
                                 "BE range (eV)": f"{d_['x'].min():.1f}–{d_['x'].max():.1f}"} for d_ in spec]), hide_index=True, width="stretch")

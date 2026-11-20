@@ -57,7 +57,7 @@ def test_batchA_kinetics_n2_store_si(url, tmp_path):
         assert "write_stream" not in main      # no st.help output from a stray magic expression
         assert "Sample store" in main and not pg.locator("[data-testid='stException']").count()
         from test_sem_e2e_browser import _select
-        _select(pg, "Pull data for sample", "MOF-801(Hf)")
+        _select(pg, "Pull data for sample", "Sample A")
         pg.get_by_text("Pulled for").first.wait_for(timeout=120000); pg.wait_for_timeout(4000)
         assert not pg.locator("[data-testid='stException']").count()
         _shot(pg, "exe_defects_store.png")

@@ -170,7 +170,7 @@ def page_tga():
     c1, c2 = st.columns(2)
     msf = c1.file_uploader("Ion-current table (CSV/TXT: temperature or time + m/z columns)", type=["csv", "txt", "dat"], key="tga_ms")
     ms_ex = c2.checkbox("Use the TGA–MS EXAMPLE (MOF-801, synthetic m/z 18, 28, 44)", value=msf is None, key="tga_ms_ex")
-    src = msf if msf is not None else (_F(os.path.join(EX, "TGA", "MOF801_QMS_ion_currents_EXAMPLE.csv")) if ms_ex else None)
+    src = msf if msf is not None else (_F(os.path.join(EX, "TGA", "SampleA_QMS_ion_currents_EXAMPLE.csv")) if ms_ex else None)
     if src is not None:
         try:
             ms = TG.read_ms(src)

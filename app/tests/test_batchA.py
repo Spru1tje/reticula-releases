@@ -10,20 +10,20 @@ EX = os.path.join(HERE, "example_data")
 def test_samplestore_roundtrip(tmp_path):
     from mfs import samplestore as SS
     st = {}
-    SS.put(st, "ZrO$_2$@Sulfo-MOF-801", "tga", {"W_end": np.float64(41.2), "bad": float("nan")}, "TGA")
-    SS.put(st, "zro2@sulfo mof801", "icp", {"Zr_wt": 30.1}, "ICP")
+    SS.put(st, "Sample C", "tga", {"W_end": np.float64(41.2), "bad": float("nan")}, "TGA")
+    SS.put(st, "samplec", "icp", {"Zr_wt": 30.1}, "ICP")
     assert len(SS.ids(st)) == 1
-    r = SS.get(st, "ZrO2@Sulfo-MOF-801")
+    r = SS.get(st, "Sample C")
     assert set(r["sections"]) == {"tga", "icp"} and r["sections"]["tga"]["values"]["bad"] is None
     p = tmp_path / "s.json"; SS.save(st, str(p))
-    st2 = {}; SS.load(st2, str(p)); assert SS.get(st2, "zro2@sulfomof801", "icp")["Zr_wt"] == 30.1
+    st2 = {}; SS.load(st2, str(p)); assert SS.get(st2, "samplec", "icp")["Zr_wt"] == 30.1
     assert SS.summary_rows(st2)[0]["tga"]
 
 
 def test_si_export_xlsx_docx():
     from mfs import samplestore as SS, si_export as SI
     st = {}
-    for nm, L in (("MOF-801(Hf)", 5.2), ("Sulfo-MOF-801", 4.6)):
+    for nm, L in (("Sample A", 5.2), ("Sample B", 4.6)):
         SS.put(st, nm, "defects", {"framework": "MOF-801", "metal": "Hf", "L": L, "x": 6 - L, "m": 0.4, "OS": 2 * (6 - L) - 0.4,
                                    "M": 1650.0, "formula": "Hf6O4(OH)4(fum)5", "methods": "TGA; NMR"})
         SS.put(st, nm, "n2", {"S_BET": 800.0, "V_total": 0.4})
@@ -74,7 +74,7 @@ def test_xrd_tools():
 
 def test_psd_methods_on_example_isotherm():
     from mfs import psd as PS, readers as R
-    d = R.read_sorption(os.path.join(EX, "Sorption", "MOF801_3Flex_MicroActive.xlsx"), "MOF801_3Flex_MicroActive.xlsx")
+    d = R.read_sorption(os.path.join(EX, "Sorption", "SampleA_3Flex_MicroActive.xlsx"), "SampleA_3Flex_MicroActive.xlsx")
     iso = d["iso"]; a_ = iso[iso.branch.astype(str).str.startswith("ads")]
     p, q = a_.p_rel.values.astype(float), a_.q.values.astype(float)
     r = PS.dft_fit(p, q)

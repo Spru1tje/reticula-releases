@@ -18,9 +18,9 @@ _ap.add_argument("--png-only", action="store_true", help="write PNG only (fast t
 ARGS = _ap.parse_args()
 OUT = ARGS.out
 os.makedirs(OUT, exist_ok=True)
-NAMES = {"MOF801": "MOF-801(Hf)", "Sulfo-MOF801": "Sulfo-MOF-801(Hf)", "ZrO2": "ZrO$_2$", "PM": "PM",
-         "ZrO2@Sulfo-MOF801": "ZrO$_2$@Sulfo-MOF-801(Hf)"}
-ORDER = ["MOF801", "Sulfo-MOF801", "ZrO2", "PM", "ZrO2@Sulfo-MOF801"]
+NAMES = {"SampleA": "Sample A", "SampleB": "Sample B", "ZrO2": "ZrO$_2$", "PM": "PM",
+         "SampleC": "Sample C"}
+ORDER = ["SampleA", "SampleB", "ZrO2", "PM", "SampleC"]
 written = []
 
 
@@ -45,7 +45,7 @@ def load_pxrd():
         tr.append((label_name(k), df.x.values, y))
     sim, sticks, f = A.simulate_pxrd(os.path.join(ROOT, "references", "MOF-801_Zr_COD4121459.cif"), (3, 50), fwhm=0.12,
                                      substitute={"Zr": "Hf"})
-    return tr, ("Simulated MOF-801(Hf)", sim.x.values, sim.y.values), sticks
+    return tr, ("Simulated Sample A", sim.x.values, sim.y.values), sticks
 
 
 def draw_pxrd(ax, **kw):
@@ -55,7 +55,7 @@ def draw_pxrd(ax, **kw):
 
 def draw_ftir(ax, **kw):
     tr = []
-    for k in ["Sulfosuccinic_acid", "ZrO2", "MOF801", "Sulfo-MOF801", "PM", "ZrO2@Sulfo-MOF801"]:
+    for k in ["Sulfosuccinic_acid", "ZrO2", "SampleA", "SampleB", "PM", "SampleC"]:
         df = R.read_ftir(os.path.join(ED, "FTIR", f"{k}_ATR.dpt"))
         y = A.process(df.x, df.y, norm="min-max")
         tr.append(("2-Sulfosuccinic acid" if k.startswith("Sulfos") else label_name(k), df.x.values, y))
@@ -64,7 +64,7 @@ def draw_ftir(ax, **kw):
 
 def draw_nmr(ax, **kw):
     tr = []
-    for k in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]:
+    for k in ["SampleA", "SampleB", "SampleC"]:
         df = R.read_nmr(os.path.join(ED, "NMR", f"{k}_digest_totxt.txt"))
         m = (df.x > 1.5) & (df.x < 9.0) & ~((df.x > 4.55) & (df.x < 5.05))
         y = df.y.where(m, np.nan)
@@ -93,8 +93,8 @@ def draw_psd(ax, **kw):
 
 def load_tga():
     out = []
-    for f, nm in [("MOF801_Netzsch.txt", "MOF-801(Hf)"), ("Sulfo-MOF801_TA_UniversalAnalysis.txt", "Sulfo-MOF-801(Hf)"),
-                  ("ZrO2@Sulfo-MOF801_Mettler_STARe.txt", "ZrO$_2$@Sulfo-MOF-801(Hf)")]:
+    for f, nm in [("SampleA_Netzsch.txt", "Sample A"), ("SampleB_TA_UniversalAnalysis.txt", "Sample B"),
+                  ("SampleC_Mettler_STARe.txt", "Sample C")]:
         t = R.read_tga(os.path.join(ED, "TGA", f))
         out.append((nm, A.tga_analysis(t["T"], t["w"])))
     return out
@@ -135,24 +135,24 @@ def main():
     fig, ax = S.new_figure(S.SINGLE, 1.15); draw_ftir(ax); save(fig, "02_FTIR_stacked")
     # 2b Raman
     tr = []
-    for k in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]:
+    for k in ["SampleA", "SampleB", "SampleC"]:
         df = R.read_ftir(os.path.join(ED, "Raman", f"{k}_RAMII.dpt"))
         tr.append((label_name(k), df.x.values, A.process(df.x, df.y, baseline="ALS", norm="max", lam=1e6)))
     fig, ax = S.new_figure(S.SINGLE, 0.85); P.draw_stacked(ax, tr, "raman", xlim=(200, 1800), invert=False); save(fig, "02b_Raman_stacked")
     # 3 NMR
     fig, ax = S.new_figure(S.SINGLE, 0.9); draw_nmr(ax); save(fig, "03_NMR_digest_stacked")
     # 3b native TopSpin pdata
-    df = R.read_nmr(os.path.join(ED, "NMR", "MOF801_digest_TopSpin_expno10.zip"))
+    df = R.read_nmr(os.path.join(ED, "NMR", "SampleA_digest_TopSpin_expno10.zip"))
     fig, ax = S.new_figure(S.SINGLE, 0.6)
-    P.draw_stacked(ax, [("MOF-801(Hf) digest (TopSpin pdata)", df.x.values, (df.y / df.y.max()).values)], "nmr", xlim=(9.5, -0.5))
+    P.draw_stacked(ax, [("Sample A digest (TopSpin pdata)", df.x.values, (df.y / df.y.max()).values)], "nmr", xlim=(9.5, -0.5))
     save(fig, "03b_NMR_TopSpin_native")
     # 4 Sorption (a) isotherm (b) PSD
     fig, axs = C.compose([draw_iso, draw_psd], ncols=2, width=S.DOUBLE, panel_aspect=0.8)
     save(fig, "04_N2_isotherms_PSD")
     # 5 BET Rouquerol
-    s = load_sorption()["MOF801"]["iso"]; a = s[s.branch == "ads"]
+    s = load_sorption()["SampleA"]["iso"]; a = s[s.branch == "ads"]
     bet = A.bet_rouquerol(a.p_rel.values, a.q.values)
-    fig, axs = C.compose([lambda ax: P.draw_rouquerol(ax, bet), lambda ax: P.draw_bet(ax, bet, "MOF-801(Hf)")], ncols=2, width=S.DOUBLE * 0.8, panel_aspect=0.8, wspace=0.5)
+    fig, axs = C.compose([lambda ax: P.draw_rouquerol(ax, bet), lambda ax: P.draw_bet(ax, bet, "Sample A")], ncols=2, width=S.DOUBLE * 0.8, panel_aspect=0.8, wspace=0.5)
     save(fig, "05_BET_Rouquerol")
     # 6 TGA + DTG
     fig = P.fig_tga(load_tga(), S.SINGLE, "panel"); save(fig, "06_TGA_DTG")
@@ -174,13 +174,13 @@ def main():
     save(fig, "09_ICP_bars")
     # 10 SEM panel
     ims = []
-    for f, t in [("MOF-801_lowmag_SEM.tif", "MOF-801(Hf)"), ("MOF-801_SEM.tif", "MOF-801(Hf)"), ("Sulfo-MOF-801_SEM.tif", "Sulfo-MOF-801(Hf)"),
-                 ("ZrO2_at_Sulfo-MOF-801_SEM.tif", "ZrO$_2$@Sulfo-MOF-801(Hf)")]:
+    for f, t in [("SampleA_lowmag_SEM.tif", "Sample A"), ("SampleA_SEM.tif", "Sample A"), ("SampleB_SEM.tif", "Sample B"),
+                 ("SampleC_SEM.tif", "Sample C")]:
         m = R.read_sem(os.path.join(ED, "SEM", f))
         ims.append({"image": m["image"], "pixel_nm": m["pixel_nm"], "crop_row": m["databar_row"], "title": t})
     fig = P.fig_sem_panel(ims, 2, S.DOUBLE * 0.75); save(fig, "10_SEM_panel")
     # 11 SDS-PAGE
-    b = R.read_imagelab(os.path.join(ED, "SDS-PAGE", "ImageLab_LanesAndBands_ZrO2@Sulfo_HEWL_60C.csv"))
+    b = R.read_imagelab(os.path.join(ED, "SDS-PAGE", "ImageLab_LanesAndBands_SampleC_HEWL_60C.csv"))
     b["band_pct"] = 100 * b.band_pct / b.groupby("lane").band_pct.transform("sum")
     fig, ax = S.new_figure(S.SINGLE, 0.8); P.draw_bands(ax, b); save(fig, "11_SDS-PAGE_bands")
     # 12 Zeta + DLS
@@ -203,19 +203,19 @@ def main():
     save(fig, "12_Zeta_DLS")
     # 13 XPS (Hf 4f stacked + Zr 3d composite)
     tr = []
-    for k in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]:
+    for k in ["SampleA", "SampleB", "SampleC"]:
         x = R.read_xps(os.path.join(ED, "XPS", f"{k}_Hf4f_CasaXPS.csv"))
         tr.append((label_name(k), x.x.values, x.y.values))
-    zx = R.read_xps(os.path.join(ED, "XPS", "ZrO2@Sulfo-MOF801_Zr3d_CasaXPS.csv"))
+    zx = R.read_xps(os.path.join(ED, "XPS", "SampleC_Zr3d_CasaXPS.csv"))
     def d_hf(ax):
         P.draw_xps(ax, tr, region=(13, 23)); ax.text(0.03, 0.96, "Hf 4f", transform=ax.transAxes, va="top")
     def d_zr(ax):
-        P.draw_xps(ax, [(label_name("ZrO2@Sulfo-MOF801"), zx.x.values, zx.y.values)], region=(178, 190)); ax.text(0.03, 0.96, "Zr 3d", transform=ax.transAxes, va="top")
+        P.draw_xps(ax, [(label_name("SampleC"), zx.x.values, zx.y.values)], region=(178, 190)); ax.text(0.03, 0.96, "Zr 3d", transform=ax.transAxes, va="top")
     fig, axs = C.compose([d_hf, d_zr], ncols=2, width=S.DOUBLE * 0.85, panel_aspect=0.85)
     save(fig, "13_XPS_Hf4f_Zr3d")
     # 14 Defect calculator - composite + parent from the example files
     res_list = []
-    for key in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]:
+    for key in ["SampleA", "SampleB", "SampleC"]:
         inp = example_defect_input(key)
         if not ARGS.png_only:   # --png-only (tests) must not rewrite the tracked example inputs
             with open(os.path.join(ED, "Defects", f"defect_input_{key}.json"), "w", encoding="utf-8") as f:
@@ -237,8 +237,8 @@ def main():
 def example_defect_input(key):
     """Build calculator inputs FROM THE EXAMPLE FILES (TGA trace, NMR digest, ICP), like a user would."""
     truth = json.load(open(os.path.join(ED, "TGA", "example_design_truth.json"), encoding="utf-8"))
-    nm = {"MOF801": "MOF-801(Hf)", "Sulfo-MOF801": "Sulfo-MOF-801(Hf)", "ZrO2@Sulfo-MOF801": "ZrO2@Sulfo-MOF-801(Hf)"}[key]
-    tfile = {"MOF801": "MOF801_Netzsch.txt", "Sulfo-MOF801": "Sulfo-MOF801_TA_UniversalAnalysis.txt", "ZrO2@Sulfo-MOF801": "ZrO2@Sulfo-MOF801_Mettler_STARe.txt"}[key]
+    nm = {"SampleA": "Sample A", "SampleB": "Sample B", "SampleC": "Sample C"}[key]
+    tfile = {"SampleA": "SampleA_Netzsch.txt", "SampleB": "SampleB_TA_UniversalAnalysis.txt", "SampleC": "SampleC_Mettler_STARe.txt"}[key]
     t = R.read_tga(os.path.join(ED, "TGA", tfile)); ta = A.tga_analysis(t["T"], t["w"])
     nmr = R.read_nmr(os.path.join(ED, "NMR", f"{key}_digest_totxt.txt"))
     I = lambda a, b: A.integrate(nmr.x.values, nmr.y.values, a, b)
@@ -257,22 +257,22 @@ def example_defect_input(key):
     tr = truth[nm]
     # Mexp for the NMR mass (the 'user' weighed 1.000 µmol-equivalent in 0.60 mL -> [MOF] = 1.0 mM in the design)
     from tools_helpers import design_mass
-    inp = D.DefectInput(sample=nm, framework="MOF-801", metal="Hf", extraframework_Zr=(key == "ZrO2@Sulfo-MOF801"), species=sp,
+    inp = D.DefectInput(sample=nm, framework="MOF-801", metal="Hf", extraframework_Zr=(key == "SampleC"), species=sp,
                         tga_W_initial=ta["W_initial"], tga_W_200=float(np.interp(200, ta["T"], ta["w"])),
                         tga_W_plateau=ta["W_plateau"], tga_W_end=ta["W_end"],
                         nmr_std_conc_mM=2.0, nmr_std_integral=9.0, nmr_sample_mg=design_mass(tr) * 0.6e-3 * 1.0, nmr_volume_mL=0.6,
                         cl_per_node=tr["Cl"], icp_Zr_wt=wt("Zr"), icp_Hf_wt=wt("Hf"), icp_state="as-measured (RT)",
-                        xrf_S_per_M=None, V_meas={"MOF801": 0.192, "Sulfo-MOF801": 0.185, "ZrO2@Sulfo-MOF801": 0.165}[key], V_ideal=0.178,
+                        xrf_S_per_M=None, V_meas={"SampleA": 0.192, "SampleB": 0.185, "SampleC": 0.165}[key], V_ideal=0.178,
                         linker_umol_per_mg=(A.integrate(nmr.x.values, nmr.y.values, 6.4, 6.65) * norm / 2) / 9 * 9 * 2.0 * 0.6 / (design_mass(tr) * 0.6e-3),
-                        tit_mass_mg=50.0 if key == "MOF801" else None, tit_c_NaOH=0.1,
+                        tit_mass_mg=50.0 if key == "SampleA" else None, tit_c_NaOH=0.1,
                         tit_V_eq=find_eq(key), tit_HCl_mmol=0.050)
     return inp
 
 
 def find_eq(key):
-    if key != "MOF801":
+    if key != "SampleA":
         return None
-    df = R.read_table(os.path.join(ED, "Titration", "MOF801_titration_NaOH.csv"))
+    df = R.read_table(os.path.join(ED, "Titration", "SampleA_titration_NaOH.csv"))
     eq = A.equivalence_points(df.iloc[:, 0].values, df.iloc[:, 1].values, n=3)
     return [float(v) for v in eq]
 
@@ -282,7 +282,7 @@ def v2_demos():
     from mfs import figctl as F
     from PIL import Image, ImageDraw, ImageFont
     # 16 SEM scale bar options
-    d = R.read_sem(os.path.join(ED, "SEM", "MOF-801_SEM.tif"))
+    d = R.read_sem(os.path.join(ED, "SEM", "SampleA_SEM.tif"))
     pix_mag = R.pixel_from_magnification(25000, d["image"].shape[1])
     specs = [(d["pixel_nm"], dict(mode="auto"), "auto: 500 nm"),
              (d["pixel_nm"], dict(mode="value", value=1, unit="µm", position="lower left", color="black", box=True, box_alpha=0.85), "value 1 µm, black, box"),
@@ -293,7 +293,7 @@ def v2_demos():
     save(fig, "16_SEM_scalebar_options", ("png",))
     # 17 default vs customised (same data)
     s = load_sorption()
-    isos = [(label_name(k), s[k]["iso"]) for k in ["MOF801", "Sulfo-MOF801", "ZrO2@Sulfo-MOF801"]]
+    isos = [(label_name(k), s[k]["iso"]) for k in ["SampleA", "SampleB", "SampleC"]]
     S.apply_style()
     f1, a1 = S.new_figure(S.SINGLE, 0.85); P.draw_isotherms(a1, isos)
     f2, a2 = S.new_figure(S.SINGLE, 0.85); P.draw_isotherms(a2, isos)
@@ -303,9 +303,9 @@ def v2_demos():
     cfg["panels"]["0"] = {"y_family": "uptake", "y_unit": "mmol g⁻¹", "ymajor": 2, "yminor": 0.5, "ymax": 13,
                           "xmajor": 0.2, "xminor": 0.05, "xlabel": "p/p_0"}
     cfg["legend"].update(custom=True, loc="outside top", ncol=2, frame=True, markerscale=1.4, fontsize=6.5,
-                         entries=[{"label": "ZrO$_2$@Sulfo-MOF-801(Hf)", "text": "composite", "show": True},
-                                  {"label": "Sulfo-MOF-801(Hf)", "text": "Sulfo-MOF-801(Hf)", "show": True},
-                                  {"label": "MOF-801(Hf)", "text": "MOF-801(Hf) (parent)", "show": True},
+                         entries=[{"label": "Sample C", "text": "composite", "show": True},
+                                  {"label": "Sample B", "text": "Sample B", "show": True},
+                                  {"label": "Sample A", "text": "Sample A (parent)", "show": True},
                                   {"label": "adsorption", "text": "ads. (filled)", "show": True},
                                   {"label": "desorption", "text": "des. (open)", "show": True}])
     F.apply(f2, cfg)
@@ -328,7 +328,7 @@ def v2_demos():
     # 18 N2 MicroActive full-report export: v1 vs v2 reader
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import n2_before_after
-    r = n2_before_after.main(os.path.join(ED, "Sorption", "MOF801Hf_3Flex_full_report_EXAMPLE.xls"), os.path.join(OUT, "18_N2_fullreport"))
+    r = n2_before_after.main(os.path.join(ED, "Sorption", "SampleA_3Flex_full_report_EXAMPLE.xls"), os.path.join(OUT, "18_N2_fullreport"))
     written.extend([r["before"], r["after"]])
 
 

@@ -99,7 +99,7 @@ def test_tauc_band_gaps_and_manual_window():
     for s in f.spectra:
         E, T = U.tauc(s.x, s.y, "direct", True)
         eg[s.name] = U.band_gap(E, T)["Eg"]
-    assert 4.8 < eg["ZrO2 %R"] < 5.4 and 3.9 < eg["MOF-801(Hf) %R"] < 4.4 and eg["Sulfo-MOF-801(Hf) %R"] < eg["MOF-801(Hf) %R"]
+    assert 4.8 < eg["ZrO2 %R"] < 5.4 and 3.9 < eg["Sample A %R"] < 4.4 and eg["Sample B %R"] < eg["Sample A %R"]
     E = np.linspace(3, 5, 200); T = np.clip(10 * (E - 4.0), 0, None)
     assert abs(U.band_gap(E, T, (4.2, 4.8))["Eg"] - 4.0) < 1e-6
 

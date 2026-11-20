@@ -13,7 +13,7 @@ def test_default_global_style_equals_v210_rcparams():
     assert rc["lines.linewidth"] == 1.0 and rc["axes.linewidth"] == 0.75 and rc["xtick.direction"] == "in"
     assert rc["xtick.major.size"] == 3.0 and rc["legend.frameon"] is False and rc["font.size"] == 8.0
     assert rc["axes.prop_cycle"] == matplotlib.rcParamsDefault["axes.prop_cycle"]
-    assert S.colours_for(["MOF-801", "Sulfo-MOF-801"]) == ["#000000", "#0072B2"]
+    assert S.colours_for(["MOF-801", "Sample B"]) == ["#000000", "#0072B2"]
 
 
 def test_palette_and_lines_switch():

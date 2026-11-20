@@ -46,7 +46,7 @@ def _res_lab(metal, nd):
 
 
 def guess_framework(name):
-    """v2.11: framework + metal from a sample name ('MOF-801(Hf)', 'UiO-66-NH2 Zr', 'HKUST-1') -> (framework, metal|None)."""
+    """v2.11: framework + metal from a sample name ('Sample A', 'UiO-66-NH2 Zr', 'HKUST-1') -> (framework, metal|None)."""
     import re as _re
     n = (name or "").lower().replace("_", "-").replace(" ", "")
     fw = next((k for k in sorted(FRAMEWORKS, key=len, reverse=True) if k != "custom framework"

@@ -65,6 +65,8 @@ def render(g):
             return
     tmin = float(min(c["t"].min() for c in curves))
     tmax = float(max(c["t"].max() for c in curves))
+    from mfs.pl_thermo import clamp_range
+    clamp_range("dc_rng", tmin, tmax)
     rng = st.slider(f"Time range of the fit ({unit}) – empty start = automatic", tmin, tmax, (tmin, tmax), key="dc_rng")
     auto_start = st.checkbox("Start the tail fit automatically just after the peak", True, key="dc_auto") if model == "tail" else False
     rows, fits = [], []

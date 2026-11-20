@@ -9,8 +9,8 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 D = os.path.join(ROOT, "tests", "data", "olympus_sis")
-PIX = {"60K_MOF801SGC6.tif": 1.55075160758898, "100K_MOF801SGC6.tif": 0.8733188801503962,
-       "120K_MOFSGDC.tif": 0.7167629607361451, "250K_MOF801SGDC.tif": 0.33103385433308367}
+PIX = {"60K_SampleASGC6.tif": 1.55075160758898, "100K_SampleASGC6.tif": 0.8733188801503962,
+       "120K_MOFSGDC.tif": 0.7167629607361451, "250K_SampleASGDC.tif": 0.33103385433308367}
 W = 1376
 
 

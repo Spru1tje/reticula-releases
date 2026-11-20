@@ -97,7 +97,7 @@ def test_sorption_page_redesign_options(at):
 
 
 def test_bet_range_spread_reports_sensitivity():
-    f = os.path.join(EX, "MOF801_3Flex_MicroActive.xlsx")
+    f = os.path.join(EX, "SampleA_3Flex_MicroActive.xlsx")
     d = R.read_sorption(f, os.path.basename(f))
     a = d["iso"][d["iso"].branch == "ads"]
     b = A.bet_rouquerol(a.p_rel.values, a.q.values)

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.18.5 - 2026-11-20
+
+### Photoluminescence: ratiometric thermometry
+- **Empirical noise when the counting error is too small.** When the reduced chi-squared of the Boltzmann fit is above 10, the counting error is no longer used as a weight. The fit is repeated with a constant relative error equal to the measured scatter of the ratio, and the report shows a "Ratio noise" warning. Before this change the error bars were scaled up by a factor of about 10^8 on the anti-Stokes test data.
+- **Birge scaling only when significant.** The errors are multiplied by the square root of chi-squared only when chi-squared exceeds 1 by more than two standard deviations of chi-squared (threshold 1 + 2 sqrt(2/dof)).
+- **Boltzmann-law check (R-squared).** R-squared below 0.9 fails, 0.9 to 0.98 warns, 0.98 and above passes. A ratio that does not follow the law is reported as having no reliable energy gap.
+- **Simulation check renamed.** The known-answer self-check is now a simulation consistency check. It tests that the analysis recovers a gap it was given; it does not test accuracy.
+- **Ratio error includes shape parameters.** The covariance of the line-shape parameters is propagated into the ratio error.
+- **Fluoracle export fixes.** Trailing separators are accepted and rows without numbers are skipped.
+
+### Validation (documented, not a release claim of accuracy)
+- Visible LIR of the YOF data set reproduces an independent regression (0.0562 eV against 0.0558 eV).
+- Mn4+ ratio table from the authors' supplement: the module gives 195.8 cm-1 (statistical error 1.8 cm-1) against 214 and 226.5 cm-1 quoted in the paper. The difference is not resolved.
+- Cr3+ MOF relative sensitivity at 160 K: 2.79 %/K against 2.84 %/K in the paper.
+- Dy3+ ratios fail the Boltzmann-law check; the source manuscript reports sensitivity peaking at 193 K, which a single gap cannot produce.
+- The PDF "Reticula PL mathematics and implementation" is updated to match the method.
+
+### Other
+- Example sample names are masked: MOF-801(Hf) becomes Sample A, Sulfo-MOF-801(Hf) Sample B, ZrO2@Sulfo-MOF-801(Hf) Sample C. The example files are renamed to match.
+- DSC examples and the DSC generator are unchanged from 2.18.4.
+- Known open item: two defect-calculator snapshot tests (test_pagestate) depend on which example file is linked to which sample; decision pending.
+
 ## 2.18.4 — 2026-11-19
 
 ### Photoluminescence (visible and near-infrared)
@@ -8,7 +30,7 @@
 - Manual control: your own windows with polynomial, rubber band, ModPoly, arPLS or SNIP; a measured dark / background file (scaled in the windows); constant pedestal options; optional removal of single-point spikes. Without any signal-free window the cautious **rubber band** (lower convex hull) is used.
 - **The ratio fit uses the background-subtracted spectra** (Poisson weights still use the raw counts), and **the choice of background is part of the ratio's systematic error**: the series is refitted with the other reasonable background plans (other polynomial orders, shortened windows; or the other flexible methods) and the spread is added, shown in its own column ("of which background choice"). On the real NIR test series this part is about 0.4 % of the ratio. A file with 10 000 counts subtracted gives exactly the same corrected spectra as the original (maximum difference 0.0 counts).
 - **Confidence verdict and quality report** above the thermometry results (HIGH / MODERATE / LOW, every check with its reason and what to do): saturation, settings that differ, whether the ratio carries temperature information at all, monotonic ratio, band-fit quality, Boltzmann residuals and runs test, ΔE against the spacing of the bands and the usual coupled-level range, an independent method (windows against fit), heating against cooling, reproducibility between runs, the self-check.
-- **Manifold fit** for crowded, Stark-split bands: every line its own shape, the lines in two dragged ranges are summed into I₁ and I₂ (full covariance in the error). Proposed automatically when the two-band fit fails on more than 30 % of the spectra. On the real Ho³⁺/Yb³⁺ NIR series the two-band fit flagged every spectrum; the manifold fit describes all seven (χ² ≈ 1).
+- **Manifold fit** for crowded, Stark-split bands: every line its own shape, the lines in two dragged ranges are summed into I₁ and I₂ (full covariance in the error). Proposed automatically when the two-band fit fails on more than 30 % of the spectra. On a real lanthanide NIR test series the two-band fit flagged every spectrum; the manifold fit describes all seven (χ² ≈ 1).
 - **Uncertainty budget of ΔE**: Monte Carlo over the ratio errors, temperature-sensor random error and offset (typed in), a Boltzmann refit on every processing alternative (fit range / margin, peak model, background, windows), reproducibility between runs, Birge scaling. Two temperature uncertainties: resolution (one reading) and calibration (accuracy of T(Δ)); the temperature read back from every ratio is in the table.
 - Integration windows: counting error from the raw counts; integrated above zero after the standard background subtraction (the straight line through the window ends cut into neighbouring lines and could even give negative areas). The ratio is turned the right way round automatically when it falls with temperature.
 - **Laser-heating check** (spectra at one temperature, several powers → heating per watt), **heating / cooling hysteresis**, **known-answer self-check** (series simulated from your own fit with a known ΔE, analysed again: bias and coverage of the error bars), **analysis record** (JSON with settings, file fingerprints, results, budget and checks).
@@ -39,7 +61,7 @@
 ## 2.18.2 — 2026-11-19
 
 ### Zetasizer (.dts)
-- **Software 8.x .dts files are read**: sample names, the intensity size distribution, and **Z-average and PDI as stored by the software** for every record. Checked on two real files (040626-ll-MUA, ZrO2@HfMOF801_XL, software 8.02): all six records equal the values the Zetasizer software shows (167.0 / 166.0 / 166.3 nm and PDI 0.139 / 0.133 / 0.126; 2238 / 2363 / 2219 nm and PDI 0.155 / 0.527 / 0.631).
+- **Software 8.x .dts files are read**: sample names, the intensity size distribution, and **Z-average and PDI as stored by the software** for every record. Checked on two real files (two DLS files, software 8.02): all six records equal the values the Zetasizer software shows (167.0 / 166.0 / 166.3 nm and PDI 0.139 / 0.133 / 0.126; 2238 / 2363 / 2219 nm and PDI 0.155 / 0.527 / 0.631).
 - **Zeta potential records are read** (software 8.x): ζ-potential, zeta deviation, conductivity, count rate, the three zeta peaks (mean, area %, SD) and the zeta distribution. Checked on 11 records of a real file against the Zeta Potential Reports of the software (ζ, deviation, conductivity, peaks and areas equal). The Zeta / DLS page adds conductivity, count rate and deviation to its table (and so to the SI data) and draws the ζ distribution. A distribution is only shown for records whose stored block reproduces the software's ζ (8 of 11 in the test file).
 - Software 7.11 files keep the earlier route (Z-average and PDI calculated from the stored correlation function).
 
@@ -141,7 +163,7 @@
 ### Defect calculator (TGA)
 - **Plateau point** for the defect calculation is chosen automatically at the flattest part of the mass-loss curve between the last low-temperature step and the linker combustion, or picked on the graph (double-click resets).
 - The results table says how the point was chosen: *automatic (flat)*, *picked on graph* or *automatic – no clear plateau*.
-- The plateau values of MOF-801(Hf) and the consensus changed by a few degrees; the baseline test was updated for these two keys only.
+- The plateau values of Sample A and the consensus changed by a few degrees; the baseline test was updated for these two keys only.
 
 ### Zetasizer `.dts` (known limits)
 - Files of software version **8.02** are read: sample names and the intensity size distribution.
@@ -339,7 +361,7 @@ Built by Stijn Germonpré.
   refuses 3.12.0. Inno Setup script saved with a UTF-8 BOM again (author name). Only the program files go into the build
   (no tests, tools, .venv or exports from a developer folder).
 - Example-figure scripts find a sans-serif font on Windows and macOS too (were Linux-only paths).
-- Tests: private-data skip also matches `MOF801SGA2_TriStar_full_report_REAL.xls`; start-up smoke test talks to Streamlit 1.67
+- Tests: private-data skip also matches `SampleASGA2_TriStar_full_report_REAL.xls`; start-up smoke test talks to Streamlit 1.67
   with `websockets` (tornado is no longer installed by Streamlit).
 
 ## 2.12.0 — 2026-11-16
@@ -545,7 +567,7 @@ Built by Stijn Germonpré.
 - Peak fitting with **Shirley** (iterative) or **Tougaard** (universal cross-section) background, GL components and
   **spin–orbit doublets with fixed splitting and area ratio**: Zr 3d (2.43 eV, 2:3), Hf 4f (1.71 eV, 3:4), S 2p (1.18 eV, 1:2),
   plus Hf 4d / Ti 2p; residual shown. **Atomic-% table** with editable RSFs (Scofield defaults), Hf/(Zr+Hf), S/(Zr+Hf);
-  multi-region EXAMPLE (ZrO₂@Sulfo-MOF-801: Zr 3d, Hf 4f, S 2p, O 1s, C 1s).
+  multi-region EXAMPLE (ZrO₂@Sample B: Zr 3d, Hf 4f, S 2p, O 1s, C 1s).
 
 ### TGA
 - **Automatic step labels** (mass loss and DTG peak per step, steps < threshold merged), step table, **plateaus normalised
@@ -597,7 +619,7 @@ Built by Stijn Germonpré.
   **Full cycle vs time** (temperature programme Ts or Tr on a twin axis, shaded segments), **Stacked: heating above cooling**.
 - Peaks on every segment (melting on heating, crystallisation on cooling) and a **cycle summary**: Tm / Tc onset and peak,
   ΔHm, ΔHc, supercooling ΔT = Tm − Tc (peak and onset) and |ΔHc/ΔHm|.
-- Full-cycle EXAMPLE: the real SG_DSC_1.1 heating + a simulated isothermal and cooling exotherm (clearly labelled).
+- Full-cycle EXAMPLE: the real DSC-cycle_1.1 heating + a simulated isothermal and cooling exotherm (clearly labelled).
 - Peak limits: broad peak tops no longer stop the limit search early; end levels are taken robustly.
 
 ## 2.2.0 — 2026-11-13
@@ -610,7 +632,7 @@ Built by Stijn Germonpré.
   arrow; segment selection with colours; offset stacking.
 - Peaks with linear or sigmoidal baseline: onset / peak / endset (tangent construction) and ΔH (J/g, integrated over time);
   Tg (ISO 11357-2 midpoint, inflection, Δcp) with an auto-suggested window; TGA–DSC (STA) dual-axis overlay; annotations.
-- Validated on a real STARe export (SG_DSC_1.1, 1 K/min): onset 48.30 °C / peak 48.85 °C / ΔH −105.6 J/g vs STARe 48.29 / 48.85 / −105.38.
+- Validated on a real STARe export (DSC-cycle_1.1, 1 K/min): onset 48.30 °C / peak 48.85 °C / ΔH −105.6 J/g vs STARe 48.29 / 48.85 / −105.38.
 
 ### SEM / TEM — fixes after user feedback
 - **⚡ Auto-calibrate** button, a preview of what was detected on the full image, and an "Applied to figure: X nm/px" line

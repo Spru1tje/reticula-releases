@@ -8,7 +8,7 @@ import pytest
 import xlrd
 from mfs import readers as R, analysis as A
 
-F = os.path.join(os.path.dirname(__file__), "data", "MOF801SGA2_TriStar_full_report_REAL.xls")
+F = os.path.join(os.path.dirname(__file__), "data", "SampleASGA2_TriStar_full_report_REAL.xls")
 
 
 @pytest.fixture(scope="module")
@@ -32,7 +32,7 @@ def test_isotherm_is_tabular_report_split_like_instrument(d):
 
 def test_meta_per_report_band_and_decimal_commas(d):
     m = d["meta"]
-    assert m["sample"] == "MOF801SGA2" and m["instrument"] == "TriStar"
+    assert m["sample"] == "SampleASGA2" and m["instrument"] == "TriStar"
     assert float(m["mass_g"]) == pytest.approx(0.0425) and float(m["bath_K"]) == pytest.approx(77.35)
     assert float(m["bet_reported"]) == pytest.approx(335.0806)
     assert float(m["bet_C_reported"]) == pytest.approx(-82.007886)          # BET band, not another report's value
@@ -64,6 +64,6 @@ def test_tplot_matches_report_and_quality_flags(d):
 
 
 def test_synthetic_examples_unaffected():
-    ex = os.path.join(os.path.dirname(os.path.dirname(__file__)), "example_data", "Sorption", "MOF801Hf_3Flex_full_report_EXAMPLE.xls")
+    ex = os.path.join(os.path.dirname(os.path.dirname(__file__)), "example_data", "Sorption", "SampleA_3Flex_full_report_EXAMPLE.xls")
     dd = R.read_sorption(open(ex, "rb"), os.path.basename(ex))
     assert len(dd["iso"]) > 20 and dd["meta"].get("bet_reported")

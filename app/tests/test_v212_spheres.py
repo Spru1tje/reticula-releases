@@ -72,7 +72,7 @@ def test_synthetic_touching_and_overlapping_spheres():
 
 
 def test_cubes_unchanged_by_auto():
-    f = os.path.join(D, "TEM_MOF801_user5_sample1.tif")
+    f = os.path.join(D, "TEM_SampleA_user5_sample1.tif")
     if not os.path.exists(f):
         pytest.skip("cube image missing")
     d = R.read_sem(open(f, "rb"), f); a = d["image"]

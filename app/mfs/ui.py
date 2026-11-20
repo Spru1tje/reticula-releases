@@ -28,7 +28,7 @@ GALLERY = [("01_PXRD_stacked", "PXRD", "Stacked patterns + simulated CIF referen
            ("03_NMR_digest_stacked", "1H NMR (digest)", "¹H NMR: assignment and digested MOFs"),
            ("06_TGA_DTG", "TGA", "TGA + DTG, ash-normalised"),
            ("16_DSC", "DSC", "DSC: onset / peak / ΔH, Tg, exo arrow"),
-           ("14_defects_MOF801", "Defect calculator", "Every defect method side by side"),
+           ("14_defects_SampleA", "Defect calculator", "Every defect method side by side"),
            ("10_SEM_panel", "SEM / TEM / EDX", "SEM/TEM panels with editable scale bars"),
            ("07_GlyGly_kinetics", "Kinetics & adsorption", "GlyGly hydrolysis kinetics"),
            ("13_XPS_Hf4f_Zr3d", "XPS", "Hf 4f / Zr 3d fits"),

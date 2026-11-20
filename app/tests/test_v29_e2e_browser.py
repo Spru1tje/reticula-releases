@@ -99,7 +99,7 @@ def test_particle_picker_click(gurl):
 
 def test_unsaved_dialog_and_restore(gurl, tmp_path):
     from playwright.sync_api import sync_playwright
-    rx = tmp_path / "SmartLab_MOF801.rasx"; rx.write_bytes(_rasx([("Omega", 0, 10, 4.3), ("TwoThetaTheta", 4, 40, 8.6)]))
+    rx = tmp_path / "SmartLab_SampleA.rasx"; rx.write_bytes(_rasx([("Omega", 0, 10, 4.3), ("TwoThetaTheta", 4, 40, 8.6)]))
     with sync_playwright() as p:
         b, pg = _open(p, gurl)
         nav(pg, "PXRD"); _wait_text(pg, "Powder X-ray diffraction")
@@ -120,7 +120,7 @@ def test_unsaved_dialog_and_restore(gurl, tmp_path):
         assert "TGA" in _chip(pg)
         nav(pg, "PXRD"); _wait_text(pg, "kept from earlier", 120000); pg.wait_for_timeout(3000)
         m = _noexc(pg, "PXRD restored")
-        assert "SmartLab_MOF801.rasx" in m and "Rigaku SmartLab" in m
+        assert "SmartLab_SampleA.rasx" in m and "Rigaku SmartLab" in m
         _shot(pg, "v29_pxrd_restored.png")
         # change a setting, leave → Don't save → back: reverted to the saved state (file still there)
         pg.get_by_text("Show reflection sticks").first.click(); pg.wait_for_timeout(2500)
@@ -130,13 +130,13 @@ def test_unsaved_dialog_and_restore(gurl, tmp_path):
         assert "XPS" in _chip(pg)
         nav(pg, "PXRD"); _wait_text(pg, "Show reflection sticks"); pg.wait_for_timeout(3000)
         cb = pg.locator("[data-testid='stCheckbox']").filter(has_text="Show reflection sticks").first.locator("input")
-        assert cb.is_checked() and "SmartLab_MOF801.rasx" in _main(pg)
+        assert cb.is_checked() and "SmartLab_SampleA.rasx" in _main(pg)
         # the defect calculator still sees data entered on other pages
         nav(pg, "TGA"); pg.wait_for_timeout(8000)
         nav(pg, "Defect calculator"); _wait_text(pg, "Pull data for sample"); pg.wait_for_timeout(3000)
         _noexc(pg, "defects")
         from test_sem_e2e_browser import _select
-        _select(pg, "Pull data for sample", "MOF-801(Hf)")
+        _select(pg, "Pull data for sample", "Sample A")
         _wait_text(pg, "Pulled for"); pg.wait_for_timeout(3000)
         m = _noexc(pg, "defects pulled"); assert "Linkers / node" in m
         _log("dialog: cancel/save/don't-save ok; upload restored; defect calculator sees the store")
@@ -163,7 +163,7 @@ def test_uvvis_page(gurl):
 def test_v210_real_tem_numbers_and_shape_prior(gurl):
     """v2.10 on the user's TEM image: clean overlay (numbers hidden, toggle), shape prior off → on (dotted splits, panel)."""
     from playwright.sync_api import sync_playwright
-    tif = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "TEM_MOF801_user5_sample1.tif")
+    tif = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "TEM_SampleA_user5_sample1.tif")
     with sync_playwright() as p:
         b, pg = _open(p, gurl)
         nav(pg, "SEM / TEM"); _wait_text(pg, "Particle sizing", 180000); pg.wait_for_timeout(4000)
@@ -171,7 +171,7 @@ def test_v210_real_tem_numbers_and_shape_prior(gurl):
         for _ in range(240):                                      # the TEM image replaces the bundled examples
             pg.wait_for_timeout(1000)
             t_ = _main(pg)
-            if "TEM_MOF801_user5_sample1" in t_ and "Particle sizing" in t_ and "Running" not in t_:
+            if "TEM_SampleA_user5_sample1" in t_ and "Particle sizing" in t_ and "Running" not in t_:
                 break
         pg.wait_for_timeout(5000)
         fr = pg.frame_locator("iframe[title*='particle_picker']").first

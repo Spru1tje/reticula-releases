@@ -5,10 +5,10 @@ from mfs import readers as R, semcal
 
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "olympus_sis")
 #            file                   bar px  label nm  metadata nm/px          magnification
-TRUTH = {"60K_MOF801SGC6.tif":  (354, 200.0, 1.55075160758898, 60000),
-         "100K_MOF801SGC6.tif": (322, 500.0, 0.8733188801503962, 100000),
+TRUTH = {"60K_SampleASGC6.tif":  (354, 200.0, 1.55075160758898, 60000),
+         "100K_SampleASGC6.tif": (322, 500.0, 0.8733188801503962, 100000),
          "120K_MOFSGDC.tif":    (248, 2000.0, 0.7167629607361451, 120000),
-         "250K_MOF801SGDC.tif": (279, 200.0, 0.33103385433308367, 250000)}
+         "250K_SampleASGDC.tif": (279, 200.0, 0.33103385433308367, 250000)}
 needs_ocr = pytest.mark.skipif(not semcal.ocr_available(), reason="Tesseract not installed")
 
 
@@ -48,5 +48,5 @@ def test_stale_bar_detected_across_images():
     info = {f: {"meta": pix, "bar": nm / L, "label": f"{nm:g} nm", "bar_px": L} for f, (L, nm, pix, mag) in TRUTH.items()}
     notes = semcal.stale_bar_notes(info)
     assert len(notes) == 4
-    assert any("100K_MOF801SGC6.tif" in n.split(":")[0] and "60K_MOF801SGC6.tif" in n.split("matches")[1] for n in notes if "matches" in n)
+    assert any("100K_SampleASGC6.tif" in n.split(":")[0] and "60K_SampleASGC6.tif" in n.split("matches")[1] for n in notes if "matches" in n)
     assert any(n.startswith("**250K") and "120K_MOFSGDC.tif" in n for n in notes)

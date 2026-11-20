@@ -32,6 +32,14 @@ def _spectra_from(files):
                 out.append(s)
         except Exception as e:
             st.error(f"{f.name}: {e}")
+    if len(out) > 1 and len({s["name"] for s in out}) == len(out):      # v2.18.5: one series in several files -> the part that differs (e.g. 20C … 50C)
+        short = PL._short_names([s["name"] for s in out])
+        if len(set(short)) == len(short):
+            for s, sh in zip(out, short):
+                s.setdefault("meta", {}).setdefault("full_name", s["name"])
+                if PL.parse_temperature(sh)[0] is not None or PL.parse_temperature(s["T_text"])[0] is None:
+                    s["T_text"] = sh
+                s["name"] = sh
     return out
 
 
@@ -338,7 +346,11 @@ def render(g):
     _exc = next((s_.get("meta", {}).get("excitation_nm") for s_ in spectra if s_.get("meta", {}).get("excitation_nm")), None)
     with st.expander("✂️ Remove the excitation line (scattered light)", expanded=False):
         e1, e2, e3 = st.columns(3)
-        exc = e1.number_input("Excitation wavelength (nm, 0 = none)", 0.0, 3000.0, float(_exc or 0.0), 1.0, key="pl_exc",
+        # v2.18.5: never pre-filled from the file - the 'Fixed/Offset' value of an emission scan is the excitation monochromator position, which with an external laser
+        # (or at the start of the scan range) is not the excitation wavelength; cutting there would remove real emission
+        if _exc:
+            e1.caption(f"The file gives {float(_exc):.0f} nm as the excitation / offset position – type it below only if it is the real excitation wavelength.")
+        exc = e1.number_input("Excitation wavelength (nm, 0 = none)", 0.0, 3000.0, 0.0, 1.0, key="pl_exc",
                               help="Scattered excitation light and its second grating order (2 × λ) are cut out of every spectrum before anything else.")
         half = e2.number_input("Half-width of the cut (nm)", 0.5, 50.0, 5.0, 0.5, key="pl_exc_hw")
         sec = e3.checkbox("Also the second order (2 × λ)", True, key="pl_exc_2nd")
@@ -358,6 +370,12 @@ def render(g):
     unit = c1.radio("Plain numbers in headers are", ["auto", "K", "°C"], horizontal=True, key="pl_unit")
     tk = PL.to_kelvin([PL.parse_temperature(s["T_text"]) for s in spectra], {"auto": "auto", "K": "K", "°C": "C"}[unit])
     tkey = hashlib.md5("|".join(s["file"] + s["name"] for s in spectra).encode()).hexdigest()[:8] + unit
+    # v2.18.5: window and range widgets keep values from the PREVIOUS data set otherwise (e.g. a 505-580 nm window from the thermometry example integrated
+    # nothing of the 450 nm band of the quenching example -> negative intensities). When the file set changes, they return to the full range.
+    if st.session_state.get("_pl_src") != tkey:
+        for _k in ("pl_win", "pl_b1", "pl_b2", "pl_fitwin", "pl_reg", "pl_rng", "pl_pick_msg"):
+            st.session_state.pop(_k, None)
+        st.session_state["_pl_src"] = tkey
     tab0 = pd.DataFrame({"use": True, "spectrum": [s["name"] for s in spectra], "T (K)": [None if t is None else round(t, 2) for t in tk]})
     if len(spectra) > 12:
         c2.caption(f"{len(spectra)} spectra found.")
@@ -382,6 +400,9 @@ def render(g):
     norm = p3.selectbox("Normalisation", ["none (counts)", "max", "area", "to the lowest temperature"] + (["per second (dwell time × scans)"] if has_dwell else []), key="pl_norm",
                         help="Per second: divides by the dwell / integration time (and the number of scans) read from the files, so series measured with different settings can be compared.")
     sm = p4.slider("Smoothing (points)", 0, 31, 0, 2, key="pl_sm", help="Savitzky–Golay, order 3; 0 = none")
+    from mfs.pl_thermo import clamp_range
+    for _k in ("pl_rng", "pl_reg", "pl_win"):                       # v2.18.5: stored ranges from earlier data must fit the new data
+        clamp_range(_k, wl_lo, wl_hi)
     rng = st.slider("Wavelength range (nm)", wl_lo, wl_hi, (wl_lo, wl_hi), 0.5, key="pl_rng")
     reg = None
     if base.startswith("Constant: mean"):
@@ -468,6 +489,7 @@ def render(g):
         st.caption("Integrated intensity in a window → thermal quenching: I(T) = I₀ / (1 + A·exp(−Eₐ/k_BT)), Eₐ the activation energy, "
                    "T₅₀ = Eₐ/(k_B ln A) the temperature at which the intensity has halved. The Arrhenius plot ln(I₀/I − 1) vs 1/T "
                    "is a straight line of slope −Eₐ/k_B.")
+        clamp_range("pl_win", float(rng[0]), float(rng[1]))
         w = st.slider("Integration window (nm)", rng[0], rng[1], rng, 0.5, key="pl_win")
         I_T = np.array([PL.band_integral(p["wl_c"], p["y_c"], w[0], w[1], "linear") for p in t_order])
         pos = np.array([PL.peak_stats(p["wl_c"], p["y_c"], w[0], w[1])["pos"] for p in t_order])

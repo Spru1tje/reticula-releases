@@ -44,7 +44,7 @@ def test_figure_controls_in_app():
 def test_scalebar_controls_in_app():
     import hashlib
     at = _goto("SEM / TEM / EDX")
-    hk = "sem_" + hashlib.md5("MOF-801_SEM.tif".encode()).hexdigest()[:8]
+    hk = "sem_" + hashlib.md5("SampleA_SEM.tif".encode()).hexdigest()[:8]
     at.selectbox(key=f"{hk}_pre").set_value("1 µm").run(); _ok(at)
     assert any("label '1 µm'" in c.value for c in at.caption)
     at.radio(key=f"{hk}_mode").set_value("length (bar size)").run(); _ok(at)

@@ -8,8 +8,8 @@ from matplotlib.ticker import FixedLocator, MultipleLocator
 from mfs import readers as R, analysis as A, plots as P, style as S, figctl as F
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FULL = os.path.join(ROOT, "example_data", "Sorption", "MOF801Hf_3Flex_full_report_EXAMPLE.xls")
-MULTI = os.path.join(ROOT, "tests", "data", "MOF801Hf_3Flex_full_report_multisheet_EXAMPLE.xls")
+FULL = os.path.join(ROOT, "example_data", "Sorption", "SampleA_3Flex_full_report_EXAMPLE.xls")
+MULTI = os.path.join(ROOT, "tests", "data", "SampleA_3Flex_full_report_multisheet_EXAMPLE.xls")
 DATA = os.path.join(ROOT, "tests", "data")
 
 
@@ -24,7 +24,7 @@ def test_full_report_uses_only_isotherm_tabular(path):
     assert np.all(np.diff(de.p_rel) < 0), "desorption must decrease in measurement order"
     assert 110 < iso.q.max() < 120 and iso.q.min() > 0.3   # cm3/g STP, the mmol/g log-plot table is NOT mixed in
     m = d["meta"]
-    assert m["sample"] == "MOF-801(Hf) batch 3" and float(m["mass_g"]) == pytest.approx(0.0473)
+    assert m["sample"] == "Sample A batch 3" and float(m["mass_g"]) == pytest.approx(0.0473)
     assert float(m["bet_reported"]) == pytest.approx(335.08) and m["bet_reported_range"] == (0.05, 0.3)
     kinds = [t["kind"] for t in d["tables"]]
     assert {"iso_tabular", "bet", "langmuir", "tplot", "iso_plot", "psd"} <= set(kinds)
@@ -101,7 +101,7 @@ def test_isotherm_plot_measurement_order_and_single_legend():
 def _fig():
     fig, ax = S.new_figure()
     x = np.linspace(0, 1, 50)
-    ax.plot(x, 100 * x, label="MOF-801(Hf)"); ax.plot(x, 50 * x, label="PM"); ax.legend()
+    ax.plot(x, 100 * x, label="Sample A"); ax.plot(x, 50 * x, label="PM"); ax.legend()
     ax.set_xlabel("Relative pressure"); ax.set_ylabel(r"Quantity adsorbed (cm$^3$ g$^{-1}$ STP)")
     return fig, ax
 
@@ -181,7 +181,7 @@ def test_legend_rename_hide_reorder_outside_and_style():
     cfg = F.default_settings()
     cfg["legend"].update(custom=True, loc="outside right", ncol=2, frame=True, markerscale=2.0, fontsize=6, title="Samples",
                          entries=[{"label": "PM", "text": "physical mixture", "show": True},
-                                  {"label": "MOF-801(Hf)", "text": "MOF-801(Hf)", "show": False}])
+                                  {"label": "Sample A", "text": "Sample A", "show": False}])
     F.apply(fig, cfg)
     lg = ax.get_legend()
     assert [t.get_text() for t in lg.get_texts()] == ["physical mixture"]
@@ -203,7 +203,7 @@ def test_every_legend_position(loc):
 
 def test_direct_labels_renamed_and_stacked_y_stays_hidden():
     fig, ax = S.new_figure()
-    P.draw_stacked(ax, [("MOF-801(Hf)", np.linspace(5, 50, 100), np.random.rand(100)), ("PM", np.linspace(5, 50, 100), np.random.rand(100))], kind="pxrd")
+    P.draw_stacked(ax, [("Sample A", np.linspace(5, 50, 100), np.random.rand(100)), ("PM", np.linspace(5, 50, 100), np.random.rand(100))], kind="pxrd")
     cfg = F.default_settings(); cfg["legend"]["entries"] = [{"label": "PM", "text": "physical mix", "show": True}]
     F.apply(fig, cfg)
     assert "physical mix" in [t.get_text() for t in ax.texts]
@@ -231,11 +231,11 @@ def test_presets_json_roundtrip_and_house_style():
 
 
 def test_series_colour_override_everywhere(example_colour_rules):
-    S.set_series_colours({"MOF-801(Hf)": "#ff00ff"})
+    S.set_series_colours({"Sample A": "#ff00ff"})
     try:
-        assert S.colours_for(["MOF-801(Hf)", "PM"]) == ["#ff00ff", "#CC79A7"]
+        assert S.colours_for(["Sample A", "PM"]) == ["#ff00ff", "#CC79A7"]
         fig, ax = S.new_figure()
-        P.draw_overlay(ax, [("MOF-801(Hf)", [0, 1], [0, 1])], "x", "y")
+        P.draw_overlay(ax, [("Sample A", [0, 1], [0, 1])], "x", "y")
         assert ax.lines[0].get_color() == "#ff00ff"
         plt.close(fig)
     finally:
@@ -243,7 +243,7 @@ def test_series_colour_override_everywhere(example_colour_rules):
 
 
 def test_duplicate_family_does_not_steal_colours(example_colour_rules):
-    c = S.colours_for(["MOF-801(Hf) batch 3", "MOF-801(Hf)", "PM", "Sulfo-MOF-801(Hf)", "ZrO$_2$@Sulfo", "ZrO$_2$"])
+    c = S.colours_for(["Sample A batch 3", "Sample A", "PM", "Sample B", "Sample C", "ZrO$_2$"])
     assert c[2:] == ["#CC79A7", "#0072B2", "#D55E00", "#E69F00"] and len(set(c)) == 6
 
 

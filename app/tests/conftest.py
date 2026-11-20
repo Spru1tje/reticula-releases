@@ -31,8 +31,8 @@ def example_colour_rules():
 # ---- private fixtures -------------------------------------------------------------------------------------------
 # Real measurements (TEM images, a TriStar report) are NOT part of the public repository. Tests that need them are
 # skipped when the files are absent; drop the files into tests/data/ to run them locally.
-PRIVATE_FIXTURES = ("TEM_MOF801_user5", "TEM_SiO2NH2_user6", "olympus_sis", "TriStar_full_report_REAL")
-_PRIVATE_MODULES = {"test_real_tristar_n2": "MOF801SGA2_TriStar_full_report_REAL.xls", "test_real_olympus_tem": "olympus_sis"}
+PRIVATE_FIXTURES = ("TEM_SampleA_user5", "TEM_SiO2NH2_user6", "olympus_sis", "TriStar_full_report_REAL")
+_PRIVATE_MODULES = {"test_real_tristar_n2": "SampleASGA2_TriStar_full_report_REAL.xls", "test_real_olympus_tem": "olympus_sis"}
 
 
 def _private_missing(token):

@@ -9,7 +9,7 @@ SECTIONS = ("tga", "nmr", "icp", "xrf", "xps", "sem", "n2", "pxrd", "kinetics", 
 
 
 def norm_id(name: str) -> str:
-    """'ZrO$_2$@Sulfo-MOF-801 (2)' -> 'zro2sulfomof801(2)': case, spaces, TeX and punctuation are ignored."""
+    """'Sample C (2)' -> 'zro2sulfomof801(2)': case, spaces, TeX and punctuation are ignored."""
     s = re.sub(r"\$|_\{?|\}|\\mathrm|\\", "", str(name or "")).lower()
     return re.sub(r"[^a-z0-9()@]+", "", s)
 

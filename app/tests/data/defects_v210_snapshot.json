@@ -1,5 +1,5 @@
 {
-"defect_input_MOF801.json|Hf": {
+"defect_input_SampleA.json|Hf": {
 "a": {
 "Cl": 0.0,
 "L": 5.216056797,
@@ -166,7 +166,7 @@
 "x": 0.980820251
 }
 },
-"defect_input_MOF801.json|Hf|MOF-808": {
+"defect_input_SampleA.json|Hf|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 5.216056797,
@@ -333,7 +333,7 @@
 "x": -2.019179749
 }
 },
-"defect_input_MOF801.json|Hf|NU-1000": {
+"defect_input_SampleA.json|Hf|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 5.216056797,
@@ -500,7 +500,7 @@
 "x": -1.019179749
 }
 },
-"defect_input_MOF801.json|Hf|UiO-66": {
+"defect_input_SampleA.json|Hf|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 5.216056797,
@@ -667,7 +667,7 @@
 "x": 0.980820251
 }
 },
-"defect_input_MOF801.json|Zr": {
+"defect_input_SampleA.json|Zr": {
 "a": {
 "Cl": 0.0,
 "L": 3.053537259,
@@ -834,7 +834,7 @@
 "x": 0.594912456
 }
 },
-"defect_input_MOF801.json|Zr|MOF-808": {
+"defect_input_SampleA.json|Zr|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 3.053537259,
@@ -1001,7 +1001,7 @@
 "x": -2.405087544
 }
 },
-"defect_input_MOF801.json|Zr|NU-1000": {
+"defect_input_SampleA.json|Zr|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 3.053537259,
@@ -1168,7 +1168,7 @@
 "x": -1.405087544
 }
 },
-"defect_input_MOF801.json|Zr|UiO-66": {
+"defect_input_SampleA.json|Zr|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 3.053537259,
@@ -1335,7 +1335,7 @@
 "x": 0.594912456
 }
 },
-"defect_input_MOF801.json|mixed": {
+"defect_input_SampleA.json|mixed": {
 "a": {
 "Cl": 0.0,
 "L": 3.702293121,
@@ -1502,7 +1502,7 @@
 "x": 0.710684794
 }
 },
-"defect_input_MOF801.json|mixed|MOF-808": {
+"defect_input_SampleA.json|mixed|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 3.702293121,
@@ -1669,7 +1669,7 @@
 "x": -2.289315206
 }
 },
-"defect_input_MOF801.json|mixed|NU-1000": {
+"defect_input_SampleA.json|mixed|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 3.702293121,
@@ -1836,7 +1836,7 @@
 "x": -1.289315206
 }
 },
-"defect_input_MOF801.json|mixed|UiO-66": {
+"defect_input_SampleA.json|mixed|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 3.702293121,
@@ -2003,7 +2003,7 @@
 "x": 0.710684794
 }
 },
-"defect_input_Sulfo-MOF801.json|Hf": {
+"defect_input_SampleB.json|Hf": {
 "a": {
 "Cl": 0.0,
 "L": 4.699490374,
@@ -2164,7 +2164,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Hf|MOF-808": {
+"defect_input_SampleB.json|Hf|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 4.699490374,
@@ -2325,7 +2325,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Hf|NU-1000": {
+"defect_input_SampleB.json|Hf|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 4.699490374,
@@ -2486,7 +2486,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Hf|UiO-66": {
+"defect_input_SampleB.json|Hf|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 4.699490374,
@@ -2647,7 +2647,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Zr": {
+"defect_input_SampleB.json|Zr": {
 "a": {
 "Cl": 0.0,
 "L": 2.75113357,
@@ -2808,7 +2808,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Zr|MOF-808": {
+"defect_input_SampleB.json|Zr|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 2.75113357,
@@ -2969,7 +2969,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Zr|NU-1000": {
+"defect_input_SampleB.json|Zr|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 2.75113357,
@@ -3130,7 +3130,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|Zr|UiO-66": {
+"defect_input_SampleB.json|Zr|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 2.75113357,
@@ -3291,7 +3291,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|mixed": {
+"defect_input_SampleB.json|mixed": {
 "a": {
 "Cl": 0.0,
 "L": 3.335640611,
@@ -3452,7 +3452,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|mixed|MOF-808": {
+"defect_input_SampleB.json|mixed|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 3.335640611,
@@ -3613,7 +3613,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|mixed|NU-1000": {
+"defect_input_SampleB.json|mixed|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 3.335640611,
@@ -3774,7 +3774,7 @@
 "x": null
 }
 },
-"defect_input_Sulfo-MOF801.json|mixed|UiO-66": {
+"defect_input_SampleB.json|mixed|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 3.335640611,
@@ -3935,7 +3935,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Hf": {
+"defect_input_SampleC.json|Hf": {
 "a": {
 "Cl": 0.0,
 "L": 4.719736405,
@@ -4096,7 +4096,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Hf|MOF-808": {
+"defect_input_SampleC.json|Hf|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 4.719736405,
@@ -4257,7 +4257,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Hf|NU-1000": {
+"defect_input_SampleC.json|Hf|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 4.719736405,
@@ -4418,7 +4418,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Hf|UiO-66": {
+"defect_input_SampleC.json|Hf|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 4.719736405,
@@ -4579,7 +4579,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Zr": {
+"defect_input_SampleC.json|Zr": {
 "a": {
 "Cl": 0.0,
 "L": 2.76298582,
@@ -4740,7 +4740,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Zr|MOF-808": {
+"defect_input_SampleC.json|Zr|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 2.76298582,
@@ -4901,7 +4901,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Zr|NU-1000": {
+"defect_input_SampleC.json|Zr|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 2.76298582,
@@ -5062,7 +5062,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|Zr|UiO-66": {
+"defect_input_SampleC.json|Zr|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 2.76298582,
@@ -5223,7 +5223,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|mixed": {
+"defect_input_SampleC.json|mixed": {
 "a": {
 "Cl": 0.0,
 "L": 3.350010995,
@@ -5384,7 +5384,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|mixed|MOF-808": {
+"defect_input_SampleC.json|mixed|MOF-808": {
 "a": {
 "Cl": 0.0,
 "L": 3.350010995,
@@ -5545,7 +5545,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|mixed|NU-1000": {
+"defect_input_SampleC.json|mixed|NU-1000": {
 "a": {
 "Cl": 0.0,
 "L": 3.350010995,
@@ -5706,7 +5706,7 @@
 "x": null
 }
 },
-"defect_input_ZrO2@Sulfo-MOF801.json|mixed|UiO-66": {
+"defect_input_SampleC.json|mixed|UiO-66": {
 "a": {
 "Cl": 0.0,
 "L": 3.350010995,

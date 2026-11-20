@@ -35,7 +35,7 @@ def test_xps_backgrounds_doublets_atomic():
     f = X.fit(x, y, [{"name": "S", "region": "S 2p", "center": 168.4}], "linear")
     r = f["rows"][0]
     assert abs(r["BE major (eV)"] - 168.6) < 0.01 and abs(r["area (total)"] - 1500) < 30 and abs(r["BE minor (eV)"] - r["BE major (eV)"] - 1.18) < 1e-9
-    d = R.read_xps(os.path.join(EX, "XPS", "ZrO2@Sulfo-MOF801_S2p_CasaXPS.csv"), "S2p.csv")
+    d = R.read_xps(os.path.join(EX, "XPS", "SampleC_S2p_CasaXPS.csv"), "S2p.csv")
     assert X.guess_region(d.x.values) == "S 2p"
     fs = X.fit(d.x.values, d.y.values, [{"name": "S", "region": "S 2p", "center": 168.5}], "shirley")
     assert abs(fs["rows"][0]["area (total)"] - 2250) / 2250 < 0.03
@@ -50,11 +50,11 @@ def test_xps_backgrounds_doublets_atomic():
 
 def test_tga_steps_ms():
     from mfs import readers as R, analysis as A, tga as TG
-    t = R.read_tga(os.path.join(EX, "TGA", "MOF801_Netzsch.txt"), "MOF801_Netzsch.txt"); a = A.tga_analysis(t["T"], t["w"], 21)
+    t = R.read_tga(os.path.join(EX, "TGA", "SampleA_Netzsch.txt"), "SampleA_Netzsch.txt"); a = A.tga_analysis(t["T"], t["w"], 21)
     st = TG.steps(a, 1.0)
     assert len(st) == 3 and abs(sum(s["loss"] for s in st) - (a["W_initial"] - a["W_end"])) < 0.5
     assert 450 < st[-1]["T_peak"] < 550
-    ms = TG.read_ms(os.path.join(EX, "TGA", "MOF801_QMS_ion_currents_EXAMPLE.csv"))
+    ms = TG.read_ms(os.path.join(EX, "TGA", "SampleA_QMS_ion_currents_EXAMPLE.csv"))
     assert {"T", "m/z 18", "m/z 44", "m/z 28"} <= set(ms.columns)
     assert abs(ms["T"][ms["m/z 44"].idxmax()] - 504) < 5
 

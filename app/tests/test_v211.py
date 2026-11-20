@@ -69,7 +69,7 @@ def test_samplelist_logic():
     it2 = SL.merge(it, ["c.xy", "a.xy", "e.xy"], ["C", "A", "E"])   # keep order, drop removed, append new
     assert [o["id"] for o in it2] == ["c.xy", "a.xy", "e.xy"]
     assert SL.merge(None, list("abcdef"), list("abcdef"), max_shown=4)[4]["show"] is False
-    assert SL.plain("ZrO$_2$@Sulfo") == "ZrO2@Sulfo"
+    assert SL.plain("Sample C") == "Sample C"          # v2.18.5: masked example name
 
 
 def test_samplelist_component_bundled_offline():
@@ -103,7 +103,7 @@ def test_sample_order_drives_stack_and_legend():
 # ----------------------------------------------------------------------------- M4 shape model in the UI + batch
 def test_batch_particles_adaptive_and_shape_model():
     from mfs import batchproc as BP
-    f = os.path.join(ROOT, "example_data", "SEM", "MOF-801_SEM.tif")
+    f = os.path.join(ROOT, "example_data", "SEM", "SampleA_SEM.tif")
     z0, l0 = BP.run("SEM/TEM particles", [(f, f)], formats=("png",), dpi=80, particle_opts=dict(dark=False))
     z1, l1 = BP.run("SEM/TEM particles", [(f, f)], formats=("png",), dpi=80, particle_opts=dict(dark=False, shape_prior=True))
     assert l0[0]["status"] == "ok" and 15 <= l0[0]["N"] <= 40 and l0[0]["shape-model splits"] == 0

@@ -149,7 +149,7 @@ def draw_isotherms(ax, isos, logx=False, legend=True, ms=3.0, ylim=None):
         from matplotlib.lines import Line2D
         h, l = ax.get_legend_handles_labels()
         # matplotlib fills legend columns top-to-bottom: put the longest labels in the left column so the
-        # right column never runs past the axes frame (e.g. "ZrO2@Sulfo-MOF-801(Hf)")
+        # right column never runs past the axes frame (e.g. "Sample C")
         vis = [len(re.sub(r"[$_{}\\]|mathrm", "", t)) for t in l]
         nleft = math.ceil(len(l) / 2)
         longest = set(sorted(range(len(l)), key=lambda i: -vis[i])[:nleft])

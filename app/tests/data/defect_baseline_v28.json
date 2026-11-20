@@ -1,5 +1,5 @@
 {
- "defect_input_MOF801.json": [
+ "defect_input_SampleA.json": [
   {
    "method": "(a) TGA plateau, M-400 (Valenzano 2011 / Shearer 2014)",
    "key": "a",
@@ -141,14 +141,14 @@
    "note": "L range 5.02–5.55, SD 0.16"
   }
  ],
- "defect_input_MOF801.json::consensus": [
+ "defect_input_SampleA.json::consensus": [
   "Linkers / node (median)=5.20",
   "Missing linkers / node=0.80",
   "Caps / node=0.83",
   "Open sites / node=0.67",
   "M per node (g mol⁻¹)=1862.2"
  ],
- "defect_input_Sulfo-MOF801.json": [
+ "defect_input_SampleB.json": [
   {
    "method": "(a) TGA plateau, M-400 (Valenzano 2011 / Shearer 2014)",
    "key": "a",
@@ -290,14 +290,14 @@
    "note": "L range 4.50–4.70, SD 0.07"
   }
  ],
- "defect_input_Sulfo-MOF801.json::consensus": [
+ "defect_input_SampleB.json::consensus": [
   "Linkers / node (median)=4.67",
   "Missing linkers / node=1.33",
   "Caps / node=0.55",
   "Open sites / node=0.80",
   "M per node (g mol⁻¹)=1912.0"
  ],
- "defect_input_ZrO2@Sulfo-MOF801.json": [
+ "defect_input_SampleC.json": [
   {
    "method": "(a) TGA plateau, M-400 (Valenzano 2011 / Shearer 2014)",
    "key": "a",
@@ -439,22 +439,15 @@
    "note": "L range 4.65–4.81, SD 0.06"
   }
  ],
- "defect_input_ZrO2@Sulfo-MOF801.json::consensus": [
+ "defect_input_SampleC.json::consensus": [
   "Linkers / node (median)=4.69",
   "Missing linkers / node=1.31",
   "Caps / node=0.50",
   "Open sites / node=0.79",
   "M per node (g mol⁻¹)=1914.0"
  ],
- "_store_ids": [
-  "MOF-801(Hf)",
-  "MOF-801(Hf) batch 3 (3Flex report)",
-  "PM",
-  "Sulfo-MOF-801(Hf)",
-  "ZrO2",
-  "ZrO2@Sulfo-MOF-801(Hf)"
- ],
- "pulled::MOF-801(Hf)": [
+ "_store_ids": ["PM", "Sample A", "Sample B", "Sample C", "SampleA_3Flex_MicroActive", "SampleA_3Flex_full_report_EXAMPLE", "SampleA_Netzsch", "SampleA_digest_totxt", "SampleB_3Flex_MicroActive", "SampleB_TA_UniversalAnalysis", "SampleB_digest_totxt", "SampleC_3Flex_MicroActive", "SampleC_Mettler_STARe", "SampleC_digest_totxt", "ZrO2"],
+ "pulled::Sample A": [
   {
    "method": "(a) TGA plateau, M-400 (Valenzano 2011 / Shearer 2014)",
    "key": "a",

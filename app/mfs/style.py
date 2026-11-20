@@ -33,11 +33,11 @@ OKABE_ITO = ["#000000", "#0072B2", "#E69F00", "#009E73", "#D55E00",
 # default - samples simply take the palette colours in list order, and users add their own rules in the sidebar.
 # EXAMPLE_SAMPLE_COLOURS is the rule set for the bundled MOF-801 example data (one click in the sidebar loads it).
 EXAMPLE_SAMPLE_COLOURS = [
-    (r"zro2\s*@|@.*zro2|composite|zro2.?sulfo", "#D55E00"),   # composite  - vermillion
+    (r"zro2\s*@|@.*zro2|composite|zro2.?sulfo|^sample\s*c\b", "#D55E00"),   # composite / Sample C (masked example name) - vermillion
     (r"\bpm\b|physical\s*mix|phys\.?\s*mix|mixture", "#CC79A7"),  # physical mixture - purple
-    (r"sulfo|so3h|sulfonat", "#0072B2"),                      # Sulfo-MOF-801 - blue
+    (r"sulfo|so3h|sulfonat|^sample\s*b\b", "#0072B2"),        # Sample B - blue
     (r"^zro2|zro2\s*(np|nano|colloid|only)?$|zirconia", "#E69F00"),  # ZrO2 - orange
-    (r"mof.?801|parent|pristine|hf.?mof|^uio|^nu", "#000000"),  # parent - black
+    (r"mof.?801|parent|pristine|hf.?mof|^uio|^nu|^sample\s*a\b", "#000000"),  # parent / Sample A - black
     (r"sim|calc|reference|ref\b|ccdc|cod", "#7F7F7F"),        # simulated - grey
 ]
 _extra = ["#009E73", "#56B4E9", "#F0E442", "#882255", "#44AA99", "#999933"]

@@ -76,7 +76,7 @@ def test_real_laboratory_pattern_is_identified_as_fluorapatite():
 
 def test_example_data_mof801():
     from mfs import readers as R
-    f = os.path.join(EX, "PXRD", "MOF801_STOE.xy")
+    f = os.path.join(EX, "PXRD", "SampleA_STOE.xy")
     d = R.read_pxrd(open(f, "rb"), f)
     r = PID.match(d.x.values, d.y.values)
     assert r and r[0]["name"].startswith("MOF-801") and r[0]["score"] > 0.8

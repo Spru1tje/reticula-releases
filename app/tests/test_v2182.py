@@ -15,23 +15,23 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 from mfs import readers as R, summary as SM  # noqa: E402
 
-# Real 8.02 .dts files are lab data and are not in the repo: point MFS_TEST_DTS_MUA / MFS_TEST_DTS_ZRO2 at them to run the value checks.
-DTS_MUA = os.environ.get("MFS_TEST_DTS_MUA")
-DTS_ZRO2 = os.environ.get("MFS_TEST_DTS_ZRO2")
+# Real 8.02 .dts files are lab data and are not in the repo: point MFS_TEST_DTS_A / MFS_TEST_DTS_B at them to run the value checks.
+DTS_A = os.environ.get("MFS_TEST_DTS_A")
+DTS_B = os.environ.get("MFS_TEST_DTS_B")
 
 
-@pytest.mark.skipif(not DTS_MUA, reason="set MFS_TEST_DTS_MUA to 040626-ll-MUA.dts")
+@pytest.mark.skipif(not DTS_A, reason="set MFS_TEST_DTS_A to a DLS .dts file (software 8.02)")
 def test_dts_mua_z_average_and_pdi_as_stored():
-    z = R.read_zetasizer(open(DTS_MUA, "rb").read(), "040626-ll-MUA.dts")
+    z = R.read_zetasizer(open(DTS_A, "rb").read(), "dls_A.dts")
     s = z["summary"].sort_values("run")
     assert list(s["z_avg"].round(1)) == [167.0, 166.0, 166.3]
     assert list(s["pdi"].round(3)) == [0.139, 0.133, 0.126]
     assert "8.02" in z["note"]
 
 
-@pytest.mark.skipif(not DTS_ZRO2, reason="set MFS_TEST_DTS_ZRO2 to ZrO2-HfMOF801_XL.dts")
+@pytest.mark.skipif(not DTS_B, reason="set MFS_TEST_DTS_B to a second DLS .dts file")
 def test_dts_zro2_z_average_and_pdi_as_stored():
-    z = R.read_zetasizer(open(DTS_ZRO2, "rb").read(), "ZrO2-HfMOF801_XL.dts")
+    z = R.read_zetasizer(open(DTS_B, "rb").read(), "dls_B.dts")
     s = z["summary"].sort_values("run")
     assert list(s["z_avg"].round(0)) == [2238.0, 2363.0, 2219.0]
     assert list(s["pdi"].round(3)) == [0.155, 0.527, 0.631]
@@ -40,9 +40,9 @@ def test_dts_zro2_z_average_and_pdi_as_stored():
 DTS_ZETA = os.environ.get("MFS_TEST_DTS_ZETA")
 
 
-@pytest.mark.skipif(not DTS_ZETA, reason="set MFS_TEST_DTS_ZETA to 2026-10-08.dts")
+@pytest.mark.skipif(not DTS_ZETA, reason="set MFS_TEST_DTS_ZETA to a .dts file with zeta-potential records")
 def test_dts_zeta_records_equal_the_zeta_reports():
-    z = R.read_zetasizer(open(DTS_ZETA, "rb").read(), "2026-10-08.dts")
+    z = R.read_zetasizer(open(DTS_ZETA, "rb").read(), "zeta.dts")
     s = z["summary"]
     assert len(s) == 11
     r2 = s[(s["sample"] == "LE101-mPEG") & (s["run"] == 2)].iloc[0]          # Zeta Potential Report of record 2

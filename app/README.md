@@ -200,9 +200,9 @@ On the synthetic examples the calculator recovers the compositions used to gener
 
 | Sample | Designed L | Consensus L (range) |
 |---|---|---|
-| MOF-801(Hf) | 5.2 | 5.20 (5.02–5.55, 7 methods) |
-| Sulfo-MOF-801(Hf) | 4.7 | 4.67 (4.50–4.70) |
-| ZrO₂@Sulfo-MOF-801(Hf) | 4.7 | 4.69 (4.65–4.81) |
+| Sample A | 5.2 | 5.20 (5.02–5.55, 7 methods) |
+| Sample B | 4.7 | 4.67 (4.50–4.70) |
+| Sample C | 4.7 | 4.69 (4.65–4.81) |
 
 ## 5. Limitations and caveats
 
@@ -212,7 +212,7 @@ On the synthetic examples the calculator recovers the compositions used to gener
 - **MicroActive `.SMP/.QPS`** files are not readable. Use the Excel export.
 - **VAMAS** support is minimal (single-block regions).
 - **SEM pixel size.** The calibration panel compares the file metadata with the scale bar burned into the info strip (measured + OCR of its label) and the magnification. Without metadata the detected scale bar is used; if it cannot be read, click the two bar ends ("scale bar (mark ends)") and type the value. The 127 mm magnification estimate is only valid for Philips/FEI XL instruments.
-- **The real 3Flex file from the v2 bug report was not available while building 2.0.** The N₂ fix was developed and tested on a synthetic MicroActive full-report export that reproduces the reported symptoms (`example_data/Sorption/MOF801Hf_3Flex_full_report_EXAMPLE.xls`). If your file still looks wrong, open *File structure* on the N₂ page and send that table.
+- **The real 3Flex file from the v2 bug report was not available while building 2.0.** The N₂ fix was developed and tested on a synthetic MicroActive full-report export that reproduces the reported symptoms (`example_data/Sorption/SampleA_3Flex_full_report_EXAMPLE.xls`). If your file still looks wrong, open *File structure* on the N₂ page and send that table.
 - **Reported vs computed BET.** MicroActive usually fits a fixed window (0.05–0.30). For Type I MOFs the app uses the Rouquerol window, which lies at much lower p/p₀. The two numbers differ by design. The app does not tune its value to match the report.
 - **Unit conversion** in Figure controls relabels the ticks only. Exported CSVs keep the original units.
 - **Figure composer panels** use the default style of each figure; the composer has its own controls.

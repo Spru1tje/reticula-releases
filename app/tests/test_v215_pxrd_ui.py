@@ -178,6 +178,7 @@ def test_indexing_and_le_bail_of_an_unknown_phase_in_the_page():
     at.run()
     at.sidebar.radio[0].set_value("PXRD").run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    _sa = at.selectbox(key="rv_sample"); _sa.set_value([o for o in _sa.options if "SampleA" in o or "MOF" in o][0]).run()     # v2.18.5: the MOF-801 example (Sample A), not the first pattern (PM)
     [b for b in at.button if b.key == "rv_index"][0].click().run()
     assert not at.exception, at.exception
     name, sols, n = at.session_state["rv_index_res"]
@@ -198,6 +199,7 @@ def test_one_click_automatic_identification_and_structure_refinement():
     at.run()
     at.sidebar.radio[0].set_value("PXRD").run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
+    _sa = at.selectbox(key="rv_sample"); _sa.set_value([o for o in _sa.options if "SampleA" in o or "MOF" in o][0]).run()     # v2.18.5: the MOF-801 example (Sample A), not the first pattern (PM)
     [b for b in at.button if b.key == "rv_auto"][0].click().run()
     assert not at.exception, at.exception
     res = next(iter(at.session_state["rv_res"].values()))

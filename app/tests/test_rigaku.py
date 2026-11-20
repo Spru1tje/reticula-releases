@@ -5,7 +5,7 @@ from mfs import rigaku as RG, readers as R
 
 XML = """<?xml version="1.0" encoding="utf-8"?>
 <MeasurementConditions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <GeneralInformation><SampleName>MOF-801(Hf) batch 7</SampleName><UserName>SG</UserName>
+  <GeneralInformation><SampleName>Sample A batch 7</SampleName><UserName>EXAMPLE</UserName>
     <StartTime>2026-11-10T10:12:00</StartTime></GeneralInformation>
   <HWConfigurations><XrayGenerator><TargetName>Cu</TargetName><KAlpha1>1.540593</KAlpha1><KAlpha2>1.544414</KAlpha2>
     <KBeta>1.392250</KBeta><Voltage>40</Voltage><Current>30</Current></XrayGenerator></HWConfigurations>
@@ -41,7 +41,7 @@ def test_rasx_single_scan_metadata_and_attenuation():
     x, c, at = _scan(5, 15, 8.6)
     assert np.allclose(s["y"], c * at) and s["att"].max() == pytest.approx(3.2)
     assert s["is_2theta_theta"] and s["meta"]["target"] == "Cu" and s["meta"]["wavelength_ka1"] == "1.540593"
-    assert s["meta"]["sample"] == "MOF-801(Hf) batch 7" and s["meta"]["step"] == "0.01" and s["meta"]["speed"] == "5"
+    assert s["meta"]["sample"] == "Sample A batch 7" and s["meta"]["step"] == "0.01" and s["meta"]["speed"] == "5"
     v = RG.store_values(s)
     assert v["xrd_wavelength_ka1"] == pytest.approx(1.540593) and v["xrd_target"] == "Cu" and v["scan_is_2theta_theta"]
     assert abs(x[np.argmax(s["y"])] - 8.6) < 0.011

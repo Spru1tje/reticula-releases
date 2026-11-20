@@ -17,6 +17,29 @@ from mfs import pl as PL
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ helpers
+def clamp_range(key, lo, hi):
+    """v2.18.5: a range slider keeps its value in the session; after loading data with another range (e.g. 500–580 nm, then 900–1250 nm) the stored value
+    lies outside the new limits and Streamlit refuses it. The stored value is clipped to the new limits, or dropped when nothing of it is left."""
+    ss = st.session_state
+    v = ss.get(key)
+    if v is None:
+        return
+    try:
+        a, b = (float(v[0]), float(v[1])) if isinstance(v, (tuple, list)) else (float(v), float(v))
+    except Exception:
+        ss.pop(key, None)
+        return
+    a2, b2 = max(min(a, b), lo), min(max(a, b), hi)
+    if not isinstance(v, (tuple, list)):
+        if not (lo <= float(v) <= hi):
+            ss.pop(key, None)
+        return
+    if b2 <= a2:
+        ss.pop(key, None)
+    elif (a2, b2) != (a, b):
+        ss[key] = (a2, b2)
+
+
 def memo(parts, fn):
     """Session-level cache of slow fits (keyed by the data and every setting)."""
     store = st.session_state.setdefault("_pl_memo", {})
@@ -90,6 +113,7 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
     flo, fhi = (float(rng[0]), float(rng[1]))
     user_range = False
     if use_fit and LV.at_least("Advanced"):
+        clamp_range("pl_fitwin", float(rng[0]), float(rng[1]))
         fw = st.slider("Fit range (nm)", float(rng[0]), float(rng[1]), (float(rng[0]), float(rng[1])), 0.5, key="pl_fitwin")
         user_range = (abs(fw[0] - rng[0]) > 1e-6 or abs(fw[1] - rng[1]) > 1e-6)
         flo, fhi = fw
@@ -97,6 +121,8 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
     dflt = band_default([{"wl": q["x"], "I": q["y"]} for q in spec], rng[0], rng[1])
     b1d, b2d = dflt if dflt else ((rng[0], (rng[0] + rng[1]) / 2), ((rng[0] + rng[1]) / 2, rng[1]))
     b1d, b2d = tuple(round(float(v), 1) for v in b1d), tuple(round(float(v), 1) for v in b2d)
+    clamp_range("pl_b1", float(rng[0]), float(rng[1]))
+    clamp_range("pl_b2", float(rng[0]), float(rng[1]))
     b1, b2 = ss.get("pl_b1", b1d), ss.get("pl_b2", b2d)
     show_windows = (not use_fit) or method == METHODS[2] or manifold
     marks = []
@@ -391,7 +417,7 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
         if r_.get("status") == "ok":
             honest = 0.5 <= (r_["z_sd"] if r_["z_sd"] == r_["z_sd"] else 1) <= 2.0 and r_["coverage"] >= 0.6
             unbiased = abs(r_["bias_pct"]) < max(3.0, 100 * 2 * np.std([x["dE_cm1"] for x in r_["runs"]]) / r_["truth_cm1"] / math.sqrt(len(r_["runs"])))
-            checks.append(QA.check("Known-answer self-check", "ok" if honest and unbiased else "warn",
+            checks.append(QA.check("Simulation self-check (consistency only)", "ok" if honest and unbiased else "warn",
                                    f"On {len(r_['runs'])} simulated series with ΔE = {r_['truth_cm1']:.0f} cm⁻¹ the analysis returned {np.mean([x['dE_cm1'] for x in r_['runs']]):.0f} cm⁻¹ "
                                    f"(bias {r_['bias_pct']:+.1f} %); {100 * r_['coverage']:.0f} % of the runs within 2 error bars.",
                                    "" if honest and unbiased else "The analysis is biased or its error bars are too small for data like yours: trust the budget, not the fit error."))
@@ -516,8 +542,9 @@ def _self_check_ui(info, bf, T, counts, t_order):
     from mfs import plqa as QA
     if not info.get("fit"):
         return
-    with st.expander("🧪 Known-answer self-check (is the analysis unbiased, are its error bars honest?)", expanded=False):
-        st.caption("Series like yours – the same line shapes, background, temperatures and noise – are simulated with a KNOWN energy gap (your fitted one) and analysed again "
+    with st.expander("🧪 Simulation self-check – consistency only, not accuracy", expanded=False):
+        st.caption("Series like yours are simulated from the same model with a known energy gap and analysed again. This tests the statistics and the code path, not the model itself: "
+                   "if the band model is wrong for your sample, this check still passes. "
                    "with the same model. An unbiased analysis returns the known gap; honest error bars contain it in about 95 % of the runs (within 2 error bars). "
                    "Takes about as long as six fits.")
         if st.button("▶ Run the self-check (6 simulated series)", key="pl_selfcheck_go"):

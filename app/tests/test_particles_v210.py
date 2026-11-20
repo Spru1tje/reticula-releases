@@ -119,14 +119,14 @@ def test_shape_score_and_template():
 
 def _real():
     from mfs import readers as R
-    p = os.path.join(D, "TEM_MOF801_user5_sample1.tif")
+    p = os.path.join(D, "TEM_SampleA_user5_sample1.tif")
     d = R.read_sem(open(p, "rb"), os.path.basename(p))
     return d["image"][:976], d["pixel_nm"]
 
 
 def _eval(lab, info, f=1):
-    ref = json.load(open(os.path.join(D, "TEM_MOF801_user5_reference.json"), encoding="utf-8"))
-    boxes = json.load(open(os.path.join(D, "TEM_MOF801_user5_dense_boxes.json"), encoding="utf-8"))
+    ref = json.load(open(os.path.join(D, "TEM_SampleA_user5_reference.json"), encoding="utf-8"))
+    boxes = json.load(open(os.path.join(D, "TEM_SampleA_user5_dense_boxes.json"), encoding="utf-8"))
     inb = lambda x, y: any(a <= x <= c and b <= y <= d for a, b, c, d in boxes)
     ref = [p for p in ref if not inb(*p)]
     inc = {k for k, v in info.items() if isinstance(k, int) and v.get("kind") != "aggregate"}

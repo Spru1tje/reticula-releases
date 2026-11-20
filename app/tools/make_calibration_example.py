@@ -7,7 +7,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from mfs import readers as R
 
-src = R.read_sem(open(os.path.join(ROOT, "example_data/SEM/Sulfo-MOF-801_SEM.tif"), "rb"), "x.tif")
+src = R.read_sem(open(os.path.join(ROOT, "example_data/SEM/SampleB_SEM.tif"), "rb"), "x.tif")
 img = src["image"][: src["databar_row"]]
 W, H, STRIP = 1280, 960, 64
 body = np.array(Image.fromarray(img).resize((W, H - STRIP), Image.BICUBIC))

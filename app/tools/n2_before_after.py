@@ -53,7 +53,7 @@ def main(path, prefix):
 
 
 if __name__ == "__main__":
-    f = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "example_data", "Sorption", "MOF801Hf_3Flex_full_report_EXAMPLE.xls")
+    f = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "example_data", "Sorption", "SampleA_3Flex_full_report_EXAMPLE.xls")
     pre = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "example_figures", "N2_fullreport_EXAMPLE")
     r = main(f, pre)
     print({k: v for k, v in r.items() if k != "tables"})

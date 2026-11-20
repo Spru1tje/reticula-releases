@@ -51,7 +51,7 @@ def test_single_fs_roundtrip():
 
 def test_multi_fs_gives_every_scan_and_short_names():
     x, ys, T = _series(4)
-    names = [f"LiLuF4_Ho_{t}C(Multi Scans)(Multi Scans)" if k < 3 else f"LiLuF4_Ho_{t}C" for k, t in enumerate(T)]
+    names = [f"Sample_{t}C(Multi Scans)(Multi Scans)" if k < 3 else f"Sample_{t}C" for k, t in enumerate(T)]
     raw = make_fs([(n, 900.0, 1250.0, y) for n, y in zip(names, ys)], multi=True)
     sp = PL.read_pl(raw, "multi.FS")
     assert [s["name"] for s in sp] == [f"{t}C" for t in T]
@@ -157,7 +157,7 @@ def test_real_edinburgh_files():
     for fn in glob.glob(os.path.join(FS_DIR, "*.FS")):
         sc = R.read_edinburgh_fs(open(fn, "rb").read(), fn)
         assert all(s["n"] == 351 and s["x_start"] == 900.0 and s["x_end"] == 1250.0 for s in sc)
-    multi = [f for f in glob.glob(os.path.join(FS_DIR, "*20-50C_Multiscans_Stable.FS"))][0]
+    multi = [f for f in glob.glob(os.path.join(FS_DIR, "*20-50C*Multi*.FS"))][0]
     sp = PL.read_pl(open(multi, "rb").read(), multi)
     assert [round(PL.parse_temperature(s["T_text"])[0]) for s in sp] == [20, 25, 30, 35, 40, 45, 50]
     x = sp[0]["wl"]

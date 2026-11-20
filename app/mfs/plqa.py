@@ -54,7 +54,8 @@ def saturation(spectra, rate_limit_cps=1.0e6):
         mx = float(np.nanmax(y)) if len(y) else float("nan")
         status, reason = "ok", ""
         det = str((s.get("meta") or {}).get("detector", "")).upper()
-        counting = "PMT" in det or "PHOTOMULT" in det or "SPAD" in det            # photon counting: no converter limit (dead time is checked below)
+        # photon counting: no converter limit (dead time is checked below). Edinburgh text exports name the PMT only by its range ("NIR", "Vis").
+        counting = "PMT" in det or "PHOTOMULT" in det or "SPAD" in det or "MCP" in det or det.strip() in ("NIR", "VIS", "VISIBLE", "RED", "UV", "UV-VIS")
         if np.isfinite(mx) and mx > 500:
             at = np.abs(y - mx) <= max(1e-4 * mx, 0.5)
             run, best = 0, 0
@@ -209,6 +210,24 @@ def boltzmann_checks(T, D, sD, bf, gap_spec_cm1=None, n_flag_bad=0, n_total=None
                              "Crowded bands: use 'Manifold fit (crowded / Stark-split bands)' and choose the two ranges, or narrow the fit range."))
         else:
             out.append(check("Band fits", "ok", f"{n_total - n_flag_bad} of {n_total} spectra fitted well."))
+    if bf.get("status") == "ok" and bf.get("R2") is not None and bf["R2"] == bf["R2"]:
+        # v2.18.5: the Boltzmann law is an assumption. A straight line of ln(ratio) against 1/T that misses the data says the ratio is NOT governed by a
+        # thermal population of two levels (quenching, a third channel, non-equilibrium): the energy gap is then meaningless.
+        if bf["R2"] < 0.9:
+            out.append(check("Boltzmann law", "fail", f"The ratio does not follow a Boltzmann law (R² = {bf['R2']:.2f} on ln Δ against 1/T). The energy gap is not meaningful here: "
+                             "the two emitting levels are not in thermal equilibrium, or another process (quenching, a third channel) changes the ratio.",
+                             "Check whether the two bands really come from thermally coupled levels; a strong quenching of one band is the usual cause."))
+        elif bf["R2"] < 0.98:
+            out.append(check("Boltzmann law", "warn", f"The Boltzmann law describes the ratio only roughly (R² = {bf['R2']:.3f}).",
+                             "Look at the residuals of the fit and at the spread of the points."))
+        else:
+            out.append(check("Boltzmann law", "ok", f"The Boltzmann law describes the ratio (R² = {bf['R2']:.4f})."))
+    if bf.get("status") == "ok" and bf.get("sigma_mode") == "empirical":
+        # v2.18.6: the counting error was far too small for the scatter; the error bars and weights use the measured scatter instead.
+        out.append(check("Ratio noise", "warn", f"The stated counting error is much smaller than the scatter of the ratio (reduced χ² = {bf['chi2_red']:.0f} "
+                         f"with counts). The fit uses the measured scatter of {100 * (bf.get('scatter_rel') or 0):.1f} % per point instead.",
+                         "General practice: check the integration time, the spectral-response correction and whether the spectra were averaged or normalised before the "
+                         "ratio was taken. The scatter estimate is only as good as the number of temperatures."))
     if bf.get("status") == "ok":
         res = (D - bf["f"](T)) / np.where(sD > 0, sD, np.nan)
         chi2 = float(np.nanmean(res ** 2) * n / max(n - 2, 1))
@@ -463,7 +482,8 @@ def simulate_from_fit(fit, T, dE_eV, alpha, counts=True, pedestal=None, seed=0, 
     return out
 
 
-def self_check(fit, T, dE_eV, alpha, counts=True, pedestal=None, n=6, seed=0, progress=None, inverse=False):
+def self_check(  # NOTE v2.18.5: a consistency check with the SAME model - it cannot detect a wrong model, only bugs and wrong error bars
+fit, T, dE_eV, alpha, counts=True, pedestal=None, n=6, seed=0, progress=None, inverse=False):
     """Known-answer test of the analysis on series simulated from the user's own fit (see simulate_from_fit): the same band model is fitted, the ratio and its error
     taken, the Boltzmann law fitted. Returns {truth_cm1, runs: [{dE_cm1, err_cm1, z}], bias_pct, z_mean, z_sd, coverage}: unbiased analysis -> bias near 0;
     honest error bars -> z spread near 1 and about 95 % of the runs within 2 error bars."""

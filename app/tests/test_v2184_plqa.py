@@ -227,7 +227,7 @@ def test_fluoracle_and_ocean_headers_are_read():
     fl = ("Labels,S_20C,S_30C\nType,Emission Scan,Emission Scan\nFixed/Offset,980,980\nDwell Time,0.2,0.2\nRepeats,1,3\n"
           + "\n".join(f"{900 + i},{100 + i},{200 + i}" for i in range(20))).encode()
     sp = PL.read_pl(fl, "fl.csv")
-    assert [s["name"] for s in sp] == ["S_20C", "S_30C"] and sp[0]["meta"]["dwell_s"] == 0.2 and sp[1]["meta"]["scans"] == 3 and sp[0]["meta"]["excitation_nm"] == 980
+    assert [s["name"] for s in sp] == ["20C", "30C"] and sp[0]["meta"]["dwell_s"] == 0.2 and sp[1]["meta"]["scans"] == 3 and sp[0]["meta"]["excitation_nm"] == 980
     oo = ("Integration Time (sec): 1.500000E-1\nScans to average: 4\n>>>>>Begin Spectral Data<<<<<\n" + "\n".join(f"{500 + i}\t{10 + i}" for i in range(20))).encode()
     s2 = PL.read_pl(oo, "oo.txt")[0]
     assert abs(s2["meta"]["dwell_s"] - 0.15) < 1e-9 and s2["meta"]["scans"] == 4
@@ -273,3 +273,19 @@ def test_decay_mode_runs_with_the_example():
     assert not at.exception, [e.value for e in at.exception][:2]
     assert any("described well" in s.value for s in at.success) or len(at.warning)
     assert any("Eₐ" in m.label for m in at.metric)
+
+
+@pytest.mark.parametrize("sep", [",", "\t", ";"])
+def test_text_export_with_a_separator_at_the_end_of_every_line(sep):
+    """v2.18.5: Fluoracle text exports end every line with the separator - this gave 'list index out of range'."""
+    name = "Sample_20C"
+    head = [f"Labels{sep}{name}{sep}", f"Type{sep}Emission Scan{sep}", f"Fixed/Offset{sep}980.00{sep}", f"Dwell Time{sep}0.10{sep}"]
+    body = [f"{900 + i:.2f}{sep}{12000 + i}{sep}" for i in range(50)]
+    sp = PL.read_pl(("\n".join(head + body)).encode("utf-8"), name + ".txt")
+    assert len(sp) == 1 and sp[0]["name"] == name and len(sp[0]["wl"]) == 50
+    assert PL.parse_temperature(sp[0]["T_text"])[0] == 20 and sp[0]["meta"]["excitation_nm"] == 980.0 and sp[0]["meta"]["dwell_s"] == 0.1
+
+
+def test_rows_without_numbers_give_a_clear_message():
+    with pytest.raises(ValueError, match="No spectrum"):
+        PL.read_pl(b"a,b\nc,d\n", "x.txt")

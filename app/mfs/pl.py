@@ -75,7 +75,13 @@ def _rows_from_bytes(raw):
     lines = [l for l in text.replace("\r", "").split("\n") if l.strip()]
     cnt = {d: sum(l.count(d) for l in lines[-60:]) for d in ("\t", ";", ",")}
     d = max(cnt, key=cnt.get) if max(cnt.values()) else None
-    return [[c.strip() for c in (l.split(d) if d else l.split())] for l in lines]
+    out = []
+    for l in lines:
+        r = [c.strip() for c in (l.split(d) if d else l.split())]
+        while len(r) > 1 and r[-1] == "":                    # v2.18.5: a separator at the end of every line (Fluoracle text export) is not a column
+            r.pop()
+        out.append(r)
+    return out
 
 
 def _short_names(names):
@@ -85,8 +91,8 @@ def _short_names(names):
         return cl
     pre = len(__import__("os").path.commonprefix(cl))
     suf = len(__import__("os").path.commonprefix([c[::-1] for c in cl]))
-    if suf and any(c[len(c) - suf] not in "_- (" for c in cl):          # cut only at a separator: '20C' keeps its C
-        suf = 0
+    while suf and any(c[len(c) - suf] not in "_- (" for c in cl):       # cut only at a separator: '20C' keeps its C (v2.18.5: shrink to the next separator)
+        suf -= 1
     out = []
     for c in cl:
         core = c[pre: len(c) - suf if suf else len(c)]
@@ -138,6 +144,15 @@ def read_pl(src, name=""):
     lens = [len(rows[i]) for i in data_idx]
     ncol = max(set(lens), key=lens.count)
     use = [i for i in data_idx if len(rows[i]) == ncol and all(_is_num(c) for c in rows[i][:ncol])]
+    if len(use) < 5:                                            # e.g. an empty or text column in every data row
+        ncol = min(len(rows[i]) for i in data_idx)
+        while ncol >= 2:
+            use = [i for i in data_idx if all(_is_num(c) for c in rows[i][:ncol])]
+            if len(use) >= 5:
+                break
+            ncol -= 1
+    if len(use) < 5:
+        raise ValueError("No spectrum found: the data rows do not all contain numbers (expected wavelength, intensity, …).")
     arr = np.array([[_f(c) for c in rows[i][:ncol]] for i in use], float)
     header = None
     for j in range(use[0] - 1, max(-1, use[0] - 8), -1):                 # the closest earlier row with text in it
@@ -162,7 +177,17 @@ def read_pl(src, name=""):
         meta = {**common, **(col_meta[k] if k < len(col_meta) else {})}
         out.append({"name": label, "T_text": label if (header is not None and len(header) >= ncol and header[k]) else stem,
                     "wl": wl[order], "I": arr[order, k], "meta": meta})
+    if len(out) > 1 and labels_row is not None:                  # v2.18.5: short names only for a Fluoracle export ('Labels' row); other tables keep their headers
+        short = _short_names([o["name"] for o in out])
+        for o, s_ in zip(out, short):
+            o["meta"]["full_name"] = o["name"]
+            o["name"] = s_
+            o["T_text"] = s_ if PL_T(s_) else o["T_text"]
     return out
+
+
+def PL_T(text):
+    return parse_temperature(text)[0] is not None
 
 
 def _num_in(s):
@@ -188,7 +213,7 @@ def _header_meta(rows, first_data, ncol):
         target = None
         if key.startswith("dwell"):
             target, conv = "dwell_s", (lambda v: _num_in(v))
-        elif key.startswith("fixed/offset") or key.startswith("excitation wavelength"):
+        elif key == "fixed/offset" or key.startswith("excitation wavelength"):
             target, conv = "excitation_nm", (lambda v: _num_in(v))
         elif key.startswith("repeats") or key.startswith("scans to average") or key.startswith("number of scans"):
             target, conv = "scans", (lambda v: int(_num_in(v)) if _num_in(v) is not None else None)
@@ -386,11 +411,35 @@ def fit_boltzmann(T, D, offset=False, sigma=None):
     f = (lambda t: mdl(np.asarray(t, float), *p))
     err = np.sqrt(np.clip(np.diag(pcov), 0, None)) if np.all(np.isfinite(pcov)) else np.full(len(p), np.nan)
     chi2 = float(np.sum(((D - f(T)) / sg) ** 2) / max(len(T) - len(p), 1)) if sg is not None else None
-    if sg is not None and chi2 and chi2 > 1:                 # the scatter is larger than the stated errors: scale them (Birge ratio)
+    # v2.18.5: Birge scaling only when the excess scatter is significant (chi2 above 1 by more than two standard deviations of chi2).
+    # Scaling on every chi2 > 1 biased the errors upwards; scaling below 1 is not justified either.
+    dof_ = max(len(T) - len(p), 1)
+    sigma_mode = "none" if sg is None else "counts"
+    # v2.18.6: when the stated (counting) error is far too small, chi2 is huge and the weights are meaningless. Then the noise is taken from
+    # the measured scatter of the ratio: a constant relative error s = rms(residual / D), and the fit is repeated with that error.
+    if sg is not None and chi2 and chi2 > 10.0:
+        s_rel = float(np.sqrt(np.mean(((D - f(T)) / f(T)) ** 2)))
+        if s_rel > 0 and np.isfinite(s_rel):
+            sg = s_rel * f(T)
+            try:
+                p, pcov = curve_fit(mdl, T, D, p0=p, sigma=sg, absolute_sigma=True, maxfev=20000)
+                err = np.sqrt(np.clip(np.diag(pcov), 0, None)) if np.all(np.isfinite(pcov)) else np.full(len(p), np.nan)
+                f = (lambda t: mdl(np.asarray(t, float), *p))
+                chi2 = float(np.sum(((D - f(T)) / sg) ** 2) / dof_)
+                sigma_mode = "empirical"
+                info_s_rel = s_rel
+            except Exception:
+                info_s_rel = None
+        else:
+            info_s_rel = None
+    else:
+        info_s_rel = None
+    if sg is not None and chi2 and chi2 > 1 + 2 * math.sqrt(2.0 / dof_):
         err = err * math.sqrt(chi2)
     return {"status": "ok", "alpha": float(p[0]), "dE_eV": float(p[1]), "dE_cm1": float(p[1] * EV_TO_CM),
             "alpha_err": float(err[0]), "dE_err_eV": float(err[1]), "dE_err_cm1": float(err[1] * EV_TO_CM), "chi2_red": chi2,
-            "C": float(p[2]) if offset else 0.0, "R2": _r2(D, f(T)), "f": f}
+            "C": float(p[2]) if offset else 0.0, "R2": _r2(D, f(T)), "f": f,
+            "sigma_mode": sigma_mode, "scatter_rel": info_s_rel}
 
 
 def relative_sensitivity(T, dE_eV):
