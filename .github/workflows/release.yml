@@ -103,6 +103,7 @@ jobs:
 
   macos:
     needs: [prepare, tests]
+    if: false                       # temporarily disabled (v2.18.6): Apple Silicon build off
     runs-on: macos-latest           # Apple Silicon
     timeout-minutes: 120
     env:
