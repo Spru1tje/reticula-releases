@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.18.7 - 2026-11-20
+
+### Code cleanup (no change to computed results)
+- Duplicate, identical helper `_grid_for` removed from `mfs/indexing.py`; the indexing path keeps using the one remaining copy.
+- Dead code removed: a no-op assignment in `mfs/pages/thermal.py`, unused imports (F401) and empty f-strings (F541) across `mfs/`.
+- Local variable `S` renamed to `struct` in `mfs/pages/structure.py` so it no longer hides the module-level `S`. Text in strings is unchanged.
+- `Image` imported only under `TYPE_CHECKING` in `mfs/reticon/qa.py` (and its runtime copy), so the linter reports no false error.
+- `tests/test_v215_plextras.py`: `assert False` replaced by `raise AssertionError(...)`, because `assert` is removed under `python -O`.
+- Release workflow: the example tag in the header comment of `release.yml` is now `vX.Y.Z`; `macos-build.yml` accepts the same version spacing as `release.yml`.
+
+### Checks
+- Unit tests: 652 passed, 50 skipped, 1 failed (`test_calibrate_synthetic_with_ocr[zeiss]`, the SEM scale-bar OCR test excluded from the gate by the user).
+- Self-test (`check_selftest.py`): 41/41 ok, exit 0.
+- Known-answer coverage of the indexing path: `tests/test_v216_indexing.py::test_known_structures_are_indexed` (known cells are recovered).
+
 ## 2.18.6 - 2026-11-20
 
 ### Photoluminescence: thermometry (ratiometric)
