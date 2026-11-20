@@ -563,7 +563,15 @@ class Refinement:
         th0 = np.clip(th0, lo + 1e-12, hi - 1e-12)
         sc = np.array([self.P[n].scale for n in fn])
         f0 = self._residual(th0)
-        sol = least_squares(self._residual, th0, bounds=(lo, hi), x_scale=sc, diff_step=1e-5, max_nfev=max_nfev, ftol=1e-7, xtol=1e-9)
+        # v2.18.6: multi-start. The soft bond restraints make the optimum depend on the starting point (small numerical differences between platforms
+        # gave different geometries). Two deterministic perturbed starts are tried besides the given one; the lowest cost wins.
+        rng_ms = np.random.default_rng(12345)
+        starts = [th0] + [np.clip(th0 + rng_ms.normal(0.0, 1.0, th0.size) * sc * 0.5, lo + 1e-12, hi - 1e-12) for _ in range(2)]
+        sol = None
+        for th_s in starts:
+            s_ = least_squares(self._residual, th_s, bounds=(lo, hi), x_scale=sc, diff_step=1e-5, max_nfev=max_nfev, ftol=1e-7, xtol=1e-9)
+            if sol is None or float(np.sum(s_.fun ** 2)) < float(np.sum(sol.fun ** 2)):
+                sol = s_
         if float(np.sum(sol.fun ** 2)) < float(np.sum(f0 ** 2)):
             for n, t in zip(fn, sol.x):
                 self.P[n].value = float(t)
