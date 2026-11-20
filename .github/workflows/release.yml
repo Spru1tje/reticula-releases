@@ -1,6 +1,6 @@
 name: release
 
-# Publish a release:   git tag v2.13.0 && git push origin v2.13.0
+# Publish a release:   git tag vX.Y.Z && git push origin vX.Y.Z
 # (or Actions -> release -> Run workflow, with the tag). The tag must match __version__ in app/mfs/__init__.py.
 # 1. the tests run (Linux + Windows)   2. the Windows installer is built and self-tested   3. the release is created with the Windows installer,
 #    SHA256SUMS and the Mac build kit (source + build_mac.command, see BUILD_ON_MAC.txt).

@@ -2,7 +2,6 @@
 (slope n of log I vs log P) and CIE 1931 colour coordinates (x, y, CCT) of emission spectra."""
 from __future__ import annotations
 
-import io
 import math
 import re
 

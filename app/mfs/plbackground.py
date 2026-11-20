@@ -282,7 +282,7 @@ def autoselect(x, ys, dark=None, windows=None, max_order=2, use_dark=None):
     if len(wins) and free.sum() >= 8:
         plan["method"] = "offset" if order == 0 else "poly"
         plan["order"] = order
-        plan["notes"].append(f"Signal-free windows: " + ", ".join(f"{a:.0f}–{b:.0f} nm" for a, b in wins) + f". Order {order} chosen by the information criterion (BIC).")
+        plan["notes"].append("Signal-free windows: " + ", ".join(f"{a:.0f}–{b:.0f} nm" for a, b in wins) + f". Order {order} chosen by the information criterion (BIC).")
     else:
         # v2.18.6: no signal-free window: a polynomial under a data-derived emission mask (not SNIP/arPLS, which eat broad bands)
         # v2.18.6 safety: the masked baseline must never rise above the spectrum by more than three noise units; if it does, the

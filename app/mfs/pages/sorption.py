@@ -5,16 +5,12 @@ the sidebar values WIDTH / ASPECT / FONT, the cached reader wrapper R …) are l
 mfs.pages.bind(globals()) on every run of app.py, so the code behaves exactly as it did inside app.py."""
 # ruff: noqa: F821
 from __future__ import annotations
-import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
-import numpy as np
+import re, hashlib
 import pandas as pd
 import streamlit as st
 from mfs import levels as LV
-import matplotlib.pyplot as plt
 
-from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
-from mfs import figctl as F, figctl_ui as FU, ui as UI, __version__
-from mfs.chem import SPECIES, FRAMEWORKS, molar_mass
+from mfs import analysis as A, plots as P, style as S, composer as C
 
 INJECTED = (
     'FONT',
@@ -269,7 +265,7 @@ def page_sorption():
         except Exception as e:
             st.warning(f"{nm}: PSD failed ({e})")
     if comp:
-        st.caption("Method: **" + comp[0][1]["method"] + "**" + (f" · fit residual " + ", ".join(f"{n}: {100*r['residual_rel']:.1f} %" for n, r in comp)
+        st.caption("Method: **" + comp[0][1]["method"] + "**" + (" · fit residual " + ", ".join(f"{n}: {100*r['residual_rel']:.1f} %" for n, r in comp)
                    if "residual_rel" in comp[0][1] else "") + ". Shown on the figure legend title.")
         cols_ = S.colours_for([n for n, _ in comp])
 

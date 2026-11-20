@@ -14,7 +14,7 @@ All counts are per M6 node:
         OS = (12 - CN) + t*x - m - Cl      (reduces to 2x - m - Cl for 12-c UiO-66/MOF-801)
 """
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 import math
 import numpy as np
 from .chem import (molar_mass, SPECIES, FRAMEWORKS, AW, M_O, M_H, M_OH, M_H2O, M_CL,
@@ -488,7 +488,7 @@ def method_c(inp: DefectInput) -> MethodResult:
     r.status = "ok" if w >= -0.05 else "warn"
     if w < -0.05:
         r.message = f"charge balance gives OH = {w:.2f} < 0: more anions than the node can hold - check integrals/flags"
-    r.steps = [f"r_i\\ \\mathrm{{from\\ NMR}}:\\ " + ",\\ ".join(f"\\mathrm{{{nm.split(' (')[0]}}}: {a/aL:.3f}" for nm, a in ratios.items() if nm != ml.name),
+    r.steps = ["r_i\\ \\mathrm{from\\ NMR}:\\ " + ",\\ ".join(f"\\mathrm{{{nm.split(' (')[0]}}}: {a/aL:.3f}" for nm, a in ratios.items() if nm != ml.name),
                f"\\mathrm{{denominator}} = {ml.M - t/2*M_O:.2f}" + ("".join(" + " + s for s in terms)) + f" = {denom:.2f}",
                f"\\mathrm{{numerator}} = ({ratio:.4f}-1)\\times {inp.nM()}\\times{Mox:.2f} - {cl:.2f}\\times({M_CL:.2f}-{M_O/2:.2f}) = {num:.2f}",
                f"L = {num:.2f}/{denom:.2f} = {L:.3f},\\quad m = L\\sum r_\\mathrm{{cap}} = {m:.3f},\\quad x = {r.x:.3f}"]
@@ -894,7 +894,6 @@ def _run_all(inp: DefectInput) -> dict:
     methods = [a, b[0], b[1], c, d, e[0], e[1], f, g]
     nd = inp.node_def()
     if nd["core"] != "{M}6O4(OH)4" or not inp.is_zrhf():
-        from . import nodes as N
         note = (f"Node {nd['core'].format(M=inp.M_symbol())}: equations are written for M6O4(OH)4; here 6 → n_M = {inp.nM()}, "
                 f"12 → node charge for ligands Q = {inp.Q():g}, MO2 → TGA residue {inp.residue_label()} "
                 f"({inp.MMO2():.2f} g/mol per metal), M6O4(OH)4 → {nd['core'].format(M=inp.M_symbol())}.")

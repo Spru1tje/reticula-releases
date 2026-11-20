@@ -9,7 +9,6 @@ from __future__ import annotations
 import datetime
 import io
 import json
-import math
 import zipfile
 
 import numpy as np

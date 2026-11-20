@@ -200,6 +200,5 @@ Something wrong? Open <b>🐞 Report a problem</b> in the left menu – it makes
 
 
 def _set_level(level: str):
-    from mfs import levels as LV
     st.session_state.setdefault("_lv", {"global": "Standard"})["global"] = level
     st.session_state["lv_global"] = level

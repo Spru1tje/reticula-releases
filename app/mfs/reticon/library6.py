@@ -7,11 +7,9 @@ from __future__ import annotations
 import math
 import random
 
-from .core import Op, polar, smooth_path, _f
+from .core import Op, polar, smooth_path
 from .library import icon, axes
-from .library2 import rot_rect, gauss_trace
-from .library4 import arrowhead, hexagon
-from .library5 import bubbles
+from .library4 import arrowhead
 
 RED, BLACK, GREEN, PURPLE = "#E3000F", "#1F2328", "#2EAD5B", "#7B3FA6"
 

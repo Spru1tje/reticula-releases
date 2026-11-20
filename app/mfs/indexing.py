@@ -191,16 +191,6 @@ def _params_to_x(system, p):
     return np.array([1 / p[0] ** 2, 1 / p[1] ** 2, 1 / p[2] ** 2])
 
 
-def _grid_for(system, p, qmax, centring, margin=1.12):
-    """Fixed (h, k, l) list (centring applied) that covers the cell p up to qmax, also when the lengths grow by `margin` during the refinement."""
-    pg = np.array(p, float)
-    n_len = 1 if system == "cubic" else 2 if system in ("tetragonal", "hexagonal") else 3
-    pg[:n_len] *= margin
-    H, K, L = _hkl_grid(system, pg, qmax * margin * margin)
-    sel = CENTRINGS[centring](H, K, L)
-    return H[sel], K[sel], L[sel]
-
-
 def refine_cell(system, p0, tt_obs, wavelength, centring="P", tt_tol=0.08, zero0=0.0, fit_zero=True, rounds=4):
     """Refinement of the cell (and a zero shift) on the lines that are indexed, by iterated linear least squares: Q = Σ x_j b_j(hkl) is linear in the reciprocal parameters
     and a zero shift z enters as q_obs(2θ − z) ≈ q_obs(2θ) − z·dq/d2θ. The assignment (nearest calculated line) is repeated, with Huber weights against impurity lines.

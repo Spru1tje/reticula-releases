@@ -15,7 +15,7 @@ def test_correction_file_and_application():
     assert np.allclose(y, [15, 30, 40])
     try:
         PX.read_correction(b"400 1\n500 2\n")
-        assert False
+        raise AssertionError("read_correction accepted non-monotonic input")
     except ValueError:
         pass
 

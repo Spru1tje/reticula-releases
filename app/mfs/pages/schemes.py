@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import streamlit as st
 
-from mfs import levels as LV
 from mfs import schemes as SC
 
 

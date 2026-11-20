@@ -350,7 +350,6 @@ def page_dsc():
                 prs = []; warn.append(f"{c['label']}: peak evaluation failed ({e})")
             if yunit == "mW" and c["mass"] and spec is not None:
                 for r in prs:
-                    r = r  # baseline drawn in the plotted unit
                     r["baseline"] = r["baseline"] * (c["mass"] if c["unit"] == "W/g" else 1)
             peaks[cc["id"]] = prs
             for r in prs:

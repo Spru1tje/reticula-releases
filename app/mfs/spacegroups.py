@@ -9,7 +9,6 @@ r"""v2.18.4: space groups for the structure-solution workflow of a powder patter
 Powder patterns overlap, so only ISOLATED forbidden reflections count as evidence."""
 from __future__ import annotations
 
-import itertools
 import warnings
 from functools import lru_cache
 

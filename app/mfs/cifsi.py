@@ -1,11 +1,11 @@
 """Automatic SI tables from a CIF: crystal data and structure refinement, selected bonds / angles / torsions (ESDs),
 hydrogen bonds with symmetry codes. DOCX (plain WordprocessingML, no python-docx) and XLSX."""
 from __future__ import annotations
-import io, math, zipfile
+import io, zipfile
 import numpy as np
 import pandas as pd
 from .cif import num, fmt_esd
-from .si_export import _run, _x
+from .si_export import _run
 
 
 def _g(S, *tags):

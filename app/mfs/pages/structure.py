@@ -65,10 +65,10 @@ def page_structure():
         st.error(f"Could not read the CIF: {e}"); return
     if not blocks:
         st.error("No data block with atoms found."); return
-    S = blocks[st.selectbox("Data block", range(len(blocks)), format_func=lambda i: blocks[i].name, key="cx_blk")] if len(blocks) > 1 else blocks[0]
-    kn = CS.key_numbers(S)
+    struct = blocks[st.selectbox("Data block", range(len(blocks)), format_func=lambda i: blocks[i].name, key="cx_blk")] if len(blocks) > 1 else blocks[0]
+    kn = CS.key_numbers(struct)
     st.success(" · ".join(f"{k} {v}" for k, v in kn.items() if v not in ("", None)))
-    is_mof = any(a["el"] in CX.METALS for a in S.atoms)
+    is_mof = any(a["el"] in CX.METALS for a in struct.atoms)
     tabs = st.tabs(["Figure", "H-bonds", "SI tables", "Simulated PXRD"] + (["Pores (MOF)"] if is_mof else []) + ["Hirshfeld (experimental)"])
     # ---- figure
     with tabs[0]:
@@ -84,7 +84,7 @@ def page_structure():
         hmode = b1.selectbox("Hydrogen atoms", ["all", "polar", "none"], key="cx_h",
                              format_func={"all": "All H", "polar": "Polar H only (O–H, N–H)", "none": "No H"}.get)
         showh = hmode != "none"
-        has_dis = any(str(a["dis_group"]).strip(".?-") for a in S.atoms)
+        has_dis = any(str(a["dis_group"]).strip(".?-") for a in struct.atoms)
         part = b2.selectbox("Disorder", ["major", "minor", "all"] if has_dis else ["all"], key="cx_part",
                             format_func={"major": "Major part (1)", "minor": "Minor part (2)", "all": "All parts"}.get)
         cell = b3.checkbox("Cell edges", True, key="cx_cell"); triad = b3.checkbox("Axis triad", True, key="cx_triad")
@@ -120,29 +120,29 @@ def page_structure():
         except ValueError:
             vv = [1, 1, 0]
         gmode = "packing" if (mode == "supercell" and not is_mof) else mode   # molecular crystals: whole molecules per cell
-        sites, bonds = S.grow(gmode, part=part, supercell=sc, include_h=showh)
+        sites, bonds = struct.grow(gmode, part=part, supercell=sc, include_h=showh)
         if len(sites) >= 6000:
             st.warning("Atom limit (6000) reached; drawing a partial structure.")
         if hmode == "polar":
             sites, bonds = CP.polar_h_only(sites, bonds)
-        V = CP.view_matrix(S, view, uvw=vv if view == "uvw" else None, hkl=vv if view == "hkl" else None, rot=rot, sites=sites)
-        hb = CX.hbond_pairs(S, sites) if (hbo and showh) else []
+        V = CP.view_matrix(struct, view, uvw=vv if view == "uvw" else None, hkl=vv if view == "hkl" else None, rot=rot, sites=sites)
+        hb = CX.hbond_pairs(struct, sites) if (hbo and showh) else []
         n_mol = len(CX._components(sites, bonds)) if sites else 0
         st.caption(f"{len(sites)} atoms, {len(bonds)} bonds, {n_mol} fragment(s), {len(hb)} H-bond(s) drawn"
-                   + (" · polymeric framework (molecules = connected network)" if getattr(S, "polymeric", False) else ""))
+                   + (" · polymeric framework (molecules = connected network)" if getattr(struct, "polymeric", False) else ""))
         fig, ax = plt.subplots(figsize=(4.5, 4.5))
-        CP.draw(ax, S, sites, bonds, style=style, prob=prob, labels=labels, hbonds=hb, show_cell=cell, triad=triad, view=V,
+        CP.draw(ax, struct, sites, bonds, style=style, prob=prob, labels=labels, hbonds=hb, show_cell=cell, triad=triad, view=V,
                 polyhedra=poly and is_mof, cells=sc, h_scale=hsc, label_offsets=offs)
         if ttl:
-            ax.set_title(f"{S.name}: {dict(asu='asymmetric unit', molecules='molecules', packing='packing', cell='unit cell', supercell='supercell')[mode]}"
+            ax.set_title(f"{struct.name}: {dict(asu='asymmetric unit', molecules='molecules', packing='packing', cell='unit cell', supercell='supercell')[mode]}"
                          f", view {view}", fontsize=7)
         if style == "ortep":
             ax.text(0.01, 0.01, f"{prob:.0%} probability ellipsoids", transform=ax.transAxes, fontsize=6, color="#555")
         xyz = pd.DataFrame([{"label": s["label"], "el": s["el"], "x": s["xyz"][0], "y": s["xyz"][1], "z": s["xyz"][2],
-                             "symmetry": S.symcode(s["op"], s["T"])} for s in sites])
-        show(fig, f"{S.name}_{style}_{mode}_{view}", data=xyz, controls=False)
+                             "symmetry": struct.symcode(s["op"], s["T"])} for s in sites])
+        show(fig, f"{struct.name}_{style}_{mode}_{view}", data=xyz, controls=False)
     # ---- H-bonds
-    hbr = CX.hbonds(S)
+    hbr = CX.hbonds(struct)
     with tabs[1]:
         if hbr:
             d = pd.DataFrame(hbr).drop(columns=["_A"])
@@ -150,25 +150,25 @@ def page_structure():
             st.dataframe(d.drop(columns=["σ D···A"]).round(3), hide_index=True, width="stretch")
             st.caption("D–H···A with H···A < Σr_vdW (Bondi) and ∠DHA ≥ 120°; symmetry code of the acceptor "
                        "(SHELX style: operator + lattice translation). D···A ESD from the coordinate s.u. only.")
-            dl(st, "H-bonds (CSV)", lambda: d.to_csv(index=False).encode(), f"{S.name}_hbonds.csv", "cx_hb_csv")
+            dl(st, "H-bonds (CSV)", lambda: d.to_csv(index=False).encode(), f"{struct.name}_hbonds.csv", "cx_hb_csv")
         else:
             st.info("No D–H···A hydrogen bonds found (no H on N/O donors, or no contacts within the vdW criterion).")
     # ---- SI tables
     with tabs[2]:
         ih = st.checkbox("Include bonds to H", False, key="cx_si_h")
         po = st.checkbox("Only rows flagged for publication (_geom_*_publ_flag yes)", False, key="cx_si_publ")
-        geom = CX.geom_tables(S, include_h=ih, publ_only=po)
+        geom = CX.geom_tables(struct, include_h=ih, publ_only=po)
         n0 = st.number_input("First table number (S#)", 1, 99, 1, key="cx_si_n")
-        secs = CS.si_sections(S, geom, hbr, int(n0))
+        secs = CS.si_sections(struct, geom, hbr, int(n0))
         for title, df, cols, note in secs:
             with st.expander(f"{title} ({len(df)} rows)", expanded=title.startswith(f"Table S{int(n0)}.")):
                 st.dataframe((df[cols] if cols else df).astype(str), hide_index=True, width="stretch")
                 if note:
                     st.caption(note)
         c1, c2 = st.columns(2)
-        dl(c1, "SI tables (DOCX)", lambda: CS.docx(secs), f"{S.name}_SI_tables.docx", "cx_si_docx")
-        dl(c2, "SI tables (XLSX)", lambda: CS.xlsx(secs), f"{S.name}_SI_tables.xlsx", "cx_si_xlsx")
-        _si_put = st.session_state.setdefault("si_tables_extra", {}); _si_put[S.name] = secs
+        dl(c1, "SI tables (DOCX)", lambda: CS.docx(secs), f"{struct.name}_SI_tables.docx", "cx_si_docx")
+        dl(c2, "SI tables (XLSX)", lambda: CS.xlsx(secs), f"{struct.name}_SI_tables.xlsx", "cx_si_xlsx")
+        _si_put = st.session_state.setdefault("si_tables_extra", {}); _si_put[struct.name] = secs
     # ---- PXRD
     with tabs[3]:
         p1, p2, p3 = st.columns(3)
@@ -196,8 +196,8 @@ def page_structure():
                 fig, (ax, rax) = plt.subplots(2, 1, figsize=(5.5, 3.6), sharex=True, gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05})
             else:
                 fig, ax = plt.subplots(figsize=(5.5, 3.0)); rax = None
-            CPX.draw(ax, sim, sticks, label_top=int(nl), meas=meas, fitres=fitr, rax=rax, name=S.name)
-            show(fig, f"{S.name}_simulated_PXRD", data=pd.DataFrame({"2theta": sim.x, "I_sim": sim.y}))
+            CPX.draw(ax, sim, sticks, label_top=int(nl), meas=meas, fitres=fitr, rax=rax, name=struct.name)
+            show(fig, f"{struct.name}_simulated_PXRD", data=pd.DataFrame({"2theta": sim.x, "I_sim": sim.y}))
             st.dataframe(CPX.table(sticks, 30), hide_index=True, width="stretch")
     # ---- pores
     if is_mof:
@@ -208,9 +208,9 @@ def page_structure():
             pr = q2.number_input("Probe radius (Å)", 0.5, 3.0, 1.82, 0.01, key="cx_pt_pr", help="1.82 Å ≈ N₂ (kinetic diameter 3.64 Å)")
             if q3.button("Analyse pores", key="cx_pt_go", type="primary"):
                 with st.spinner("Grid + percolation + Monte Carlo…"):
-                    st.session_state["cx_pt_res"] = (S.name, PT.analyse(S, spc, pr, part="major"))
+                    st.session_state["cx_pt_res"] = (struct.name, PT.analyse(struct, spc, pr, part="major"))
             r = st.session_state.get("cx_pt_res")
-            if r and r[0] == S.name:
+            if r and r[0] == struct.name:
                 res = r[1]
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Di (largest included sphere)", f"{res['Di (Å)']:.2f} Å"); m2.metric("Df (largest free sphere)", f"{res['Df (Å)']:.2f} Å")
@@ -220,27 +220,27 @@ def page_structure():
                 st.dataframe(tbl, hide_index=True, width="stretch")
                 st.caption("Method: " + res["method"] + " Compare with Zeo++/RASPA for publication; values depend on radii and grid.")
                 dl(st, "Pore analysis (CSV)", lambda: pd.concat([tbl, pd.DataFrame([["method", res["method"]]], columns=tbl.columns)]).to_csv(index=False).encode(),
-                   f"{S.name}_pores.csv", "cx_pt_csv")
+                   f"{struct.name}_pores.csv", "cx_pt_csv")
     # ---- Hirshfeld
     with tabs[-1]:
         st.warning("EXPERIMENTAL: approximate promolecule densities (one exponential per atom, not the Spackman tables of "
                    "CrystalExplorer). Shapes and contact percentages are indicative; use CrystalExplorer for publication.")
-        if is_mof or getattr(S, "polymeric", False):
+        if is_mof or getattr(struct, "polymeric", False):
             st.info("Hirshfeld surfaces need a discrete molecule; not available for frameworks.")
         elif st.button("Compute Hirshfeld surface (first molecule)", key="cx_hs_go"):
             from mfs import hirshfeld as HS
             with st.spinner("Ray search for w = 0.5…"):
-                mol, mb = S.grow("molecules", part="major")
+                mol, mb = struct.grow("molecules", part="major")
                 comps = CX._components(mol, mb); m = [mol[i] for i in comps[0]]
-                env, _ = S.grow("packing", part="major", supercell=(3, 3, 3))
-                env = [dict(e, frac=e["frac"] - 1, xyz=S.cart(e["frac"] - 1)) for e in env]
-                st.session_state["cx_hs"] = (S.name, HS.surface(S, m, env, n_dir=160))
+                env, _ = struct.grow("packing", part="major", supercell=(3, 3, 3))
+                env = [dict(e, frac=e["frac"] - 1, xyz=struct.cart(e["frac"] - 1)) for e in env]
+                st.session_state["cx_hs"] = (struct.name, HS.surface(struct, m, env, n_dir=160))
         r = st.session_state.get("cx_hs")
-        if r and r[0] == S.name:
+        if r and r[0] == struct.name:
             from mfs import hirshfeld as HS
             hs = r[1]
             fig, (a1_, a2_) = plt.subplots(1, 2, figsize=(6.5, 3.2))
-            sc_ = HS.draw_dnorm(a1_, hs, CP.view_matrix(S, "a")); fig.colorbar(sc_, ax=a1_, shrink=0.7, label=r"$d_\mathrm{norm}$")
+            sc_ = HS.draw_dnorm(a1_, hs, CP.view_matrix(struct, "a")); fig.colorbar(sc_, ax=a1_, shrink=0.7, label=r"$d_\mathrm{norm}$")
             HS.draw_fingerprint(a2_, hs, highlight=["O···H", "H···O"])
-            show(fig, f"{S.name}_Hirshfeld_experimental", data=pd.DataFrame({"di": hs["di"], "de": hs["de"], "d_norm": hs["d_norm"], "pair": hs["pair"]}), controls=False)
+            show(fig, f"{struct.name}_Hirshfeld_experimental", data=pd.DataFrame({"di": hs["di"], "de": hs["de"], "d_norm": hs["d_norm"], "pair": hs["pair"]}), controls=False)
             st.dataframe(HS.contacts(hs).round(1), hide_index=True)
