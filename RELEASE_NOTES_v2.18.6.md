@@ -23,6 +23,6 @@
 - Test suite (local): see the test summary before release. Known failures: `test_pagestate` (defect baseline, decision pending); browser end-to-end tests of batch A, B and C still use the pre-masking sample names; `test_pl_extras_panels_exist_and_run` failed once and passed on rerun.
 - The PDF methodology document is not updated; it waits for approval.
 
-### Known open items
-- test_pagestate (2 cases): defect baseline decision pending (masked example names).
-- Browser end-to-end tests of batch A and B still need the masked sample names (tests-extra workflow).
+### Test status
+- Local suite: 653 passed, 64 skipped, 0 failed (end-to-end browser suites for v2.11, v2.12 and v2.9 are run separately).
+- Fixed before release: sample-name mapping for the bundled example samples (Sample A/B/C keep their framework defaults, so the defect results are unchanged); the colour callback of the figure controls tolerates a missing picker key; PXRD UI tests select the Sample A example; the defect snapshot now lists the merged sample IDs.

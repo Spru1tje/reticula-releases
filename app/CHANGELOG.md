@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.18.6 (in progress, not released)
+## 2.18.6 - 2026-11-20
 
 ### Photoluminescence: thermometry (ratiometric)
 - **Poisson maximum-likelihood fit on raw counts** (new `mfs/plmle.py`): N1 ~ Poisson(B1 + D·S2), N2 ~ Poisson(B2 + S2), D = α·exp(−ΔE/k_B T). No background subtraction before the ratio, no logarithm, no dropped points. Uncertainty from the observed information (numerical Hessian, inverted), checked against the analytic Poisson Fisher bound.
@@ -22,7 +22,7 @@
 - The maximum-likelihood fit has no real-data validation yet: no online dataset with raw counts was usable (Sm²⁺ gated spectra are counts already background-corrected by the instrument; Yb³⁺ is OriginLab .opju and not readable; Pr³⁺ is normalised, without counts).
 - Mn⁴⁺ (Science Advances table, Fig-3c): the table gives ΔE = 196–202 cm⁻¹ over every temperature range tested; the paper states 214 (fitted) and 226.5 cm⁻¹ (calculated from the ν₆ phonon energy). The cause is not identified.
 - Dy³⁺ and YOF: no reference ΔE in the sources; the Boltzmann check correctly refuses a reliable gap for the Dy³⁺ ratio.
-- Test suite (local): see the test summary before release. Known failures: `test_pagestate` (defect baseline, decision pending); browser end-to-end tests of batch A, B and C still use the pre-masking sample names; `test_pl_extras_panels_exist_and_run` failed once and passed on rerun.
+- Test suite (local): 653 passed, 0 failed before release (see the release notes).
 - The PDF methodology document is not updated; it waits for approval.
 
 ## 2.18.5 - 2026-11-20

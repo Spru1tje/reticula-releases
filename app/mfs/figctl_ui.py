@@ -347,5 +347,7 @@ def panel(fig, key, units=None, series=None, expanded=False):
 
 def _colour_cb(name, ck):
     cur = st.session_state.setdefault("series_colours", {})
+    if ck not in st.session_state:       # the picker was not drawn in this run (the sample list changed): nothing to store
+        return
     cur[name] = st.session_state[ck]
     S.set_series_colours(cur)

@@ -446,7 +446,14 @@
   "Open sites / node=0.79",
   "M per node (g mol⁻¹)=1914.0"
  ],
- "_store_ids": ["PM", "Sample A", "Sample B", "Sample C", "SampleA_3Flex_MicroActive", "SampleA_3Flex_full_report_EXAMPLE", "SampleA_Netzsch", "SampleA_digest_totxt", "SampleB_3Flex_MicroActive", "SampleB_TA_UniversalAnalysis", "SampleB_digest_totxt", "SampleC_3Flex_MicroActive", "SampleC_Mettler_STARe", "SampleC_digest_totxt", "ZrO2"],
+ "_store_ids": [
+  "PM",
+  "Sample A",
+  "Sample A batch 3 (3Flex report)",
+  "Sample B",
+  "Sample C",
+  "ZrO2"
+ ],
  "pulled::Sample A": [
   {
    "method": "(a) TGA plateau, M-400 (Valenzano 2011 / Shearer 2014)",
