@@ -596,7 +596,7 @@ def selftest(out):
         res["dsc"] = "FAIL " + traceback.format_exc()[-400:]
     try:      # Batch A: DFT-kernel PSD on the bundled N2 example, kinetics CI, SI table (DOCX/XLSX)
         from mfs import psd, kinetics as K, si_export as SI, samplestore as SS, readers as R
-        ex = os.path.join(APP_DIR, "example_data", "Sorption", "MOF801_3Flex_MicroActive.xlsx")
+        ex = os.path.join(APP_DIR, "example_data", "Sorption", "SampleA_3Flex_MicroActive.xlsx")
         iso = R.read_sorption(ex, ex)["iso"]; a_ = iso[iso.branch.astype(str).str.startswith("ads")]
         f = psd.dft_fit(a_.p_rel.values.astype(float), a_.q.values.astype(float))
         st_ = {}; SS.put(st_, "x", "defects", {"L": 5.0, "x": 1.0, "OS": 1.6})
@@ -609,10 +609,10 @@ def selftest(out):
     try:      # Batch B: XPS doublet fit, TGA steps / MS, DSC cp (sapphire), FTIR inset
         from mfs import xps as XP, tga as TG, dsc as DSC2, spectra as SP, readers as R, analysis as A
         E = os.path.join(APP_DIR, "example_data")
-        d = R.read_xps(os.path.join(E, "XPS", "ZrO2@Sulfo-MOF801_S2p_CasaXPS.csv"), "S2p.csv")
+        d = R.read_xps(os.path.join(E, "XPS", "SampleC_S2p_CasaXPS.csv"), "S2p.csv")
         fx = XP.fit(d.x.values, d.y.values, [{"name": "S", "region": "S 2p", "center": 168.5}], "shirley")
-        t = R.read_tga(os.path.join(E, "TGA", "MOF801_Netzsch.txt"), "MOF801_Netzsch.txt"); st_ = TG.steps(A.tga_analysis(t["T"], t["w"], 21), 1.0)
-        ms = TG.read_ms(os.path.join(E, "TGA", "MOF801_QMS_ion_currents_EXAMPLE.csv"))
+        t = R.read_tga(os.path.join(E, "TGA", "SampleA_Netzsch.txt"), "SampleA_Netzsch.txt"); st_ = TG.steps(A.tga_analysis(t["T"], t["w"], 21), 1.0)
+        ms = TG.read_ms(os.path.join(E, "TGA", "SampleA_QMS_ion_currents_EXAMPLE.csv"))
         P_ = os.path.join(E, "DSC", "Cp_sapphire"); rd = lambda f: DSC2.read_dsc(os.path.join(P_, f))["curves"][0]
         cp = DSC2.cp_from_sapphire(rd("Cp_sample_MOF-801_EXAMPLE.csv"), rd("Cp_sapphire_EXAMPLE.csv"), rd("Cp_blank_EXAMPLE.csv"), 9.80, 25.30)
         import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -627,11 +627,11 @@ def selftest(out):
         import numpy as np
         from mfs import particles as PA, edx as EDX, ratios as RT, readers as R
         E = os.path.join(APP_DIR, "example_data")
-        f = os.path.join(E, "SEM", "MOF-801_SEM.tif"); m = R.read_sem(open(f, "rb"), f)
+        f = os.path.join(E, "SEM", "SampleA_SEM.tif"); m = R.read_sem(open(f, "rb"), f)
         lab, fa, _t = PA.segment(m["image"][:960], dark_particles=False); rows = PA.measure(lab, 2.6, fa)
         fit = PA.lognormal_fit([r_["ECD (nm)"] for r_ in rows])
         from PIL import Image
-        mp = {el: np.array(Image.open(os.path.join(E, "EDX", f"ZrO2_at_Sulfo-MOF801_EDXmap_{el}.png")).convert("L")) for el in ("Zr", "Hf", "S")}
+        mp = {el: np.array(Image.open(os.path.join(E, "EDX", f"SampleC_EDXmap_{el}.png")).convert("L")) for el in ("Zr", "Hf", "S")}
         rgb = EDX.overlay(mp, {"Zr": "#E69F00", "Hf": "#56B4E9", "S": "#F0E442"}); d_, pr = EDX.line_scan(mp["Hf"], (10, 128), (300, 128))
         r = RT.zr_hf_s({"Zr": 9.337, "Hf": 45.962, "S": 0.773}, {"Zr": 0.47, "Hf": 2.3, "S": 0.04})
         ok = 10 <= fit["n"] <= 60 and 150 < fit["mean"] < 600 and rgb.shape == (256, 320, 3) and len(pr) > 200 and 0.3 < r["S per M6 node"][0] < 0.5
