@@ -1,22 +1,48 @@
 """Shared Playwright helpers. Since v2.9 leaving a page with unsaved changes opens a Save / Don't save / Cancel dialog;
-older e2e tests expect the pre-2.9 behaviour (a page starts fresh), so nav() answers "Don't save" by default."""
+older e2e tests expect the pre-2.9 behaviour (a page starts fresh), so nav() answers "Don't save" by default.
+v2.18.6: nav() waits for the sidebar option, polls for the save dialog (up to 15 s) and answers it when it appears; a dialog left
+open before a click is answered first. The old fixed 2.5 s wait missed a dialog that appeared later and blocked the next click."""
+import time
+
 SIDEBAR_OPT = "[data-testid='stSidebar'] [data-testid='stRadioOption']"
 DIALOG = "[data-testid='stDialog']"
 
 
-def nav(pg, name, answer="discard", wait_ms=2500):
-    pg.locator(SIDEBAR_OPT, has_text=name).first.click()
-    if answer is None:
-        return False
+def _answer(pg, answer):
+    """Click the button of the open save dialog; returns True when a dialog was answered."""
     dlg = pg.locator(DIALOG).filter(has_text="Do you want to save")
-    try:
-        dlg.first.wait_for(state="visible", timeout=wait_ms)
-    except Exception:
+    if not (dlg.count() and dlg.first.is_visible()):
         return False
     label = {"save": "💾 Save", "discard": "Don't save", "cancel": "Cancel"}[answer]
     dlg.first.get_by_role("button", name=label, exact=True).click()
-    pg.wait_for_timeout(1200)
+    pg.wait_for_timeout(1500)
     return True
+
+
+def nav(pg, name, answer="discard", wait_ms=15000):
+    """Switch the sidebar page. answer=None: click only and return False (the caller checks the dialog itself).
+    Otherwise poll until either the save dialog appears (answered) or the page has switched (no dialog)."""
+    opt = pg.locator(SIDEBAR_OPT, has_text=name).first
+    opt.wait_for(state="visible", timeout=60000)
+    if answer is not None:
+        _answer(pg, answer)           # a dialog left open by an earlier step would block the click
+    opt.click()
+    if answer is None:
+        return False
+    deadline = time.time() + wait_ms / 1000
+    while time.time() < deadline:
+        if _answer(pg, answer):
+            return True
+        try:
+            if opt.locator("input").first.is_checked():
+                pg.wait_for_timeout(800)
+                if _answer(pg, answer):          # the dialog can appear just after the switch
+                    return True
+                return False
+        except Exception:
+            pass
+        pg.wait_for_timeout(300)
+    return False
 
 
 def bright_particles(pg, wait_ms=6000):

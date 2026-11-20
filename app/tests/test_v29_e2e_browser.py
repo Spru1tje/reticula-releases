@@ -103,8 +103,17 @@ def test_unsaved_dialog_and_restore(gurl, tmp_path):
     with sync_playwright() as p:
         b, pg = _open(p, gurl)
         nav(pg, "PXRD"); _wait_text(pg, "Powder X-ray diffraction")
-        pg.locator("[data-testid='stMain'] [data-testid='stFileUploaderDropzoneInput']").first.set_input_files(str(rx))
-        _wait_text(pg, "Rigaku SmartLab", 180000); pg.wait_for_timeout(4000)
+        dz = pg.locator("[data-testid='stMain'] [data-testid='stFileUploaderDropzoneInput']").first
+        dz.wait_for(state="attached", timeout=120000); pg.wait_for_timeout(1500)
+        for _attempt in range(3):          # the uploader can drop a file set before it is ready: set again until it is parsed
+            dz.set_input_files(str(rx))
+            try:
+                _wait_text(pg, "Rigaku SmartLab", 60000); break
+            except Exception:
+                if _attempt == 2:
+                    raise
+                pg.wait_for_timeout(2000)
+        pg.wait_for_timeout(4000)
         m = _noexc(pg, "PXRD rasx")
         assert "not 2θ/θ" in m and "Kα1 1.540593" in m
         _shot(pg, "v29_pxrd_rasx.png")
@@ -118,18 +127,18 @@ def test_unsaved_dialog_and_restore(gurl, tmp_path):
         # leave → Save → TGA; come back → the upload is restored
         assert nav(pg, "TGA", answer="save"); pg.wait_for_timeout(3000)
         assert "TGA" in _chip(pg)
-        nav(pg, "PXRD"); _wait_text(pg, "kept from earlier", 120000); pg.wait_for_timeout(3000)
+        nav(pg, "PXRD"); _wait_text(pg, "Rigaku SmartLab", 120000); pg.wait_for_timeout(3000)   # the uploader keeps the file; the "kept from earlier" caption shows only when it is empty
         m = _noexc(pg, "PXRD restored")
         assert "SmartLab_SampleA.rasx" in m and "Rigaku SmartLab" in m
         _shot(pg, "v29_pxrd_restored.png")
         # change a setting, leave → Don't save → back: reverted to the saved state (file still there)
         pg.get_by_text("Show reflection sticks").first.click(); pg.wait_for_timeout(2500)
-        cb = pg.locator("[data-testid='stCheckbox']").filter(has_text="Show reflection sticks").first.locator("input")
+        cb = pg.get_by_label("Show reflection sticks").first; cb.wait_for(state="attached", timeout=60000)
         assert not cb.is_checked()
         assert nav(pg, "XPS", answer="discard"); pg.wait_for_timeout(2500)
         assert "XPS" in _chip(pg)
         nav(pg, "PXRD"); _wait_text(pg, "Show reflection sticks"); pg.wait_for_timeout(3000)
-        cb = pg.locator("[data-testid='stCheckbox']").filter(has_text="Show reflection sticks").first.locator("input")
+        cb = pg.get_by_label("Show reflection sticks").first; cb.wait_for(state="attached", timeout=60000)
         assert cb.is_checked() and "SmartLab_SampleA.rasx" in _main(pg)
         # the defect calculator still sees data entered on other pages
         nav(pg, "TGA"); pg.wait_for_timeout(8000)

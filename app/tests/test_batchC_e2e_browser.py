@@ -19,6 +19,7 @@ def test_batchC_pages(url):
         _nav(pg, "SEM / TEM"); pg.get_by_text("Particle sizing").first.wait_for(timeout=180000); pg.wait_for_timeout(6000)
         from _e2e_util import bright_particles
         bright_particles(pg)
+        pg.get_by_text("mean ± SD, n =").first.wait_for(timeout=120000); pg.wait_for_timeout(2000)   # the sizing result is computed after the click
         main = _noexc(pg, "SEM")
         m = re.search(r"ECD = (\d+) ± (\d+) nm \(mean ± SD, n = (\d+)\)", main); assert m, main[-2000:]
         auto = tuple(int(g) for g in m.groups())

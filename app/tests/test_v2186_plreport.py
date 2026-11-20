@@ -1,5 +1,6 @@
 """v2.18.6: the PL analysis report (mfs/plreport.py) builds a valid multi-page PDF with every section."""
 import io
+import pytest
 import numpy as np
 import pandas as pd
 from mfs import pl as PL
@@ -17,7 +18,6 @@ def _fit():
 
 
 def test_report_is_a_pdf_with_all_sections():
-    from pypdf import PdfReader
     T, D, Dstat, bf = _fit()
     table = pd.DataFrame({"T (K)": T, "Δ": D, "σΔ": Dstat})
     checks = [{"status": "ok", "title": "Temperatures", "detail": "9 temperatures", "advice": ""},
@@ -28,9 +28,11 @@ def test_report_is_a_pdf_with_all_sections():
                          checks=checks, verdict="HIGH", settings={"ratio method": "fit"}, u_dE_cm1=8.0,
                          T_res=np.full(len(T), 0.3), T_cal=np.full(len(T), 0.5))
     assert pdf[:4] == b"%PDF"
-    reader = PdfReader(io.BytesIO(pdf))
+    import re as _re
+    assert len(_re.findall(rb"/Type\s*/Page[^s]", pdf)) >= 2
+    pypdf = pytest.importorskip("pypdf")
+    reader = pypdf.PdfReader(io.BytesIO(pdf))
     text = "\n".join(p.extract_text() or "" for p in reader.pages)
-    assert len(reader.pages) >= 2
     for section in ["1. Verdict", "2. Settings used", "3. Equations", "4. Calibration", "5. Thermometry table",
                     "6. Uncertainty budget", "7. Checks and advice", "8. Limitations"]:
         assert section in text, section

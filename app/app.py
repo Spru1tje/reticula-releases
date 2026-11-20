@@ -397,7 +397,8 @@ def _si_capture(fig, stem, data, title, cfg):
         st.session_state["_si_err"] = str(e)
 
 
-GUESS = [(r"mof-?801hf_3flex_full", "Sample A batch 3 (3Flex report)"), (r"zro2.?@|composite", "Sample C"), (r"^pm|physical", "PM"), (r"sulfo-?mof|sulfo_mof", "Sample B"),
+GUESS = [(r"mof-?801hf_3flex_full|samplea_?3flex_full", "Sample A batch 3 (3Flex report)"), (r"^samplea", "Sample A"), (r"^sampleb", "Sample B"), (r"^samplec", "Sample C"),
+         (r"zro2.?@|composite", "Sample C"), (r"^pm|physical", "PM"), (r"sulfo-?mof|sulfo_mof", "Sample B"),
          (r"^zro2", "ZrO$_2$"), (r"mof-?801", "Sample A"), (r"sulfosucc", "2-Sulfosuccinic acid")]
 
 

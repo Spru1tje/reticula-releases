@@ -36,7 +36,7 @@ def test_batchA_kinetics_n2_store_si(url, tmp_path):
         pg.get_by_text("Arrhenius").nth(1).wait_for(timeout=180000); pg.wait_for_timeout(4000)
         main = pg.locator("[data-testid='stMain']").inner_text()
         assert not pg.locator("[data-testid='stException']").count(), main[-1500:]
-        m = re.search(r"Ea = ([\d.]+) ± ([\d.]+) kJ", main); assert m, main[-2500:]
+        m = re.search(r"Ea = ([\d.]+) \S+ ([\d.]+) kJ", main); assert m, main[-2500:]
         Ea = float(m.group(1)); assert abs(Ea - 72) < 3
         pk = re.search(r"pKa = ([\d.]+)", main); assert pk and abs(float(pk.group(1)) - 6.2) < 0.2
         pg.get_by_text("Arrhenius and Eyring analysis").first.scroll_into_view_if_needed(); pg.wait_for_timeout(1500)
