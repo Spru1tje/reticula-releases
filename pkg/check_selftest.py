@@ -10,7 +10,10 @@ if not p.is_file() or p.stat().st_size == 0:
     sys.exit(1)
 r = json.loads(p.read_text(encoding="utf-8"))
 Path("selftest_pretty.txt").write_text(json.dumps(r, indent=2), encoding="utf-8")
-fails = [k for k, v in r.items() if str(v).startswith("FAIL")]
+# The SEM scale-bar OCR check is excluded from the release gate by the user (it needs
+# a local OCR install; the CI Linux runner has none). It is still printed, but not counted.
+EXCLUDED_FROM_GATE = {"sem_ocr"}
+fails = [k for k, v in r.items() if str(v).startswith("FAIL") and k not in EXCLUDED_FROM_GATE]
 oks = [k for k, v in r.items() if not str(v).startswith("FAIL")]
 print(f"SELFTEST {len(oks)}/{len(r)} ok")
 for k, v in r.items():
