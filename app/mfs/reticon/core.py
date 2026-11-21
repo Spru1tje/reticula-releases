@@ -344,15 +344,16 @@ def shade(hex_color: str, dl: float = -0.30, ds: float = 0.05) -> str:
 
 @dataclass
 class BioPalette:
-    body: str = "#E4E9EF"         # instruments, hardware
-    glass_fill: str = "#D7ECF8"
-    glass_line: str = "#86AFCD"
-    panel: str = "#F7FAFC"        # windows, displays, holes
-    ink: str = "#435266"          # axes and text-like strokes
-    accent: str = "#F2A541"       # beams, heat, highlights
-    liquids: tuple = ("#F39AB4", "#7FD0C2", "#93B4F1", "#F6C27A", "#B9A0E8", "#9DD27E")
-    glass_opacity: float = 0.6
-    outline: float = 1.3
+    # 2.19.0 scientific palette (docs/icons/STYLE.md): restrained, low saturation, one steel-blue accent
+    body: str = "#E9EDF1"         # instruments, hardware
+    glass_fill: str = "#DCEAF3"
+    glass_line: str = "#5F7A90"
+    panel: str = "#F6F8FA"        # windows, displays, holes
+    ink: str = "#1F2D3D"          # axes and text-like strokes
+    accent: str = "#2E6F95"       # the one element the icon is about
+    liquids: tuple = ("#8FB8CC", "#A7C4B5", "#B8B3D6", "#D9C49A", "#C9A7A7", "#9FB7A0")
+    glass_opacity: float = 0.55
+    outline: float = 1.2
 
 
 def _attrs(op: Op) -> str:

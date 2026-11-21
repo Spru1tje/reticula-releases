@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.19.0 - 2026-11-21
+
+### Reticon library (major update)
+- New scientific style (`docs/icons/STYLE.md`): restrained palette (ink, steel-blue accent, muted greys), one line weight, no gloss, no sunburst effects. The Reticon renderer's default palette follows it (`BioPalette` in `mfs/reticon/core.py`).
+- 300 new material-science icons, five shape variants each (1500 variants). Ten are hand-built (`mfs/reticon/materials_2190.py`); 290 come from the drawing families in `mfs/reticon/families_2190.py`. The library now holds 1354 icons.
+- Limitation: the families are schematic. Several terms share a drawing (for example the hexagonal and rhombohedral cells both use the cube family). Icons are for figures; check them against the source before publication.
+- Navigation icons (24) redrawn in the same palette (`app/assets/nav_icons`).
+
+### Routine workflow
+- Routines never overlap: `tools/routine_lock.sh` refuses a new run while another run started less than 3 hours ago is active.
+
+### Checks
+- 300 new icons: five variants each, all rendered to PNG; known element counts for the hand-built icons (`tests/test_v2190_reticon.py`).
+
 ## 2.18.12 - 2026-11-21
 
 ### Pages (the methods of 2.18.11 are now on the pages)
