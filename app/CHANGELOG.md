@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.19.2 - 2026-11-22
+
+### Sidebar and theme
+- Sidebar: every page shows a visible icon (a light copy of the scientific icon set for the dark sidebar); the page name is left-aligned next to the icon.
+- Dark theme: a "Dark theme" switch at the bottom of the sidebar gives the main area, cards, tabs, buttons and upload area a calm dark palette (sidebar stays dark).
+- Tests: `tests/test_v2192_theme.py` (icon per page, dark theme CSS coverage).
+
 ## 2.19.1 - 2026-11-21
 
 ### New methods and checks (ten additions, each with a known-answer test in `tests/test_v2191_known_answers.py`)
