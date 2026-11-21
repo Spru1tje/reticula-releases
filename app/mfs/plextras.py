@@ -92,6 +92,8 @@ def fit_power(P, I):
         return {"status": "needs at least 3 powers"}
     x, y = np.log10(P), np.log10(I)
     A = np.vstack([x, np.ones_like(x)]).T
+    if np.linalg.matrix_rank(A) < 2:  # all powers equal: the slope is undefined (was a LinAlgError)
+        return {"status": "needs at least two different powers"}
     coef, res, *_ = np.linalg.lstsq(A, y, rcond=None)
     fit = A @ coef
     dof = max(len(x) - 2, 1)

@@ -34,7 +34,8 @@ def caption_lines(text, width_in, font_size):
 
 def _group_boxes(fig):
     """Tight box (inches) of every panel INCLUDING its colour bar / inset axes / panel letter, keyed by its cell range in the grid."""
-    rend = fig.canvas.get_renderer()
+    from .render import renderer_for
+    rend = renderer_for(fig)
     inv = fig.dpi_scale_trans.inverted()
     out = {}
     for ax in fig.axes:

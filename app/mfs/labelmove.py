@@ -138,7 +138,8 @@ def payload(fig, dpi=110):
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi)
     W, H = fig.get_size_inches() * dpi
-    r = fig.canvas.get_renderer()
+    from .render import renderer_for
+    r = renderer_for(fig)
     its = []
     for k, kind, ai, art in items(fig):
         try:

@@ -748,7 +748,7 @@ def _inside(ax, artist, pad_px, renderer):
 def fit_annotations(fig, axs, pad_pt=2.0, min_pt=4.0, max_iter=16):
     """Shrink the scale-bar / magnification / panel-label text of every image panel (uniformly) until each text bbox
     lies inside its own axes with `pad_pt` padding. Returns the final font size."""
-    fig.canvas.draw(); r = fig.canvas.get_renderer(); pad = pad_pt * fig.dpi / 72
+    fig.canvas.draw(); from .render import renderer_for; r = renderer_for(fig); pad = pad_pt * fig.dpi / 72
     texts = [(ax, t) for ax in axs for t in ax.texts if t.get_gid() == "mfs_note" and t.get_visible()]
     if not texts:
         return None
@@ -760,7 +760,7 @@ def fit_annotations(fig, axs, pad_pt=2.0, min_pt=4.0, max_iter=16):
         fs = max(min_pt, fs - 0.5)
         for _, t in texts:
             t.set_fontsize(fs)
-        fig.canvas.draw(); r = fig.canvas.get_renderer()
+        fig.canvas.draw(); from .render import renderer_for; r = renderer_for(fig)
     return fs
 
 
