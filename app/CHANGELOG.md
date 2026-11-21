@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.18.8 - 2026-11-21
+
+### Fixes (photoluminescence tab)
+- Power dependence (`fit_power`): equal power values for all spectra gave `numpy.linalg.LinAlgError: Singular matrix` and blocked the page. The page now says it needs at least two different powers.
+- Panel composer (`composer._group_boxes`), and the label and plot helpers that measure text: `fig.canvas.get_renderer()` does not exist on a plain canvas (`AttributeError`). A new helper `mfs/render.py` (`renderer_for`) falls back to an Agg renderer of the same size and resolution.
+- Tests: `tests/test_v2187_hotfix.py` reproduces both crashes (they fail on 2.18.7 and pass now).
+
 ## 2.18.7 - 2026-11-20
 
 ### Code cleanup (no change to computed results)
