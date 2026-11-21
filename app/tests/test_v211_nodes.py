@@ -104,7 +104,7 @@ def test_defect_page_any_framework_apptest(tmp_path):
     from streamlit.testing.v1 import AppTest
     os.environ.update(MFS_STORE=str(tmp_path / "s.json"), MFS_DB=str(tmp_path / "r.db"), MFS_EXPORT_DIR=str(tmp_path))
     at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300); at.run()
-    at.sidebar.radio[0].set_value("Defect calculator").run()
+    at.button(key="nv_" + "Defect calculator").click().run()
     assert at.selectbox(key="def_fw").value == "UiO-66"            # neutral default
     plat = 100 * molar_mass("Cu2(C9H3O6)1.3333333333") / molar_mass("Cu2O2")
     at.selectbox(key="def_fw").set_value("HKUST-1").run()

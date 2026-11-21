@@ -129,7 +129,7 @@ def test_uvvis_page_apptest(tmp_path):
     from streamlit.testing.v1 import AppTest
     os.environ.update(MFS_STORE=str(tmp_path / "s.json"), MFS_DB=str(tmp_path / "r.db"), MFS_EXPORT_DIR=str(tmp_path), MFS_NAV_GUARD="0")
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600); at.run()
-    at.sidebar.radio[0].set_value("UV/Vis").run()
+    at.button(key="nv_" + "UV/Vis").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     assert len(at.dataframe) >= 2
     labels = [m.label for m in at.metric]
@@ -137,5 +137,5 @@ def test_uvvis_page_apptest(tmp_path):
     txt = " ".join(str(d.value.to_dict()) for d in at.dataframe)
     assert "Eg (eV)" in txt
     at.button(key="uv_k_send").click().run()
-    at.sidebar.radio[0].set_value("Kinetics & adsorption").run()
+    at.button(key="nv_" + "Kinetics & adsorption").click().run()
     assert not at.exception and at.checkbox(key="kin_from_uv").value

@@ -89,7 +89,7 @@ def _ok(a):
 
 
 def test_app_ftir_tools(monkeypatch, tmp_path):
-    a = _at(monkeypatch, tmp_path); a.sidebar.radio[0].set_value("FTIR / Raman").run(); _ok(a)
+    a = _at(monkeypatch, tmp_path); a.button(key="nv_" + "FTIR / Raman").click().run(); _ok(a)
     for k in ("ft_nb", "ft_pl", "ft_ins"):
         a.checkbox(key=k).check().run(); _ok(a)
     assert any("Difference" in e.label for e in a.expander)
@@ -98,7 +98,7 @@ def test_app_ftir_tools(monkeypatch, tmp_path):
 
 
 def test_app_xps_multi(monkeypatch, tmp_path):
-    a = _at(monkeypatch, tmp_path); a.sidebar.radio[0].set_value("XPS").run(); _ok(a)
+    a = _at(monkeypatch, tmp_path); a.button(key="nv_" + "XPS").click().run(); _ok(a)
     a.checkbox(key="xps_multi").check().run(); _ok(a)
     at = [d.value for d in a.dataframe if "S 2p at.%" in d.value.columns]
     assert at and 0 < at[0]["S/(Zr+Hf)"].iloc[0] < 2
@@ -107,9 +107,9 @@ def test_app_xps_multi(monkeypatch, tmp_path):
 
 
 def test_app_tga_dsc(monkeypatch, tmp_path):
-    a = _at(monkeypatch, tmp_path); a.sidebar.radio[0].set_value("TGA").run(); _ok(a)
+    a = _at(monkeypatch, tmp_path); a.button(key="nv_" + "TGA").click().run(); _ok(a)
     assert any("linkers / node L" in d.value.columns for d in a.dataframe)
-    a.sidebar.radio[0].set_value("DSC").run(); _ok(a)
+    a.button(key="nv_" + "DSC").click().run(); _ok(a)
     a.checkbox(key="dsc_hch_ex").check().run(); _ok(a)
     assert any("ΔH / ΔH(cycle 1)" in d.value.columns for d in a.dataframe)
     cp = [d.value for d in a.dataframe if "cp 100 °C" in d.value.columns]
@@ -118,5 +118,5 @@ def test_app_tga_dsc(monkeypatch, tmp_path):
 
 def test_app_nmr_ratio_string(monkeypatch, tmp_path):
     a = _at(monkeypatch, tmp_path); a.session_state["nmr_mode"] = "⚗️ Digestion / composition (ratios, qNMR)"   # v2.13
-    a.sidebar.radio[0].set_value("1H NMR (digest)").run(); _ok(a)
+    a.button(key="nv_" + "1H NMR (digest)").click().run(); _ok(a)
     assert any("composition" in d.value.columns for d in a.dataframe)

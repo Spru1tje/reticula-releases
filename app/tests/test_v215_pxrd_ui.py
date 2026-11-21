@@ -10,7 +10,7 @@ def _app(level="Standard"):
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": level}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     return at
 
 
@@ -48,7 +48,7 @@ def test_band_assignment_and_fit_in_ftir_page():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Advanced"}
     at.run()
-    at.sidebar.radio[0].set_value("FTIR / Raman").run()
+    at.button(key="nv_" + "FTIR / Raman").click().run()
     assert not at.exception, at.exception
     assert any("Band assignment" in e.label for e in at.expander)
     [b for b in at.button if b.key == "bd_go"][0].click().run()
@@ -57,7 +57,7 @@ def test_band_assignment_and_fit_in_ftir_page():
     at2 = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at2.session_state["_lv"] = {"global": "Standard"}
     at2.run()
-    at2.sidebar.radio[0].set_value("FTIR / Raman").run()
+    at2.button(key="nv_" + "FTIR / Raman").click().run()
     assert not any("Band assignment" in e.label for e in at2.expander)          # Standard: not drawn
 
 
@@ -67,7 +67,7 @@ def _page(name, level="Advanced"):
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": level}
     at.run()
-    at.sidebar.radio[0].set_value(name).run()
+    at.button(key="nv_" + name).click().run()
     return at
 
 
@@ -140,7 +140,7 @@ def test_structure_refinement_in_the_app_with_3d_tables_and_cif():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=900)
     at.session_state["_lv"] = {"global": "Advanced"}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     _ms = at.multiselect(key="rv_phases"); _ms.set_value([o for o in _ms.options if "801" in o][:1]).run()      # v2.18.4: no phase is preselected any more
     [r for r in at.radio if r.key == "rv_mode"][0].set_value("Rietveld + refine the atoms (structure)").run()
@@ -161,7 +161,7 @@ def test_phase_identification_in_the_pxrd_page():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Standard"}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     [b for b in at.button if b.key == "rv_ident"][0].click().run()
     assert not at.exception, at.exception
@@ -178,7 +178,7 @@ def test_indexing_and_le_bail_of_an_unknown_phase_in_the_page():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Standard"}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     _sa = at.selectbox(key="rv_sample"); _sa.set_value([o for o in _sa.options if "Sample A" in o or "SampleA" in o or "MOF" in o][0]).run()     # v2.18.5: the MOF-801 example (Sample A), not the first pattern (PM)
     [b for b in at.button if b.key == "rv_index"][0].click().run()
@@ -199,7 +199,7 @@ def test_one_click_automatic_identification_and_structure_refinement():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=900)
     at.session_state["_lv"] = {"global": "Standard"}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     _sa = at.selectbox(key="rv_sample"); _sa.set_value([o for o in _sa.options if "Sample A" in o or "SampleA" in o or "MOF" in o][0]).run()     # v2.18.5: the MOF-801 example (Sample A), not the first pattern (PM)
     [b for b in at.button if b.key == "rv_auto"][0].click().run()

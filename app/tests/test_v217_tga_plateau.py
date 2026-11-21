@@ -56,7 +56,7 @@ def test_tga_page_renders_the_plateau_picker():
     at = AppTest.from_file(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Standard"}
     at.run()
-    at.sidebar.radio[0].set_value("TGA").run()
+    at.button(key="nv_" + "TGA").click().run()
     assert not at.exception, at.exception
     assert any("Plateau point" in e.label for e in at.expander)
     assert any("plateau point" in str(c.value).lower() or "automatic" in str(c.value).lower() for c in at.dataframe) or len(at.dataframe) > 0

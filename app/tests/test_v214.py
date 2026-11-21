@@ -91,7 +91,7 @@ def at(tmp_path, monkeypatch):
 
 
 def test_zeta_page_annotations_and_legend(at):
-    at.sidebar.radio[0].set_value("Zeta / DLS").run()
+    at.button(key="nv_" + "Zeta / DLS").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     for k in ("zeta_show_z", "zeta_show_pdi", "zeta_show_zp", "zeta_bar_leg"):
         at.checkbox(key=k).check()
@@ -345,7 +345,7 @@ def test_combined_figure_from_three_techniques_in_the_app(tmp_path, monkeypatch)
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400)
     at.run()
     for pg in ("PXRD", "FTIR / Raman", "UV/Vis"):
-        at.sidebar.radio[0].set_value(pg).run()
+        at.button(key="nv_" + pg).click().run()
         assert not at.exception, [e.value for e in at.exception][:2]
         btn = [b for b in at.button if b.key and b.key.startswith("add_")][0]
         assert "Add to combined figure" in btn.label
@@ -353,7 +353,7 @@ def test_combined_figure_from_three_techniques_in_the_app(tmp_path, monkeypatch)
         assert not at.exception, [e.value for e in at.exception][:2]
     assert len(at.session_state["composer"]) == 3
     assert len(at.session_state["fig_registry"]) >= 3
-    at.sidebar.radio[0].set_value("Figure composer").run()
+    at.button(key="nv_" + "Figure composer").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     fig = at.session_state["si_figs"]["combined_figure"]["fig"]
     assert len([a for a in fig.axes if a.axison]) == 3
@@ -427,7 +427,7 @@ def test_pl_page_runs_on_both_examples_and_gives_the_known_numbers(tmp_path, mon
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400)
     at.run()
-    at.sidebar.radio[0].set_value("Photoluminescence").run()
+    at.button(key="nv_" + "Photoluminescence").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     vals = {m.label: m.value for m in at.metric}
     assert abs(float(vals["ΔE"].split()[0]) - 741) < 25 and 1.1 < float(vals["Sᵣ at 293 K"].split()[0]) < 1.4

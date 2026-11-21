@@ -87,7 +87,7 @@ def test_no_private_pipeline_bundled():
 
 # ---------------- app ----------------
 def _goto(at, page):
-    at.sidebar.radio[0].set_value(page).run()
+    at.button(key="nv_" + page).click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     return at
 

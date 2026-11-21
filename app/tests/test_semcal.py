@@ -132,7 +132,7 @@ def test_mag_overlay_on_figure():
 def _goto_sem():
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300)
-    at.run(); at.sidebar.radio[0].set_value("SEM / TEM / EDX").run()
+    at.run(); at.button(key="nv_" + "SEM / TEM / EDX").click().run()
     return at
 
 

@@ -18,7 +18,7 @@ def _cb(at, text):
 
 @pytest.mark.parametrize("page,label", [("TGA", "Normalise to residue"), ("PXRD", None), ("DSC", None)])
 def test_undo_redo_widgets_on_pages(at, page, label):
-    at.sidebar.radio[0].set_value(page).run()
+    at.button(key="nv_" + page).click().run()
     assert at.button(key="_ps_undo").disabled
     cbs = [c for c in at.checkbox if (label is None or label in c.label) and c.key and not c.key.startswith(("_", "gs_", "si_"))]
     c = cbs[0]; k = c.key; v0 = c.value
@@ -34,7 +34,7 @@ def test_undo_redo_widgets_on_pages(at, page, label):
 
 
 def test_undo_sample_list_order_and_visibility(at):
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     sk = [k for k in at.session_state._state._state._keys() if str(k).startswith("_sl|")] if hasattr(at.session_state._state, "_state") else []
     if not sk:
         sk = [k for k in at.session_state["_ps_pages"]["PXRD"].get("extra", []) if k.startswith("_sl|")]

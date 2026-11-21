@@ -205,10 +205,10 @@ def test_help_documents_cover_every_module_and_render_as_pdf():
 def test_help_page_and_info_button_render():
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=300); at.run()
-    at.sidebar.radio[0].set_value("Help and info").run()
+    at.button(key="nv_" + "Help and info").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     assert any("Download this document" in getattr(d, "label", "") for d in at.get("download_button"))
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     assert not at.exception
     labels = [getattr(b, "label", "") for b in at.get("download_button")]
     assert any("Info about this module" in l for l in labels), labels[:6]

@@ -84,7 +84,7 @@ def test_sample_order_drives_stack_and_legend():
     import tempfile
     td = tempfile.mkdtemp(); os.environ.update(MFS_STORE=td + "/s.json", MFS_DB=td + "/r.db", MFS_EXPORT_DIR=td)
     at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300); at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     items = at.session_state["_sl|pxrd_tab"]
     assert len(items) >= 3
     new = [dict(o) for o in items[::-1]]; new[1]["show"] = False
@@ -118,7 +118,7 @@ def test_shape_model_toggle_and_hint_on_sem_page():
     import tempfile
     td = tempfile.mkdtemp(); os.environ.update(MFS_STORE=td + "/s.json", MFS_DB=td + "/r.db", MFS_EXPORT_DIR=td)
     at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300); at.run()
-    at.sidebar.radio[0].set_value("SEM / TEM / EDX").run()
+    at.button(key="nv_" + "SEM / TEM / EDX").click().run()
     t = at.toggle(key="ps_prior")
     assert t.value is False and "Shape model" in t.label
     at.radio(key="ps_dark").set_value("bright").run()

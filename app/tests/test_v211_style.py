@@ -40,7 +40,7 @@ def test_preset_applies_on_every_page_and_persists(tmp_path):
     assert at.number_input(key="gs_font").value == 7.0 and at.selectbox(key="gs_width").value.startswith("Nature single")
     at.selectbox(key="gs_palette").set_value("Tol muted").run()
     for pg in ("PXRD", "TGA", "FTIR / Raman"):
-        at.sidebar.radio[0].set_value(pg).run()
+        at.button(key="nv_" + pg).click().run()
         assert not at.exception, (pg, [e.value for e in at.exception][:1])
         assert S.GLOBAL["font_size"] == 7.0 and S.GLOBAL["palette"] == "Tol muted" and plt.rcParams["lines.linewidth"] == 0.8
     saved = json.load(open(tmp_path / "figure_style.json", encoding="utf-8"))

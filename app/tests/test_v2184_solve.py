@@ -127,7 +127,7 @@ def _rv_app():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Advanced"}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     return at
 

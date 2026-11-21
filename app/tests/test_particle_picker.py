@@ -38,7 +38,7 @@ def test_exclusions_drive_stats_store_and_survive_navigation(tmp_path, monkeypat
     monkeypatch.setenv("MFS_STORE", str(tmp_path / "store.json")); monkeypatch.setenv("MFS_EXPORT_DIR", str(tmp_path))
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400); at.run()
-    at.sidebar.radio[0].set_value("SEM / TEM / EDX").run(); assert not at.exception
+    at.button(key="nv_" + "SEM / TEM / EDX").click().run(); assert not at.exception
     at.radio(key="ps_dark").set_value("bright").run(); assert not at.exception   # bundled SEM example = bright particles
     n0 = _n(at); assert n0
     sig = list(at.session_state["_ps_excl"].values())[0][0]          # the current segmentation's exclusion list
@@ -62,5 +62,5 @@ def test_exclusions_drive_stats_store_and_survive_navigation(tmp_path, monkeypat
     exk = [k for k in vals if k.startswith("excluded::")]
     assert exk and len(vals[exk[0]]) == len(ex0) + 2
     # navigation away and back keeps the exclusions
-    at.sidebar.radio[0].set_value("TGA").run(); at.sidebar.radio[0].set_value("SEM / TEM / EDX").run()
+    at.button(key="nv_" + "TGA").click().run(); at.button(key="nv_" + "SEM / TEM / EDX").click().run()
     assert _n(at) == n1

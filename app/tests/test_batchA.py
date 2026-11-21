@@ -87,7 +87,7 @@ def test_psd_methods_on_example_isotherm():
 def _goto(at, page):
     if page == "1H NMR (digest)":
         at.session_state["nmr_mode"] = "⚗️ Digestion / composition (ratios, qNMR)"   # v2.13
-    at.sidebar.radio[0].set_value(page).run()
+    at.button(key="nv_" + page).click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     return at
 

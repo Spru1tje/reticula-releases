@@ -177,7 +177,7 @@ def test_page_reads_fs_and_shows_the_background_block(monkeypatch):
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=300)
     at.session_state["_lv"] = {"global": "Standard"}
     at.run()
-    at.sidebar.radio[0].set_value("Photoluminescence").run()
+    at.button(key="nv_" + "Photoluminescence").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     assert any("Background subtraction" in e.label for e in at.expander), [e.label for e in at.expander]
     assert any(m.label == "Signal-free windows" for m in at.metric)

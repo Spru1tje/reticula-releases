@@ -56,7 +56,7 @@ def test_app_watershed_options_and_editor(tmp_path, monkeypatch):
     monkeypatch.setenv("MFS_STORE", str(tmp_path / "store.json"))
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(os.path.dirname(HERE), "app.py"), default_timeout=400); at.run()
-    at.sidebar.radio[0].set_value("SEM / TEM / EDX").run(); assert not at.exception
+    at.button(key="nv_" + "SEM / TEM / EDX").click().run(); assert not at.exception
     assert at.radio(key="ps_dark").value == "dark"                 # v2.9 default: dark particles (TEM)
     at.radio(key="ps_dark").set_value("bright").run(); assert not at.exception     # bundled SEM example: bright particles
     assert at.radio(key="ps_algo").value.startswith("adaptive")          # v2.10 default

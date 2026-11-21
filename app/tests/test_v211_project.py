@@ -14,9 +14,9 @@ def test_project_roundtrip_widgets_uploads_store(tmp_path):
     from mfs import project as PRJ
     a = tmp_path / "a"; os.environ.update(MFS_NAV_GUARD="0", MFS_STORE=str(a / "s.json"), MFS_DB=str(a / "r.db"), MFS_EXPORT_DIR=str(a / "exports"))
     at = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300); at.run()
-    at.sidebar.radio[0].set_value("TGA").run()
+    at.button(key="nv_" + "TGA").click().run()
     [c for c in at.checkbox if "Normalise to residue" in c.label][0].check().run()
-    at.sidebar.radio[0].set_value("Defect calculator").run()
+    at.button(key="nv_" + "Defect calculator").click().run()
     at.selectbox(key="def_fw").set_value("MOF-5").run()
     fz = _frozen(at)
     fz["sample_store"] = {"x": {"name": "Sample X", "sections": {"tga": {"values": {"W_end": 12.3}}}}}
@@ -33,12 +33,12 @@ def test_project_roundtrip_widgets_uploads_store(tmp_path):
     b = AppTest.from_file(os.path.join(ROOT, "app.py"), default_timeout=300); b.run()
     b.session_state["_proj_pending"] = ("t.reticula", data); b.run()
     assert not b.exception, [e.value for e in b.exception][:1]
-    assert b.sidebar.radio[0].value == "Defect calculator" and b.selectbox(key="def_fw").value == "MOF-5"
+    assert b.session_state["nav"] == "Defect calculator" and b.selectbox(key="def_fw").value == "MOF-5"
     assert b.session_state["_ps_up"]["pxrd_up"][0][2] == b"5 10\n6 20\n"
     assert b.session_state["sample_store"]["x"]["name"] == "Sample X"
     assert json.load(open(b_ / "s.json", encoding="utf-8"))["x"]["name"] == "Sample X"
     assert {"defect_calculator.json", "pxrd", "pxrd.json", "tga.json"} <= set(os.listdir(b_ / "workspace"))
-    b.sidebar.radio[0].set_value("TGA").run()
+    b.button(key="nv_" + "TGA").click().run()
     assert [c.value for c in b.checkbox if "Normalise to residue" in c.label] == [True]
 
 

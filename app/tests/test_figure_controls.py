@@ -39,7 +39,7 @@ def captured(tmp_path_factory):
     out = {}
     for pg in PAGES:
         try:
-            at.sidebar.radio[0].set_value(pg).run()
+            at.button(key="nv_" + pg).click().run()
         except Exception as e:                      # a page that cannot be opened is reported by the test of that page
             out[pg] = {"_error": str(e)[:200]}
             continue
@@ -336,7 +336,7 @@ def wired(tmp_path_factory):
         res = {"missing": [], "checked": {}}
         result[pg] = res
         try:
-            at.sidebar.radio[0].set_value(pg).run()
+            at.button(key="nv_" + pg).click().run()
             figs = at.session_state["si_figs"] if "si_figs" in at.session_state else {}
             stems = [s for s, r in figs.items() if r.get("page") == pg]
             keys = {s: re.sub(r"[^A-Za-z0-9_]+", "_", s) for s in stems}

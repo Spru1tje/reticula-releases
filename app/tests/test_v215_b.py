@@ -26,7 +26,7 @@ def test_levels_standard_default_and_panel(monkeypatch):
     HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.run()
-    at.sidebar.radio[0].set_value("TGA").run()
+    at.button(key="nv_" + "TGA").click().run()
     assert not at.exception
     tabs = [t.label for t in at.tabs]
     assert "🖋️ Title & axes" in tabs and "📏 Axes & ticks" not in tabs and "💾 Preset" not in tabs
@@ -51,7 +51,7 @@ def test_every_page_renders_at_every_level(level, monkeypatch):
     at.run()
     bad = {}
     for pg in ui.PAGES:
-        at.sidebar.radio[0].set_value(pg).run()
+        at.button(key="nv_" + pg).click().run()
         if at.exception:
             bad[pg] = str(at.exception[0].value)[:200]
     assert not bad, bad

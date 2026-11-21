@@ -10,7 +10,7 @@ PAGES = ["Home", "Reticon", "PXRD", "FTIR / Raman", "1H NMR (digest)", "N2 sorpt
 def run(p):
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=300)
     at.run()
-    at.sidebar.radio[0].set_value(p).run()
+    at.button(key="nv_" + p).click().run()
     return at
 
 
@@ -23,13 +23,13 @@ def composer_check():
     for b in at.button:
         if b.key and b.key.startswith("add_"):
             b.click().run(); break
-    at.sidebar.radio[0].set_value("Figure composer").run()
+    at.button(key="nv_" + "Figure composer").click().run()
     errs = [str(e.value)[:400] for e in at.exception] + [str(e.value)[:400] for e in at.error]
     return len(at.session_state["composer"]), len(at.get("download_button")), errs
 
 
 def run_after(at, p):
-    at.sidebar.radio[0].set_value(p).run(); return at
+    at.button(key="nv_" + p).click().run(); return at
 
 
 if __name__ == "__main__":

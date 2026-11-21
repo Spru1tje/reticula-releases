@@ -242,7 +242,7 @@ def _page(monkeypatch, spectra_raw, name="multi.FS"):
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Advanced"}
     at.run()
-    at.sidebar.radio[0].set_value("Photoluminescence").run()
+    at.button(key="nv_" + "Photoluminescence").click().run()
     return at
 
 
@@ -267,7 +267,7 @@ def test_decay_mode_runs_with_the_example():
     warnings.filterwarnings("ignore")
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.run()
-    at.sidebar.radio[0].set_value("Photoluminescence").run()
+    at.button(key="nv_" + "Photoluminescence").click().run()
     at.radio(key="pl_kind").set_value("Decay curves (lifetimes)").run()
     at.checkbox(key="dc_ex").check().run()
     assert not at.exception, [e.value for e in at.exception][:2]

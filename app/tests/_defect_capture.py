@@ -29,7 +29,7 @@ def capture(tmp, nav_guard="0"):
     for p in sorted(glob.glob(os.path.join(HERE, "example_data", "Defects", "defect_input_*.json"))):
         at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=400); at.run()
         at.session_state["def_in"] = json.load(open(p, encoding="utf-8"))
-        at.sidebar.radio[0].set_value("Defect calculator").run()
+        at.button(key="nv_" + "Defect calculator").click().run()
         assert not at.exception, [e.value for e in at.exception][:2]
         res[os.path.basename(p)] = _rows(_table(at))
         res[os.path.basename(p) + "::consensus"] = [m.label + "=" + str(m.value) for m in at.metric]
@@ -38,8 +38,8 @@ def capture(tmp, nav_guard="0"):
     for pg in ["TGA", "ICP-OES / XRF", "1H NMR (digest)", "N2 sorption (BET/PSD)"]:
         if pg == "1H NMR (digest)":
             at.session_state["nmr_mode"] = "⚗️ Digestion / composition (ratios, qNMR)"   # v2.13
-        at.sidebar.radio[0].set_value(pg).run(); assert not at.exception, (pg, [e.value for e in at.exception][:2])
-    at.sidebar.radio[0].set_value("Defect calculator").run()
+        at.button(key="nv_" + pg).click().run(); assert not at.exception, (pg, [e.value for e in at.exception][:2])
+    at.button(key="nv_" + "Defect calculator").click().run()
     opts = [o for o in at.selectbox(key="def_pull").options if not o.startswith("(none")]
     res["_store_ids"] = sorted(opts)
     if opts:

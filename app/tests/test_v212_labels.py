@@ -68,7 +68,7 @@ def test_text_edit_legend_move_and_export():
 def test_pxrd_page_label_editor_apptest():
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"), default_timeout=180)
-    at.run(); at.sidebar.radio[0].set_value("PXRD").run()
+    at.run(); at.button(key="nv_" + "PXRD").click().run()
     tg = [t for t in at.toggle if str(t.key or "").startswith("lmon_")]
     assert tg, "label-editor switch missing on PXRD"
     tg[0].set_value(True).run()

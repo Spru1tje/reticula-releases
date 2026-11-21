@@ -19,7 +19,7 @@ def _goto(page):
     from streamlit.testing.v1 import AppTest
     import os
     at = AppTest.from_file(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"), default_timeout=300)
-    at.run(); at.sidebar.radio[0].set_value(page).run()
+    at.run(); at.button(key="nv_" + page).click().run()
     return at
 
 

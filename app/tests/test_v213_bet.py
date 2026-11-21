@@ -86,7 +86,7 @@ def at(tmp_path, monkeypatch):
 
 
 def test_sorption_page_redesign_options(at):
-    at.sidebar.radio[0].set_value("N2 sorption (BET/PSD)").run()
+    at.button(key="nv_" + "N2 sorption (BET/PSD)").click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     keys = [c.key for c in at.checkbox]
     assert "sorp_inset" not in keys          # v2.13: the PSD inset was removed (no graphs inside graphs)

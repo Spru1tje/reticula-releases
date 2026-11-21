@@ -16,7 +16,7 @@ def _app(tmp, guard="1"):
 
 
 def _nav(at, p):
-    at.sidebar.radio[0].set_value(p).run()
+    at.button(key="nv_" + p).click().run()
     assert not at.exception, [e.value for e in at.exception][:2]
     return at
 

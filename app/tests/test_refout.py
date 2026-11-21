@@ -74,7 +74,7 @@ def test_page_shows_3d_cif_and_files_after_a_plain_rietveld_run():
     at = AppTest.from_file(os.path.join(HERE, "app.py"), default_timeout=600)
     at.session_state["_lv"] = {"global": "Standard"}
     at.run()
-    at.sidebar.radio[0].set_value("PXRD").run()
+    at.button(key="nv_" + "PXRD").click().run()
     [t for t in at.toggle if "Rietveld" in t.label][0].set_value(True).run()
     ms = at.multiselect(key="rv_phases"); ms.set_value([o for o in ms.options if "801" in o][:1]).run()
     [b for b in at.button if b.key == "rv_go"][0].click().run()
