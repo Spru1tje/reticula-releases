@@ -70,3 +70,24 @@ def ozawa_flynn_wall(betas, t_alpha_kelvin):
     if w:
         out["warning"] = w
     return out
+
+
+def kas(betas, t_alpha_kelvin):
+    """v2.19.1: Kissinger-Akahira-Sunose (Kissinger 1957; Akahira and Sunose 1971) isoconversional activation energy at ONE conversion.
+
+    ln(beta / T_alpha²) = const - Ea / (R T_alpha)  ->  slope = -Ea / R of ln(beta / T²) against 1 / T.
+    Unlike Ozawa-Flynn-Wall it uses no fixed constant (0.4567), so it is the second check next to OFW at the same conversion.
+    General practice: the same reliability rules as for Kissinger apply (linear fit, R2 near 1, temperatures in kelvin)."""
+    b = np.asarray(betas, float)
+    T = np.asarray(t_alpha_kelvin, float)
+    ok = np.isfinite(b) & np.isfinite(T) & (b > 0) & (T > 0)
+    b, T = b[ok], T[ok]
+    if len(b) < 3:
+        return {"status": "needs at least 3 heating rates"}
+    slope, intercept, slope_err, r2 = _linfit(1.0 / T, np.log(b / T ** 2))
+    ea = -slope * R
+    out = {"status": "ok", "Ea_kJ": ea / 1000.0, "Ea_err_kJ": abs(slope_err * R) / 1000.0, "R2": r2, "n_points": int(len(b))}
+    w = _kelvin_warning(T)
+    if w:
+        out["warning"] = w
+    return out

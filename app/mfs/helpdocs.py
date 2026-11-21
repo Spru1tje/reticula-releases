@@ -528,6 +528,16 @@ DOCS["Kinetics & adsorption"] = _doc(
     P("Isotherms: Langmuir, Sips and Toth (Toth 1971) are fitted and ranked by the corrected Akaike criterion AICc (Hurvich and Tsai 1989); the lowest AICc is the best model. Differences below 2 are not a real preference."),
     B("Checked on synthetic data with known parameters (tests/test_v21811_known_answers.py). General practice: n of Avrami is a guide to the mechanism, not proof of it."),
     B("Checked on synthetic data with known answers (tests/test_v21811_known_answers.py, tests/test_v21812_known_answers.py)."),
+    H("Additional methods and file checks (v2.19.1)"),
+    P("Kissinger–Akahira–Sunose (KAS, Akahira and Sunose 1971): an isoconversional activation energy at one conversion from ln(β / T²) against 1 / T. It uses no fixed constant, so it is a second check next to Ozawa–Flynn–Wall (OFW) at the same conversion. Both need the temperatures in kelvin."),
+    P("Vegard's law (Vegard 1921): the composition x of a solid solution from its lattice parameter, a = x a_A + (1 − x) a_B. With a bowing parameter b the bowed form a = x a_A + (1 − x) a_B − b x (1 − x) is used (Denton and Ashcroft 1991). A value outside the two end members is reported, not guessed."),
+    P("Sauerbrey relation (Sauerbrey 1959): the mass per area of a thin, rigid film on a quartz crystal microbalance from the frequency shift, Δm/A = −Δf √(μq ρq) / (2 f0²). For 5 MHz quartz this is about 17.7 ng per hertz and square centimetre."),
+    P("Birch–Murnaghan third-order equation of state (Birch 1947; Murnaghan 1944): V0, B0 (bulk modulus) and B0′ (its pressure derivative) fitted to pressure–volume data, with standard errors."),
+    P("Randles–Sevcik (Randles 1948; Ševčík 1948): the cyclic-voltammetry peak current ip = 0.4463 n F A C √(n F v D / RT) of a reversible, diffusion-controlled couple; the inverse gives the diffusion coefficient D. Specific capacity (mAh/g) = I t / m and coulombic efficiency = discharge / charge capacity are also in the library."),
+    P("File reading: a heat-flow column in mW is converted to W, a wavelength column in µm, Å or m to nm, and a tab-separated export with decimal commas (1,5) is read as 1.5. Detection names a JCAMP-DX file before parsing; JCAMP-DX is detected but not read yet."),
+    B("General practice: KAS and OFW assume one kinetic model per conversion; Vegard is an approximation (check the bowing parameter); Sauerbrey holds only for thin, rigid films, and a warning is given above 2 % of the crystal frequency; Randles–Sevcik assumes a reversible, planar, diffusion-controlled process."),
+    B("Depends on: the constants used (F, R, quartz modulus and density) and the temperature (298.15 K for Randles–Sevcik unless you give another). Check the file's units column before you trust a converted value."),
+    B("Checked on synthetic data with known answers (tests/test_v2191_known_answers.py)."),
 
 )
 

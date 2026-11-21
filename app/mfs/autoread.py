@@ -28,8 +28,12 @@ _UNITS = {
     "wavenumber": {"cm-1": ("cm-1", 1.0, 0.0), "cm⁻¹": ("cm-1", 1.0, 0.0), "1/cm": ("cm-1", 1.0, 0.0), "cm^-1": ("cm-1", 1.0, 0.0)},
     "rate": {"k/min": ("K/s", 1 / 60.0, 0.0), "k/s": ("K/s", 1.0, 0.0), "°c/min": ("K/s", 1 / 60.0, 0.0)},
     "concentration": {"g/l": ("g/L", 1.0, 0.0), "mg/l": ("g/L", 1e-3, 0.0), "µg/l": ("g/L", 1e-6, 0.0), "ug/l": ("g/L", 1e-6, 0.0)},
+    # v2.19.1: wavelength in nm (UV-vis, photoluminescence exports); 1 Å = 0.1 nm
+    "wavelength": {"nm": ("nm", 1.0, 0.0), "µm": ("nm", 1e3, 0.0), "μm": ("nm", 1e3, 0.0), "um": ("nm", 1e3, 0.0),
+                   "m": ("nm", 1e9, 0.0), "å": ("nm", 0.1, 0.0), "angstrom": ("nm", 0.1, 0.0)},
 }
-_QUANTITY_WORDS = {"temperature": "temperature", "temp": "temperature", "t": "temperature", "heat flow": None,
+_QUANTITY_WORDS = {"temperature": "temperature", "temp": "temperature", "t": "temperature", "heat flow": "power", "heatflow": "power",
+                   "wavelength": "wavelength", "wl": "wavelength",
                    "power": "power", "mass": "mass", "weight": "mass", "time": "time", "pressure": "pressure", "p": "pressure",
                    "wavenumber": "wavenumber", "raman shift": "wavenumber", "wavenumbers": "wavenumber",
                    "heating rate": "rate", "rate": "rate", "concentration": "concentration", "conc": "concentration"}
@@ -101,6 +105,31 @@ def _is_number(text: str, decimal: str = ".") -> bool:
         return False
 
 
+def _decimal_for(delim, sample_cells) -> str:
+    """v2.19.1: decimal separator. Semicolon exports always use a comma. Tab exports use a comma when the sample numbers show
+    commas and no dots (for example '1,5<TAB>2,5'); otherwise a dot."""
+    if delim == ";":
+        return ","
+    if delim == "\t":
+        joined = " ".join(sample_cells)
+        if re.search(r"\d,\d", joined) and "." not in joined:
+            return ","
+    return "."
+
+
+def detect_format(text: str) -> str:
+    """v2.19.1: names the file family before parsing: 'jcamp-dx' (JCAMP-DX spectra, detected but not read yet),
+    'delimited table' (a header and numeric rows that read_text can parse) or 'unknown'. Detection only; nothing is converted."""
+    head = text[:4000]
+    if re.search(r"^\s*##\s*(TITLE|JCAMP-DX)\s*=", head, re.M | re.I):
+        return "jcamp-dx"
+    try:
+        read_text(text)
+        return "delimited table"
+    except ValueError:
+        return "unknown"
+
+
 def read_text(text: str):
     """Parses an instrument text export. Returns dict(columns, data (dict of np arrays, converted), units (list), skipped_lines)."""
     lines = [ln.rstrip("\r\n") for ln in text.splitlines() if ln.strip()]
@@ -110,14 +139,14 @@ def read_text(text: str):
         cand = _sniff_delimiter(lines[i])
         cells = _split(lines[i], cand)
         nxt = _split(lines[i + 1], cand)
-        dec = "," if cand == ";" else "."
+        dec = _decimal_for(cand, nxt)
         if len(cells) >= 2 and len(nxt) >= 2 and sum(_is_number(c, dec) for c in nxt) >= 2 and not all(_is_number(c, dec) for c in cells):
             header_idx, delim = i, cand
             break
     if header_idx is None:
         raise ValueError("no table found: need a header line followed by numeric rows")
     names = _split(lines[header_idx], delim)
-    dec = "," if delim == ";" else "."
+    dec = _decimal_for(delim, _split(lines[header_idx + 1], delim))
     rows = []
     for ln in lines[header_idx + 1:]:
         cells = _split(ln, delim)

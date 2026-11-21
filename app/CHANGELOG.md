@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.19.1 - 2026-11-21
+
+### New methods and checks (ten additions, each with a known-answer test in `tests/test_v2191_known_answers.py`)
+- KAS (Kissinger–Akahira–Sunose) isoconversional activation energy, `kas()` in `mfs/kinetics_nonisothermal.py`.
+- Vegard's law: composition from lattice parameter, with an optional bowing term (`mfs/vegard.py`).
+- Sauerbrey QCM mass per area from the frequency shift, with a warning above 2 % of f0 (`mfs/qcm.py`).
+- Third-order Birch–Murnaghan equation of state fit to P(V) data (`mfs/eos.py`).
+- Randles–Sevcik peak current and the inverse diffusion coefficient; specific capacity and coulombic efficiency (`mfs/electrochem.py`).
+
+### Reading instrument files
+- Heat-flow columns in mW are recognised as power and converted to W.
+- Wavelength columns (µm, nm, Å, m) are converted to nm.
+- Tab-separated exports with decimal commas (`1,5`) are read correctly.
+- `detect_format()` names a JCAMP-DX file (detected, not read yet) or a delimited table before parsing.
+
+### Help
+- Info document section for the new methods (Kinetics and adsorption).
+
 ## 2.19.0 - 2026-11-21
 
 ### Reticon library (major update)
