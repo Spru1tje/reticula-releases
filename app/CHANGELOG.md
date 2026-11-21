@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.18.12 - 2026-11-21
+
+### Pages (the methods of 2.18.11 are now on the pages)
+- Kinetics page, crystallisation: Avrami fit with n ± standard error, k, half-time and R², and a plot (`mfs/pages/kinetics.py`).
+- Kinetics page, activation energy: Kissinger and Ozawa–Flynn–Wall from a table of heating rates, peak temperatures and the temperature at one conversion.
+- Kinetics page, isotherms: Langmuir, Sips and Toth ranked by corrected AIC under the Langmuir figure.
+- Zeta page: zeta potential from the electrophoretic mobility (Henry / Smoluchowski, Debye length).
+
+### Checks and precision
+- Avrami: standard errors of n and ln k from the fit covariance; a warning with fewer than 5 points or R² below 0.98.
+- Kissinger and Ozawa–Flynn–Wall: warning when a temperature is below 273.15 K (values probably in °C).
+- Tauc band gap: the automatic edge search is vectorised (closed-form running sums); the result is the same as the former loop (test against the reference).
+
+### Information
+- Help documents for Kinetics and Zeta: the new methods, literature, and "Depends on" lines.
+
+Details: `docs/suggestions/2026-11-21-r3.md`. Not changed: no computed default and no stored data.
+
 ## 2.18.11 - 2026-11-21
 
 ### New methods (known-answer tests; the pages do not use them yet)

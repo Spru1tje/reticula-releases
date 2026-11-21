@@ -517,11 +517,17 @@ DOCS["Kinetics & adsorption"] = _doc(
     F(r"$C = C_0\,e^{-k t}\qquad t_{1/2} = \dfrac{\ln 2}{k}$"),
     F(r"$k = A\,e^{-E_a/RT}\qquad k = \dfrac{k_B T}{h}\,e^{\Delta S^\ddagger/R}\,e^{-\Delta H^\ddagger/RT}$"),
     F(r"$q = \dfrac{q_{max} K C_e}{1 + K C_e}\ \ (\mathrm{Langmuir})\qquad q = K_F C_e^{1/n}\ \ (\mathrm{Freundlich})$"),
+    H("Avrami, isotherm model comparison and heating-rate activation energy (v2.18.12)"),
+    P("Avrami (Johnson and Mehl 1939; Avrami 1939, 1940): on the page as an expander under the crystallisation heading. The result is n with its standard error (1 SE), k, the half time t½ and R². Check the plot: the Avrami form assumes random nucleation and growth."),
+    P("Model comparison (under the Langmuir figure): Langmuir, Sips (Sips 1948) and Toth (Toth 1971) are ranked by the corrected Akaike criterion AICc (Hurvich and Tsai 1989); the lowest AICc is the best model. Differences below 2 are not a real preference."),
+    P("Activation energy from heating rates (under the Arrhenius heading): Kissinger (1957) uses the peak temperatures Tp at several heating rates β; Ozawa (1965) and Flynn and Wall (1966) use the temperatures at one fixed conversion. Both need temperatures in kelvin; a value below 273.15 gives a warning."),
+    B("General practice: a single Kissinger or Ozawa–Flynn–Wall energy assumes one simple reaction. For several steps, use the energy per conversion, not one number."),
+    B("Depends on: the example tables are synthetic; replace them with your data. The energies are apparent values, not proof of a mechanism."),
     H("Avrami and isotherm model checks (library, v2.18.11)"),
     P("Avrami (JMAK) crystallisation kinetics: X(t) = 1 − exp(−k tⁿ) (Avrami 1939, 1940), fitted in the linear form ln(−ln(1 − X)) = ln k + n ln t between 5 % and 95 % transformed. The fit returns k, n, the half time and R²."),
     P("Isotherms: Langmuir, Sips and Toth (Toth 1971) are fitted and ranked by the corrected Akaike criterion AICc (Hurvich and Tsai 1989); the lowest AICc is the best model. Differences below 2 are not a real preference."),
     B("Checked on synthetic data with known parameters (tests/test_v21811_known_answers.py). General practice: n of Avrami is a guide to the mechanism, not proof of it."),
-    B("These functions are library functions; they are not yet on a page."),
+    B("Checked on synthetic data with known answers (tests/test_v21811_known_answers.py, tests/test_v21812_known_answers.py)."),
 
 )
 
@@ -561,7 +567,8 @@ DOCS["Zeta / DLS"] = _doc(
     P("Converts an electrophoretic mobility (µm·cm/(V·s)) into ζ with Henry's function (Henry 1931) and the approximation of Ohshima (1994, J. Colloid Interface Sci. 168, 269). The Debye length follows from the ionic strength of a 1:1 electrolyte; the parameter ka (particle radius over Debye length) decides the regime."),
     B("Smoluchowski form (ζ = η μ / ε): valid for ka above about 300, where Henry's function is within about 1 % of 1.5. Smoluchowski gives 12.8 mV per 1 µm·cm/(V·s) in water at 25 °C."),
     B("Hückel form (f = 1) for ka below about 1 (small particles, thick double layer)."),
-    B("Checked: the Debye length of a 1 mM 1:1 electrolyte in water at 25 °C is 9.6 nm (tests in tests/test_v21811_known_answers.py). The converter is not yet on the page; it is a library function."),
+    B("Checked: the Debye length of a 1 mM 1:1 electrolyte in water at 25 °C is 9.6 nm (tests in tests/test_v21811_known_answers.py)."),
+    B("v2.18.12: on the Zeta page, the expander '⚡ Zeta potential from the electrophoretic mobility' gives ζ from the mobility, ionic strength, radius and temperature. Depends on: the radius (for ka), the ionic strength (for the Debye length) and the temperature (for viscosity and permittivity of water)."),
     B("General practice: report the ionic strength and the medium with the ζ value; ζ is not the surface potential."),
 
 )

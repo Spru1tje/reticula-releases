@@ -59,6 +59,23 @@ def page_zeta():
                "(Sizes / Intensities) as **CSV or Excel (.xlsx / .xls)** and drop the file here. "
                "ℹ️ `.dts` files (Zetasizer software) are read for the sample names, the size distribution, Z-average / PDI and – for zeta records – "
                "the ζ-potential with its deviation, conductivity, count rate, the zeta peaks and the zeta distribution (software 8.x).")
+    with st.expander("⚡ Zeta potential from the electrophoretic mobility (Henry / Smoluchowski)"):
+        from mfs import zeta_conv as _ZC
+        st.caption("v2.18.12. Enter the mobility from a laser-Doppler or phase-analysis light-scattering instrument. "
+                   "Smoluchowski needs a large particle; the Henry form covers small ones when you give the radius.")
+        _c1, _c2, _c3, _c4 = st.columns(4)
+        _mob = _c1.number_input("mobility (µm·cm/(V·s))", value=-2.0, step=0.1, format="%.3f", key="zm_mob")
+        _ion = _c2.number_input("ionic strength (mM)", value=1.0, min_value=0.001, step=0.1, format="%.3f", key="zm_ion")
+        _rad = _c3.number_input("particle radius (nm, 0 = unknown)", value=0.0, min_value=0.0, step=1.0, key="zm_rad")
+        _tmp = _c4.number_input("temperature (°C)", value=25.0, step=0.5, key="zm_tmp")
+        _zr = _ZC.zeta_from_mobility(_mob, _ion, radius_nm=_rad or None, temp_C=_tmp, model="auto")
+        if _zr.get("status") == "ok":
+            st.markdown(f"**ζ = {_zr['zeta_mV']:.2f} mV** (model: {_zr['model']}; Smoluchowski value {_zr['zeta_smoluchowski_mV']:.2f} mV; "
+                        f"Debye length {_zr['debye_length_nm']:.2f} nm)" if _zr.get("debye_length_nm") is not None else
+                        f"**ζ = {_zr['zeta_mV']:.2f} mV** (model: {_zr['model']})")
+            st.caption(_zr["note"])
+        else:
+            st.info(_zr.get("status"))
     files = files_input("Zetasizer export (CSV / Excel / .dts)", ["csv", "txt", "xlsx", "xls", "dts"], "Zeta-DLS/*.csv", "zeta", multiple=False)
     if not files:
         return

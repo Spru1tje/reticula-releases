@@ -27,6 +27,14 @@ def _linfit(x, y):
     return coef[0], coef[1], float(np.sqrt(cov[0, 0])), r2
 
 
+def _kelvin_warning(T):
+    """v2.18.12: a temperature below 273.15 cannot be a kelvin peak of a thermal run (it would be below 0 °C), so it most likely
+    was entered in °C. Peaks above about 300 °C cannot be told apart from kelvin by size; check the units of the table yourself."""
+    import numpy as _np
+    if len(T) and float(_np.min(T)) < 273.15:
+        return ("a temperature is below 273.15 K (0 °C): the values may be °C, not kelvin; enter them in kelvin (K = °C + 273.15)")
+    return None
+
 def kissinger(betas, tp_kelvin):
     """Activation energy from peak temperatures at several heating rates (beta in K/min or K/s; the unit cancels in the slope)."""
     b = np.asarray(betas, float)
@@ -39,8 +47,12 @@ def kissinger(betas, tp_kelvin):
     y = np.log(b / T ** 2)
     slope, intercept, slope_err, r2 = _linfit(x, y)
     ea = -slope * R
-    return {"status": "ok", "Ea_kJ": ea / 1000.0, "Ea_err_kJ": abs(slope_err * R) / 1000.0,
-            "A_per_s": float(np.exp(intercept) * ea / R) if ea > 0 else float("nan"), "R2": r2, "n_points": int(len(b))}
+    out = {"status": "ok", "Ea_kJ": ea / 1000.0, "Ea_err_kJ": abs(slope_err * R) / 1000.0,
+           "A_per_s": float(np.exp(intercept) * ea / R) if ea > 0 else float("nan"), "R2": r2, "n_points": int(len(b))}
+    w = _kelvin_warning(T)
+    if w:
+        out["warning"] = w
+    return out
 
 
 def ozawa_flynn_wall(betas, t_alpha_kelvin):
@@ -53,4 +65,8 @@ def ozawa_flynn_wall(betas, t_alpha_kelvin):
         return {"status": "needs at least 3 heating rates"}
     slope, intercept, slope_err, r2 = _linfit(1.0 / T, np.log10(b))
     ea = -slope * R / 0.4567
-    return {"status": "ok", "Ea_kJ": ea / 1000.0, "Ea_err_kJ": abs(slope_err * R / 0.4567) / 1000.0, "R2": r2, "n_points": int(len(b))}
+    out = {"status": "ok", "Ea_kJ": ea / 1000.0, "Ea_err_kJ": abs(slope_err * R / 0.4567) / 1000.0, "R2": r2, "n_points": int(len(b))}
+    w = _kelvin_warning(T)
+    if w:
+        out["warning"] = w
+    return out

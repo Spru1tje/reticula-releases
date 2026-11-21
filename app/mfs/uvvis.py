@@ -675,23 +675,34 @@ def band_gap(E, T, window=None, min_pts=6, min_frac=0.1):
         s, b = np.polyfit(E[m], T[m], 1)
         r2 = np.corrcoef(E[m], T[m])[0, 1] ** 2
         return {"Eg": float(-b / s), "slope": float(s), "intercept": float(b), "R2": float(r2), "window": (float(E[m].min()), float(E[m].max()))}
+    # v2.18.12: the window search is vectorised (closed-form least squares from running sums and sliding min/max). It gives the
+    # same windows and the same result as the old per-window polyfit loop (test_v21812_known_answers), but is much faster on long scans.
     Tm = np.nanmax(T)
     best = None
     n = len(E)
     for w in sorted({min_pts, max(min_pts, n // 60), max(min_pts, n // 30), max(min_pts, n // 15)}):
-        for i in range(0, n - w):
-            seg = slice(i, i + w)
-            ys = T[seg]
-            if ys.min() < min_frac * Tm or ys.max() > 0.9 * Tm:
-                continue
-            s, b = np.polyfit(E[seg], ys, 1)
-            if s <= 0:
-                continue
-            r2 = np.corrcoef(E[seg], ys)[0, 1] ** 2
-            if r2 < 0.98:
-                continue
-            if best is None or s > best[0]:
-                best = (s, b, r2, (float(E[seg].min()), float(E[seg].max())))
+        if n - w <= 0:
+            continue
+        ncount = n - w                                   # window starts 0 .. n-w-1, as in the original loop
+        Ex = np.lib.stride_tricks.sliding_window_view(E, w)[:ncount]
+        Tx = np.lib.stride_tricks.sliding_window_view(T, w)[:ncount]
+        Sx = Ex.sum(1); Sy = Tx.sum(1)
+        Sxx = (Ex * Ex).sum(1); Syy = (Tx * Tx).sum(1); Sxy = (Ex * Tx).sum(1)
+        den_x = w * Sxx - Sx * Sx
+        den_y = w * Syy - Sy * Sy
+        with np.errstate(divide="ignore", invalid="ignore"):
+            s = (w * Sxy - Sx * Sy) / den_x
+            r2 = (w * Sxy - Sx * Sy) ** 2 / (den_x * den_y)
+            b = (Sy - s * Sx) / w
+        ymin = Tx.min(1); ymax = Tx.max(1)
+        valid = (ymin >= min_frac * Tm) & (ymax <= 0.9 * Tm) & (s > 0) & (r2 >= 0.98)
+        valid &= np.isfinite(s) & np.isfinite(r2)
+        if not valid.any():
+            continue
+        cand = np.where(valid, s, -np.inf)
+        i = int(np.argmax(cand))                         # first maximum, as the original loop did
+        if best is None or cand[i] > best[0]:
+            best = (float(s[i]), float(b[i]), float(r2[i]), (float(Ex[i].min()), float(Ex[i].max())))
     if best is None:
         raise ValueError("no linear absorption edge found – pick the window manually")
     s, b, r2, win = best

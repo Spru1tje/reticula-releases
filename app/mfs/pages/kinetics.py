@@ -12,6 +12,7 @@ import streamlit as st
 from mfs import levels as LV
 
 from mfs import analysis as A, plots as P, style as S
+from mfs import avrami as AV, isotherm_models as IM, kinetics_nonisothermal as KN
 
 INJECTED = (
     'EX',
@@ -148,6 +149,60 @@ def page_kinetics():
             P.draw_langmuir(ax, sets)
         fig, ax = newfig(); drawl(ax)
         show(fig, "langmuir", pd.DataFrame(rows), drawl, "Langmuir", units={"x": "conc_mM"})
+        with st.expander("🧪 Model comparison: Langmuir, Sips and Toth ranked by AICc (corrected Akaike criterion)"):
+            st.caption("v2.18.12. The model with the lowest AICc is the best; differences below 2 are not a meaningful preference (General practice). "
+                       "Sips = Langmuir–Freundlich, Toth = heterogeneous surface; a three-parameter model needs six points.")
+            for s_name, ce_, qe_, _f in sets:
+                cmp_ = IM.compare_isotherms(ce_, qe_)
+                if cmp_.get("status") != "ok":
+                    st.caption(f"{s_name}: {cmp_.get('status')}")
+                    continue
+                st.markdown(f"**{s_name}**: best model = **{cmp_['best']}**")
+                st.dataframe(pd.DataFrame(cmp_["table"]).style.format(precision=4), width="stretch")
+    st.subheader("Crystallisation (Avrami / JMAK)")
+    with st.expander("Avrami fit: transformed fraction X against time (X = 1 − exp(−k tⁿ))"):
+        st.caption("v2.18.12. Example values below are SYNTHETIC (n = 2.5, k = 0.02 per min^2.5); replace them with your own table. "
+                   "t = time, X = transformed fraction from 0 to 1.")
+        _tt = np.arange(0.5, 8.01, 0.25)                 # X spans the 0.05–0.95 fitting window; later times are all X ≈ 1
+        av0 = pd.DataFrame({"t_min": _tt, "X": np.round(1 - np.exp(-0.02 * _tt ** 2.5), 4)})
+        av = st.data_editor(av0, num_rows="dynamic", key="avr_tab", hide_index=True)
+        ra = AV.avrami_fit(av["t_min"].values, av["X"].values) if len(av.dropna()) >= 3 else {"status": "needs at least 3 points"}
+        if ra.get("status") == "ok":
+            kk = ra["k"]
+            st.markdown(f"**n = {ra['n']:.3f} ± {ra['n_se']:.3f}** (1 standard error), **k = {kk:.4g}** min⁻ⁿ "
+                        f"(ln k ± {ra['k_se_ln']:.3f}), **t½ = {ra['t_half']:.3g} min**, R² {ra['R2']:.4f}, {ra['n_points']} points used")
+            if ra.get("warning"):
+                st.warning(ra["warning"])
+            tt_ = np.linspace(max(av["t_min"].min(), 1e-6), av["t_min"].max(), 120)
+
+            def draw_avr(ax, rr=ra, tt=tt_, a=av):
+                ax.plot(a["t_min"].values, a["X"].values, "o", color="#0072B2", ms=4, label="data")
+                ax.plot(tt, AV.avrami_curve(tt, rr["k"], rr["n"]), "-", color="#D55E00", lw=0.9, label="Avrami fit")
+                ax.set_xlabel("time (min)"); ax.set_ylabel("X (transformed fraction)"); ax.set_ylim(-0.02, 1.02); ax.legend(frameon=False)
+            fig, ax = newfig(); draw_avr(ax)
+            show(fig, "avrami", av, draw_avr, "Avrami")
+        else:
+            st.info(f"Avrami: {ra.get('status')}")
+    st.subheader("Activation energy from heating rates (Kissinger, Ozawa–Flynn–Wall)")
+    with st.expander("Non-isothermal runs at several heating rates β (TGA or DSC)"):
+        st.caption("v2.18.12. Example values below are SYNTHETIC; replace them with your peak temperatures. β in K/min; Tp = peak temperature in kelvin; "
+                   "T_alpha = temperature at one fixed conversion (for Ozawa–Flynn–Wall). Kelvin is required (K = °C + 273.15).")
+        nk0 = pd.DataFrame({"beta_K_min": [5.0, 10.0, 15.0, 20.0], "Tp_K": [560.0, 575.0, 585.0, 592.0], "T_alpha_K": [550.0, 565.0, 575.0, 582.0]})
+        nk = st.data_editor(nk0, num_rows="dynamic", key="nk_tab", hide_index=True)
+        kn = KN.kissinger(nk["beta_K_min"].values, nk["Tp_K"].values)
+        if kn.get("status") == "ok":
+            st.markdown(f"**Kissinger**: Ea = **{kn['Ea_kJ']:.1f} ± {kn['Ea_err_kJ']:.1f} kJ mol⁻¹** (1 SE), R² {kn['R2']:.4f}")
+            if kn.get("warning"):
+                st.warning(kn["warning"])
+        else:
+            st.info(f"Kissinger: {kn.get('status')}")
+        ow = KN.ozawa_flynn_wall(nk["beta_K_min"].values, nk["T_alpha_K"].values)
+        if ow.get("status") == "ok":
+            st.markdown(f"**Ozawa–Flynn–Wall** at the chosen conversion: Ea = **{ow['Ea_kJ']:.1f} ± {ow['Ea_err_kJ']:.1f} kJ mol⁻¹** (1 SE), R² {ow['R2']:.4f}")
+            if ow.get("warning"):
+                st.warning(ow["warning"])
+        else:
+            st.info(f"Ozawa–Flynn–Wall: {ow.get('status')}")
     st.subheader("Arrhenius and Eyring analysis (several temperatures)")
     fT = [f_ for f_ in (locals().get("fits") or []) if f_["T"] is not None]
     if len({f_["T"] for f_ in fT}) >= 2:
