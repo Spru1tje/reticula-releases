@@ -134,6 +134,11 @@ div[class*="st-key-exportbar_"] [data-testid="stDownloadButton"] button:hover { 
 [data-testid="stTabs"] [role="tablist"] { background:#E4EAF1; border:1px solid #CBD5E1; box-shadow:none; }
 [data-testid="stTabs"] [role="tab"] { color:#334155; border:1px solid #CBD5E1; background:#F8FAFC; }
 [data-testid="stTabs"] [role="tab"]:hover { background:#DDE6EF; border-color:#94A3B8; }
+/* 2.19.2: sidebar page rows: icon and label on one line, label left-aligned like the category titles */
+div[class*="st-key-nv_"] button { justify-content:flex-start !important; text-align:left !important; padding-left:8px !important; }
+div[class*="st-key-nv_"] button * { text-align:left !important; justify-content:flex-start !important; margin-left:0 !important; }
+div[class*="st-key-nv_"] button p { margin:0 !important; }
+section[data-testid="stSidebar"] button[kind="primary"] p { color:#0B1F3A !important; }
 section[data-testid="stSidebar"] button[kind="primary"] { color:#0B1F3A !important; font-weight:700; }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] { background:#2E6F95 !important; border-color:#2E6F95 !important; box-shadow:none; }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] { background: linear-gradient(135deg,#0F766E 0%%,#14B8A6 100%%); color: #FFFFFF !important;

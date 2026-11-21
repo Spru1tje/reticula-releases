@@ -40,7 +40,8 @@ ICON_FILE = {"Home": "home", "PXRD": "pxrd", "Structure (CIF)": "structure_cif",
 
 def icon_path(page: str) -> str:
     name = ICON_FILE.get(page)
-    return os.path.join(ICON_DIR, f"{name}.svg") if name else ""
+    # the sidebar is always dark: use the light copy of the icon set (the dark ink would be invisible)
+    return os.path.join(ICON_DIR + "_light", f"{name}.svg") if name else ""
 
 
 def _label(page: str) -> str:
@@ -68,4 +69,39 @@ def render(pages_in_nav: list[str]) -> str:
                     c_icon.image(path, width=20)
                 c_btn.button(_label(p), key=f"nv_{p}", type="primary" if p == current else "tertiary",
                              on_click=_pick, args=(p,), width="stretch")
+    # dark theme switch at the bottom of the sidebar (session setting; the sidebar itself stays dark)
+    st.sidebar.markdown("---")
+    dark = st.sidebar.toggle("Dark theme", key="rt_dark", value=st.session_state.get("rt_dark", False))
+    if dark:
+        st.markdown(DARK_CSS, unsafe_allow_html=True)
     return current
+
+DARK_CSS = """
+<style>
+/* dark theme (Reticula 2.19.2): main area, cards, inputs and text in the calm dark palette */
+[data-testid="stAppViewContainer"], [data-testid="stMain"], [data-testid="stHeader"] { background:#0F172A !important; }
+[data-testid="stMain"] p, [data-testid="stMain"] label, [data-testid="stMain"] li, [data-testid="stMain"] span,
+[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3, [data-testid="stMain"] h4 { color:#E2E8F0 !important; }
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p { color:#94A3B8 !important; }
+[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] > div > div { background:#1E293B; border-color:#334155 !important; }
+[data-testid="stExpander"] details { background:#1E293B !important; border-color:#334155 !important; }
+[data-testid="stExpander"] summary p { color:#E2E8F0 !important; }
+div[class*="st-key-data_"], div[class*="st-key-gal_"], div[class*="st-key-exportbar_"], div[class*="st-key-hm_"] { background:#1E293B !important; border-color:#334155 !important; }
+.rt-hero, .rt-tile, .hm-step { background:#1E293B !important; border-color:#334155 !important; }
+.rt-tile .h, .hm-tt, .hm-step .t, .hm-h { color:#E2E8F0 !important; }
+.rt-tile .b, .hm-tx, .hm-step .d { color:#94A3B8 !important; }
+[data-testid="stMain"] input, [data-testid="stMain"] textarea, [data-testid="stMain"] [data-baseweb="select"] > div,
+[data-testid="stMain"] [data-testid="stNumberInput"] input { background:#0F172A !important; color:#E2E8F0 !important; border-color:#334155 !important; }
+[data-testid="stTabs"] [role="tablist"] { background:#1E293B !important; border-color:#334155 !important; }
+[data-testid="stTabs"] [role="tab"] { background:#0F172A !important; color:#CBD5E1 !important; border-color:#334155 !important; }
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] { background:#2E6F95 !important; color:#FFFFFF !important; }
+[data-testid="stMain"] table, [data-testid="stMain"] [data-testid="stDataFrame"] { color:#E2E8F0; }
+[data-testid="stMain"] div[data-testid="stVerticalBlockBorderWrapper"] { background:#1E293B !important; border-color:#334155 !important; }
+[data-testid="stMain"] button[kind="secondary"], [data-testid="stMain"] [data-testid="stBaseButton-secondary"] { background:#1E293B !important; color:#E2E8F0 !important; border-color:#334155 !important; }
+[data-testid="stMain"] [data-testid="stBaseButton-secondary"] p, [data-testid="stMain"] button[kind="secondary"] p { color:#E2E8F0 !important; }
+[data-testid="stMain"] [data-testid="stFileUploaderDropzone"] { background:#0F172A !important; border-color:#334155 !important; }
+[data-testid="stMain"] [data-testid="stFileUploaderDropzone"] * { color:#CBD5E1 !important; }
+html body [data-testid="stMain"] div[class*="st-key-hm_intent_"], html body [data-testid="stMain"] div[class*="st-key-hm_tile_"], html body [data-testid="stMain"] div[class*="st-key-hm_lvl_"] { background:#1E293B !important; border-color:#334155 !important; }
+[data-testid="stMain"] [data-testid="stNumberInput"] button { background:#1E293B !important; color:#E2E8F0 !important; }
+</style>
+"""
