@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.18.9 - 2026-11-21
+
+### Checks (no change to the program's results)
+- `tests/test_v2190_bet_known.py`: known-answer tests for the N2 BET area. A noise-free isotherm is generated from the BET equation with a known monolayer capacity (n_m = 12.5 cm³ STP g⁻¹) and C = 80. `bet_rouquerol` and `bet_fixed_range` recover n_m, C and the surface area (to 1e-6), and the unit conversion (1 cm³ STP g⁻¹ = 4.35 m² g⁻¹ for 0.162 nm² per N2) is checked on its own.
+- No computed value, default or output changed.
+
 ## 2.18.8 - 2026-11-21
 
 ### Fixes (photoluminescence tab)
