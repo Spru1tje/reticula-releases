@@ -26,10 +26,13 @@ _UNITS = {
                  "mmhg": ("Pa", 133.322, 0.0), "torr": ("Pa", 133.322, 0.0), "atm": ("Pa", 101325.0, 0.0)},
     "percent": {"%": ("%", 1.0, 0.0), "wt%": ("%", 1.0, 0.0), "at%": ("%", 1.0, 0.0), "wt.%": ("%", 1.0, 0.0)},
     "wavenumber": {"cm-1": ("cm-1", 1.0, 0.0), "cm⁻¹": ("cm-1", 1.0, 0.0), "1/cm": ("cm-1", 1.0, 0.0), "cm^-1": ("cm-1", 1.0, 0.0)},
+    "rate": {"k/min": ("K/s", 1 / 60.0, 0.0), "k/s": ("K/s", 1.0, 0.0), "°c/min": ("K/s", 1 / 60.0, 0.0)},
+    "concentration": {"g/l": ("g/L", 1.0, 0.0), "mg/l": ("g/L", 1e-3, 0.0), "µg/l": ("g/L", 1e-6, 0.0), "ug/l": ("g/L", 1e-6, 0.0)},
 }
 _QUANTITY_WORDS = {"temperature": "temperature", "temp": "temperature", "t": "temperature", "heat flow": None,
                    "power": "power", "mass": "mass", "weight": "mass", "time": "time", "pressure": "pressure", "p": "pressure",
-                   "wavenumber": "wavenumber", "raman shift": "wavenumber", "wavenumbers": "wavenumber"}
+                   "wavenumber": "wavenumber", "raman shift": "wavenumber", "wavenumbers": "wavenumber",
+                   "heating rate": "rate", "rate": "rate", "concentration": "concentration", "conc": "concentration"}
 _UNIT_RE = re.compile(r"[\(\[]\s*([^\)\]]+?)\s*[\)\]]|/\s*([^\s/]+)\s*$")
 
 
@@ -141,3 +144,19 @@ def read_file(path: str):
         except UnicodeDecodeError:
             continue
     raise ValueError("could not decode file")
+
+
+_META = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 _./()-]{0,60}?)\s*[:=]\s*(.+?)\s*$")
+
+
+def extract_metadata(text: str) -> dict:
+    """Key: value lines above the table (instrument, operator, sample, heating rate, date ...). Keys are kept as written.
+    Table lines (tab or semicolon separated) are ignored. Values stay text; use convert_column for numbers with units."""
+    out = {}
+    for line in text.splitlines():
+        if "\t" in line or ";" in line:
+            continue
+        m = _META.match(line)
+        if m:
+            out.setdefault(m.group(1).strip(), m.group(2).strip())
+    return out

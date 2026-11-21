@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.18.11 - 2026-11-21
+
+### New methods (known-answer tests; not yet on a page)
+- Zeta potential from electrophoretic mobility (`mfs/zeta_convert.py`): Smoluchowski and Hückel limits, with a warning when kappa*a is outside the model's range.
+- Avrami (JMAK) crystallisation fit: exponent n, rate constant k and half-time (`mfs/avrami.py`).
+- Toth isotherm fit, Dubinin-Radushkevich micropore fit (W0 and mean energy E), and the Akaike information criterion for choosing between fitted models (`mfs/isotherm_models.py`).
+
+### Instrument files
+- Units: heating rate (K/min, K/s) and concentration (mg/L, g/L, µg/L) are recognised and converted.
+- Metadata: key/value lines above the table (instrument, sample, heating rate) are extracted (`extract_metadata`).
+
+### Checks
+- Every navigation page has a dispatch entry in app.py (test).
+- Every navigation icon renders to a valid PNG (test).
+
+No change to any computed default. Details: `docs/suggestions/2026-11-21-r2.md`.
+
 ## 2.18.10 - 2026-11-21
 
 ### Navigation
