@@ -134,6 +134,7 @@ div[class*="st-key-exportbar_"] [data-testid="stDownloadButton"] button:hover { 
 [data-testid="stTabs"] [role="tablist"] { background:#E4EAF1; border:1px solid #CBD5E1; box-shadow:none; }
 [data-testid="stTabs"] [role="tab"] { color:#334155; border:1px solid #CBD5E1; background:#F8FAFC; }
 [data-testid="stTabs"] [role="tab"]:hover { background:#DDE6EF; border-color:#94A3B8; }
+section[data-testid="stSidebar"] button[kind="primary"] { color:#0B1F3A !important; font-weight:700; }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] { background:#2E6F95 !important; border-color:#2E6F95 !important; box-shadow:none; }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] { background: linear-gradient(135deg,#0F766E 0%%,#14B8A6 100%%); color: #FFFFFF !important;
   border-color: #0F766E; box-shadow: 0 3px 10px rgba(15,118,110,.35); }

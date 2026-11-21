@@ -11,7 +11,7 @@ toolbarMode = "minimal"
 
 [theme]
 base = "light"
-primaryColor = "#0F766E"             # deep teal (icon nodes)
+primaryColor = "#2E6F95"             # steel blue: the one accent of the scientific icon palette (docs/icons/STYLE.md)
 backgroundColor = "#F4F7FB"
 secondaryBackgroundColor = "#E8EEF6"
 textColor = "#1E293B"
@@ -26,5 +26,5 @@ showWidgetBorder = true
 backgroundColor = "#0B1F3A"
 secondaryBackgroundColor = "#16325A"
 textColor = "#E6EEF8"
-primaryColor = "#5EEAD4"
+primaryColor = "#8FC5E3"
 borderColor = "#22406B"
