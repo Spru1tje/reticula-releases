@@ -95,7 +95,8 @@ if "composer" not in st.session_state:
     st.session_state.composer = {}
 from mfs import levels as LV            # v2.15: Standard / Advanced / Developer
 LV.sidebar()                            # v2.15.1: coloured box at the TOP of the sidebar (reads the current page from the nav widget)
-page = st.sidebar.radio("Technique", PAGES, key="nav", format_func=UI.nav_label, label_visibility="collapsed", on_change=PS.on_nav)
+from mfs import sidebar_nav as SN   # v2.18.8: categories with icons; replaces the single radio list
+page = SN.render(PAGES)
 with st.sidebar.container(border=True, key="composer_tray"):          # v2.14: always visible: where the combined figure lives
     _nc = len(st.session_state.composer)
     st.markdown("**🧩 Combined figure**" + (f" · {_nc} panel{'s' if _nc != 1 else ''}" if _nc else ""))
