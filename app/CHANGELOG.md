@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.18.10 - 2026-11-21
+
+### Navigation
+- The technique list is a set of collapsible categories (Start, Structure and diffraction, Porosity and sorption, Spectroscopy and elements, Thermal, Microscopy and particles, Kinetics and bio, Figures, data and tools) with one button per page. The category of the current page opens by itself. The single long list with its scrolling is gone.
+- Every page has a monochrome, scientific icon (`app/assets/nav_icons`, one SVG per page, line style, one colour).
+- Navigation keeps the unsaved-work guard (`pagestate.request`) and the `nav` session value.
+
+### Instrument files
+- New `mfs/autoread.py`: reads instrument text exports automatically. It skips metadata lines above the table, detects the delimiter (tab, semicolon, comma), accepts a decimal comma, and converts recognised units to base units (°C to K, mW to W, mg to g, min to s, mbar/atm/torr to Pa, and others). Unknown units are kept and reported, never guessed.
+
+### Methods
+- `mfs/kinetics_nonisothermal.py`: Kissinger and Ozawa-Flynn-Wall activation energies from heating-rate series (not yet on a page).
+- `mfs/isotherm_models.py`: Sips (Langmuir-Freundlich) isotherm fit with uncertainties (not yet on a page).
+
+### Problem report
+- The report panel is drawn before the page runs, so an error always reaches the ZIP (see 2.18.8).
+
+### Tests
+- New: `test_v2188_sidebar.py` (category coverage, icon files, click navigation through Streamlit AppTest), `test_v2188_autoread.py`, `test_v2188_methods.py`. Existing page-navigation tests now press the category buttons instead of the old radio.
+
 ## 2.18.8 - 2026-11-21
 
 ### Fixes (photoluminescence tab)
