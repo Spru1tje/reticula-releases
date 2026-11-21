@@ -26,11 +26,18 @@ def _anon(text: str) -> str:
     return out
 
 
+ERROR_HISTORY = 5   # v2.18.11: the report keeps the last five errors of the session, not only the last one
+
+
 def record_error(session: dict, page: str, exc: BaseException):
-    """Remembers the last error of a page (called from the page dispatcher)."""
-    session["_last_error"] = {"page": page, "type": type(exc).__name__, "message": _anon(str(exc))[:800],
-                              "traceback": _anon("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))[-6000:],
-                              "time": datetime.datetime.now().isoformat(timespec="seconds")}
+    """Remembers the last error of a page (called from the page dispatcher) and the last ERROR_HISTORY errors in order."""
+    rec = {"page": page, "type": type(exc).__name__, "message": _anon(str(exc))[:800],
+           "traceback": _anon("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))[-6000:],
+           "time": datetime.datetime.now().isoformat(timespec="seconds")}
+    session["_last_error"] = rec
+    hist = list(session.get("_error_history") or [])
+    hist.append(rec)
+    session["_error_history"] = hist[-ERROR_HISTORY:]
 
 
 def _versions() -> dict:
@@ -63,12 +70,16 @@ def build(session, page: str, version: str, sources=None, note: str = "") -> byt
            "platform": platform.platform(), "python": sys.version.split()[0], "frozen": bool(getattr(sys, "frozen", False)),
            "libraries": _versions(), "loaded_files": [_anon(s) for s in (sources or [])][:60], "settings_on_this_page": params,
            "figures_made": figs, "sample_store_sections": store, "last_error": session.get("_last_error"),
+           "error_history": list(session.get("_error_history") or [])[-ERROR_HISTORY:],
            "user_note": note.strip()[:4000]}
     md = (f"# Reticula problem report\n\nVersion {version} · page **{page}** · {rep['created']}\n\n"
           f"**What the user was doing:** {note.strip() or '(not given)'}\n\n")
     err = session.get("_last_error")
     if err:
         md += f"**Last error on '{err['page']}':** `{err['type']}: {err['message']}`\n\n```\n{err['traceback']}\n```\n\n"
+        earlier = list(session.get("_error_history") or [])[-ERROR_HISTORY:-1]
+        for e in reversed(earlier):
+            md += f"**Earlier error on '{e['page']}' ({e['time']}):** `{e['type']}: {e['message']}`\n\n```\n{e['traceback']}\n```\n\n"
     else:
         md += "No error was recorded in this session.\n\n"
     md += ("The ZIP contains the version, environment, the settings of the page, the file NAMES and the figures made - no data. "

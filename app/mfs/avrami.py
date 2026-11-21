@@ -1,25 +1,35 @@
-"""Avrami (JMAK) crystallisation kinetics (v2.18.11): X(t) = 1 - exp(-k t^n).
-Linearised: ln(-ln(1 - X)) = ln k + n ln t. n is the Avrami exponent (dimension and mechanism), k the rate constant.
-Half-time t_half = (ln 2 / k)^(1/n). Valid for the early and middle part of the transformation (X roughly 0.05 to 0.95);
-General practice: check the linear fit (R2) and drop the points where X is near 0 or 1 (noise dominates there)."""
+"""v2.18.11: Avrami (JMAK) crystallisation kinetics, X(t) = 1 - exp(-k t^n) (Avrami 1939, 1940; Johnson and Mehl 1939).
+
+X is the transformed fraction (0 to 1), t the time, k the rate constant (units of t^-n) and n the Avrami exponent. The fit uses the
+linear form ln(-ln(1 - X)) = ln k + n ln t, over the fraction window 0.05 to 0.95 where the form is least affected by noise.
+General practice: n is only a guide to the mechanism (nucleation and growth dimension); it is not proof of it. Check the fit visually."""
 from __future__ import annotations
+
+import math
 
 import numpy as np
 
 
-def fit_avrami(t, x, xmin=0.05, xmax=0.95):
+def avrami_fit(t, X, lo: float = 0.05, hi: float = 0.95) -> dict:
     t = np.asarray(t, float)
-    x = np.asarray(x, float)
-    ok = np.isfinite(t) & np.isfinite(x) & (t > 0) & (x > xmin) & (x < xmax)
-    t, x = t[ok], x[ok]
+    X = np.asarray(X, float)
+    ok = np.isfinite(t) & np.isfinite(X) & (t > 0) & (X >= lo) & (X <= hi)
+    t, X = t[ok], X[ok]
     if len(t) < 3:
-        return {"status": "needs at least 3 points between xmin and xmax"}
-    X = np.log(t)
-    Y = np.log(-np.log(1.0 - x))
-    A = np.vstack([X, np.ones_like(X)]).T
-    (n, lnk), *_ = np.linalg.lstsq(A, Y, rcond=None)
-    fit = A @ np.array([n, lnk])
-    ss_tot = float(np.sum((Y - Y.mean()) ** 2))
-    r2 = 1 - float(np.sum((Y - fit) ** 2)) / ss_tot if ss_tot > 0 else float("nan")
-    k = float(np.exp(lnk))
-    return {"status": "ok", "n": float(n), "k": k, "t_half": float((np.log(2) / k) ** (1 / n)), "R2": r2, "n_points": int(len(t))}
+        return {"status": "needs at least 3 points between the fraction limits"}
+    y = np.log(-np.log(1 - X))
+    x = np.log(t)
+    n, lnk = np.polyfit(x, y, 1)
+    yhat = lnk + n * x
+    ss_res = float(np.sum((y - yhat) ** 2))
+    ss_tot = float(np.sum((y - y.mean()) ** 2))
+    k = math.exp(lnk)
+    t_half = (math.log(2) / k) ** (1.0 / n) if n > 0 else float("nan")
+    return {"status": "ok", "k": float(k), "n": float(n), "t_half": float(t_half), "R2": 1 - ss_res / ss_tot if ss_tot > 0 else float("nan"),
+            "n_points": int(len(t)), "window": (lo, hi)}
+
+
+def avrami_curve(t, k, n):
+    """X(t) = 1 - exp(-k t^n)."""
+    t = np.asarray(t, float)
+    return 1.0 - np.exp(-k * np.power(t, n))

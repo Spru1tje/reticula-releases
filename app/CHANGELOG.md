@@ -2,18 +2,20 @@
 
 ## 2.18.11 - 2026-11-21
 
-### New methods (known-answer tests; not yet on a page)
-- Zeta potential from electrophoretic mobility (`mfs/zeta_convert.py`): Smoluchowski and Hückel limits, with a warning when kappa*a is outside the model's range.
+### New methods (known-answer tests; the pages do not use them yet)
+- Zeta potential from electrophoretic mobility (`mfs/zeta_conv.py`): Henry's function with the Ohshima approximation, between the Hückel and Smoluchowski limits; ionic strength and radius are entered by the user.
 - Avrami (JMAK) crystallisation fit: exponent n, rate constant k and half-time (`mfs/avrami.py`).
-- Toth isotherm fit, Dubinin-Radushkevich micropore fit (W0 and mean energy E), and the Akaike information criterion for choosing between fitted models (`mfs/isotherm_models.py`).
+- Toth isotherm fit, model comparison by corrected AIC (`compare_isotherms`), and Dubinin-Radushkevich micropore fit (W0 and mean energy E) in `mfs/isotherm_models.py`.
+- Tauc: automatic choice of the direct or indirect edge by the better linear window (`tauc_auto_kind` in `mfs/uvvis.py`); the rule is a heuristic and the note says so.
 
-### Instrument files
+### Instrument files and tools
 - Units: heating rate (K/min, K/s) and concentration (mg/L, g/L, µg/L) are recognised and converted.
 - Metadata: key/value lines above the table (instrument, sample, heating rate) are extracted (`extract_metadata`).
+- Problem report keeps the last five errors in order (`mfs/problem_report.py`).
+- Start-up check of the system tools (Tesseract with the English data): missing items are listed with the install hint (`mfs/syscheck.py`).
 
 ### Checks
-- Every navigation page has a dispatch entry in app.py (test).
-- Every navigation icon renders to a valid PNG (test).
+- Every navigation page has a dispatch entry in app.py (test); every navigation icon renders to a valid PNG (test).
 
 No change to any computed default. Details: `docs/suggestions/2026-11-21-r2.md`.
 

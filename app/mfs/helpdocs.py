@@ -228,6 +228,10 @@ DOCS["UV/Vis"] = _doc(
     F(r"$F(R) = \dfrac{(1-R)^2}{2R}\qquad (F(R)\,h\nu)^{n}\ \mathrm{versus}\ h\nu$"),
     P("ε is the molar absorption coefficient, c the concentration, l the path length; R the reflectance, hν the photon energy. The exponent n depends on the type of transition (2 for direct, 1/2 for indirect)."),
     B(GP + "read the band gap from the linear part of the Tauc plot and state which n you used."),
+    H("Automatic direct or indirect band gap (v2.18.11)"),
+    P("The library can choose between the direct (n = 2) and the indirect (n = 1/2) Tauc form by the better automatic linear edge (higher R²; direct on a tie). Checked on a synthetic direct edge at 3.0 eV, which returns direct and 3.00 eV."),
+    B("General practice: the rule is a heuristic. Look at both Tauc plots and state which transition you assume."),
+
 )
 
 DOCS["Photoluminescence"] = _doc(
@@ -513,6 +517,12 @@ DOCS["Kinetics & adsorption"] = _doc(
     F(r"$C = C_0\,e^{-k t}\qquad t_{1/2} = \dfrac{\ln 2}{k}$"),
     F(r"$k = A\,e^{-E_a/RT}\qquad k = \dfrac{k_B T}{h}\,e^{\Delta S^\ddagger/R}\,e^{-\Delta H^\ddagger/RT}$"),
     F(r"$q = \dfrac{q_{max} K C_e}{1 + K C_e}\ \ (\mathrm{Langmuir})\qquad q = K_F C_e^{1/n}\ \ (\mathrm{Freundlich})$"),
+    H("Avrami and isotherm model checks (library, v2.18.11)"),
+    P("Avrami (JMAK) crystallisation kinetics: X(t) = 1 − exp(−k tⁿ) (Avrami 1939, 1940), fitted in the linear form ln(−ln(1 − X)) = ln k + n ln t between 5 % and 95 % transformed. The fit returns k, n, the half time and R²."),
+    P("Isotherms: Langmuir, Sips and Toth (Toth 1971) are fitted and ranked by the corrected Akaike criterion AICc (Hurvich and Tsai 1989); the lowest AICc is the best model. Differences below 2 are not a real preference."),
+    B("Checked on synthetic data with known parameters (tests/test_v21811_known_answers.py). General practice: n of Avrami is a guide to the mechanism, not proof of it."),
+    B("These functions are library functions; they are not yet on a page."),
+
 )
 
 DOCS["SDS-PAGE (Image Lab)"] = _doc(
@@ -547,6 +557,13 @@ DOCS["Zeta / DLS"] = _doc(
     B("Software 7.11 files: Z-average and PDI are calculated from the stored correlation function; ζ needs the Excel/CSV export."),
     F(r"$d_H = \dfrac{k_B T}{3\pi\,\eta\,D}$"),
     P("The Stokes–Einstein relation behind the Z-average: d_H is the hydrodynamic diameter, η the viscosity and D the diffusion coefficient."),
+    H("Mobility to zeta potential (library, v2.18.11)"),
+    P("Converts an electrophoretic mobility (µm·cm/(V·s)) into ζ with Henry's function (Henry 1931) and the approximation of Ohshima (1994, J. Colloid Interface Sci. 168, 269). The Debye length follows from the ionic strength of a 1:1 electrolyte; the parameter ka (particle radius over Debye length) decides the regime."),
+    B("Smoluchowski form (ζ = η μ / ε): valid for ka above about 300, where Henry's function is within about 1 % of 1.5. Smoluchowski gives 12.8 mV per 1 µm·cm/(V·s) in water at 25 °C."),
+    B("Hückel form (f = 1) for ka below about 1 (small particles, thick double layer)."),
+    B("Checked: the Debye length of a 1 mM 1:1 electrolyte in water at 25 °C is 9.6 nm (tests in tests/test_v21811_known_answers.py). The converter is not yet on the page; it is a library function."),
+    B("General practice: report the ionic strength and the medium with the ζ value; ζ is not the surface potential."),
+
 )
 
 DOCS["Defect calculator"] = _doc(

@@ -713,3 +713,22 @@ def wide_table(spectra):
     for s in spectra:
         df[s.name] = np.interp(xs, s.x, s.y, left=np.nan, right=np.nan)
     return df
+
+
+def tauc_auto_kind(x_nm, y, from_reflectance=False):
+    """v2.18.11: chooses the direct (n = 2) or indirect (n = 1/2) Tauc form by the better automatic linear edge (higher R² of the
+    steepest linear window, direct on a tie). Returns {'kind', 'Eg', 'R2', 'direct': {...}, 'indirect': {...}, 'note'}.
+    General practice: the rule is a heuristic; check the Tauc plot of the chosen form and the other one before you report the band gap."""
+    out = {}
+    for kind in ("direct", "indirect"):
+        E, T = tauc(x_nm, y, kind=kind, from_reflectance=from_reflectance)
+        try:
+            out[kind] = band_gap(E, T)
+        except ValueError as exc:
+            out[kind] = {"status": str(exc)}
+    ok = {k: v for k, v in out.items() if "Eg" in v}
+    if not ok:
+        raise ValueError("no linear absorption edge found for either direct or indirect form – pick the window manually")
+    best = max(ok, key=lambda k: (ok[k]["R2"], k == "direct"))
+    return {"kind": best, "Eg": ok[best]["Eg"], "R2": ok[best]["R2"], "direct": out["direct"], "indirect": out["indirect"],
+            "note": "chosen by the higher R² of the automatic linear edge (direct on a tie)"}
