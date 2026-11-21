@@ -119,6 +119,22 @@ div[class*="st-key-gal_"] img { border-radius:8px; }
 [data-testid="stTabs"] [role="tab"] { font-weight: 700; font-size: .98rem; color: #312E81; border-radius: 10px; padding: 8px 14px; background: #FFFFFF;
   border: 1px solid #C7D2FE; transition: all .15s ease; }
 [data-testid="stTabs"] [role="tab"]:hover { background: #E0E7FF; border-color: #6366F1; }
+/* 2.19.1: professional work area. A calm grey-blue ground, surfaces with a fine border instead of plain white,
+   one steel-blue accent (the icon palette) in place of the bright teal gradients. */
+[data-testid="stAppViewContainer"] { background:#EEF2F6; }
+[data-testid="stMain"] { background:#EEF2F6; }
+[data-testid="stHeader"] { background:#EEF2F6; }
+.rt-hero, .rt-tile, div[class*="st-key-data_"], div[class*="st-key-gal_"] { background:#F8FAFC; border:1px solid #D5DEE8; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.rt-tile { border-top:3px solid #2E6F95; }
+.rt-tile .k { color:#2E6F95; }
+[data-testid="stExpander"] details { background:#F8FAFC; border:1px solid #D5DEE8; }
+div[class*="st-key-exportbar_"] { background:#F8FAFC; border:1px solid #C9D6E3 !important; }
+div[class*="st-key-exportbar_"] [data-testid="stButton"] button { background:#2E6F95; color:#fff; border:0; }
+div[class*="st-key-exportbar_"] [data-testid="stDownloadButton"] button:hover { background:#2E6F95; color:#fff; border-color:#2E6F95; }
+[data-testid="stTabs"] [role="tablist"] { background:#E4EAF1; border:1px solid #CBD5E1; box-shadow:none; }
+[data-testid="stTabs"] [role="tab"] { color:#334155; border:1px solid #CBD5E1; background:#F8FAFC; }
+[data-testid="stTabs"] [role="tab"]:hover { background:#DDE6EF; border-color:#94A3B8; }
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] { background:#2E6F95 !important; border-color:#2E6F95 !important; box-shadow:none; }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] { background: linear-gradient(135deg,#0F766E 0%%,#14B8A6 100%%); color: #FFFFFF !important;
   border-color: #0F766E; box-shadow: 0 3px 10px rgba(15,118,110,.35); }
 [data-testid="stTabs"] [data-baseweb="tab-highlight"] { display: none; }
