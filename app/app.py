@@ -585,6 +585,17 @@ _PAGEFN = {"Home": page_home, "PXRD": page_pxrd, "FTIR / Raman": page_ftir, "1H 
  "SI export bundle": page_si, "Sample database": page_db, "Structure (CIF)": page_structure, "UV/Vis": page_uvvis, "Photoluminescence": page_pl, "Export guide": page_guide, "Help and info": page_help}
 try:
     info_button(page)                                  # v2.18.3: the module's info PDF, right under the header
+    # v2.18.8: the problem report is drawn BEFORE the page runs. If the page raises, the script stops at the
+    # exception and nothing below is drawn, so the report button used to be missing exactly when it was needed.
+    with st.sidebar.expander("🐞 Report a problem", expanded=bool(st.session_state.get("_last_error"))):
+        from mfs import problem_report as _PR
+        _le = st.session_state.get("_last_error")
+        if _le:
+            st.error(f"Last error on **{_le['page']}**: {_le['type']}: {_le['message'][:160]}")
+        st.caption("Creates a small ZIP with the version, your settings and the last error - **no data**. Send it to the developer.")
+        _note = st.text_area("What were you doing? (optional)", key="_pr_note", height=70)
+        dl(st, "⬇️ Create the problem report", lambda: _PR.build(st.session_state, page, __version__, SOURCES, _note),
+           f"Reticula_problem_report_{datetime.datetime.now():%Y%m%d_%H%M}.zip", "_pr_dl", width="stretch")
     if os.environ.get("MFS_PROFILE"):        # dev: cProfile of the page function -> <MFS_PROFILE>_<page>.prof
         import cProfile as _cp
         _pr = _cp.Profile(); _pr.enable()
@@ -612,15 +623,6 @@ finally:
     PS.status_badge(page)
     UI.about_box(__version__, os.path.dirname(STORE_PATH))
     PRJ.sidebar(page, __version__)
-    with st.sidebar.expander("🐞 Report a problem", expanded=bool(st.session_state.get("_last_error"))):
-        from mfs import problem_report as _PR
-        _le = st.session_state.get("_last_error")
-        if _le:
-            st.error(f"Last error on **{_le['page']}**: {_le['type']}: {_le['message'][:160]}")
-        st.caption("Creates a small ZIP with the version, your settings and the last error - **no data**. Send it to the developer.")
-        _note = st.text_area("What were you doing? (optional)", key="_pr_note", height=70)
-        dl(st, "⬇️ Create the problem report", lambda: _PR.build(st.session_state, page, __version__, SOURCES, _note),
-           f"Reticula_problem_report_{datetime.datetime.now():%Y%m%d_%H%M}.zip", "_pr_dl", width="stretch")
     with st.sidebar.expander("💾 Saved page work", expanded=False):
         sp = PS.saved_pages()
         st.caption("Saved with the dialog or 💾 Save; restored on the next start. " + (", ".join(f"{k} ({v[5:16].replace('T', ' ')})"
