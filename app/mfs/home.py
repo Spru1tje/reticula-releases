@@ -8,8 +8,8 @@ import streamlit as st
 
 from mfs import ui as UI
 
-GROUP_COLOUR = {"Structure": "#6366F1", "Porosity": "#0EA5E9", "Spectroscopy": "#A855F7", "Thermal": "#F97316", "Microscopy": "#10B981",
-                "Kinetics / Bio": "#EC4899", "Tools": "#64748B"}
+GROUP_COLOUR = {"Structure": "#4F6D8F", "Porosity": "#3F7F9A", "Spectroscopy": "#6B5B8E", "Thermal": "#A66A3F", "Microscopy": "#3F7A64",
+                "Kinetics / Bio": "#8A4E6E", "Tools": "#64748B"}
 
 # page -> (what you get)
 WHAT = {"PXRD": "Stacked patterns, CIF reference, crystallite size, Rietveld refinement",
@@ -37,24 +37,24 @@ WHAT = {"PXRD": "Stacked patterns, CIF reference, crystallite size, Rietveld ref
 
 INTENTS = [
     ("📈", "I have raw data and want a figure", "Pick the technique, drop the file, adjust, export a journal-ready figure.",
-     [("PXRD", "💠 PXRD"), ("TGA", "🔥 TGA"), ("N2 sorption (BET/PSD)", "🫧 N₂"), ("FTIR / Raman", "〰️ FTIR")], "#6366F1"),
+     [("PXRD", "💠 PXRD"), ("TGA", "🔥 TGA"), ("N2 sorption (BET/PSD)", "🫧 N₂"), ("FTIR / Raman", "〰️ FTIR")], "#4F6D8F"),
     ("🧩", "I want several techniques in one figure", "Collect graphs from different pages and arrange them as A, B, C.",
-     [("Figure composer", "🧩 Combined figure"), ("Batch processing", "🗂️ Batch")], "#A855F7"),
+     [("Figure composer", "🧩 Combined figure"), ("Batch processing", "🗂️ Batch")], "#6B5B8E"),
     ("🔬", "I want to know what my material is", "Phases, structure and refinement; particle size; composition; defects.",
-     [("PXRD", "💠 PXRD & Rietveld"), ("SEM / TEM / EDX", "🔬 Particles"), ("Defect calculator", "🧮 Defects")], "#10B981"),
+     [("PXRD", "💠 PXRD & Rietveld"), ("SEM / TEM / EDX", "🔬 Particles"), ("Defect calculator", "🧮 Defects")], "#3F7A64"),
     ("📦", "I need the numbers and the SI for my paper", "Methods text, sample summary with sources, cross-checks, one dossier per material.",
-     [("SI export bundle", "📦 SI export"), ("Sample database", "🗃️ Samples")], "#F97316"),
+     [("SI export bundle", "📦 SI export"), ("Sample database", "🗃️ Samples")], "#A66A3F"),
 ]
 
 HOME_CSS = """
 <style>
-[data-testid="stAppViewContainer"] { background: linear-gradient(180deg,#EEF2FF 0%,#F8FAFF 380px,#FFFFFF 900px); }
+[data-testid="stAppViewContainer"] { background: #EEF2F6; }
 .hm-hero { position:relative; overflow:hidden; border-radius:22px; padding:34px 38px 30px; color:#F8FAFC;
   background: radial-gradient(900px 340px at 85% -10%, rgba(94,234,212,.35), transparent 60%), radial-gradient(700px 300px at 5% 110%, rgba(99,102,241,.55), transparent 60%),
               linear-gradient(135deg,#0B1F3A 0%,#16315F 55%,#1E3A8A 100%);
   box-shadow:0 18px 40px rgba(11,31,58,.28); margin-bottom:22px; }
 .hm-hero h1 { margin:0 0 6px; font-size:2.35rem; font-weight:800; letter-spacing:-.02em; color:#fff; line-height:1.1; }
-.hm-hero h1 span { background:linear-gradient(90deg,#5EEAD4,#A5B4FC); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.hm-hero h1 span { color:#A9C7E0; }
 .hm-hero p { margin:6px 0 16px; font-size:1.08rem; max-width:760px; color:#DCE7F7; line-height:1.5; }
 .hm-pill { display:inline-block; margin:0 8px 6px 0; padding:5px 13px; border-radius:999px; font-size:.82rem; font-weight:600;
   background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28); color:#F1F5F9; }
@@ -63,7 +63,7 @@ HOME_CSS = """
 .hm-steps { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:6px 0 4px; }
 .hm-step { position:relative; background:#fff; border-radius:16px; padding:16px 14px 14px; border:1px solid #E2E8F0; box-shadow:0 4px 14px rgba(15,23,42,.06); }
 .hm-step .n { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff;
-  background:linear-gradient(135deg,#6366F1,#0EA5E9); margin-bottom:8px; }
+  background:#2E6F95; margin-bottom:8px; }
 .hm-step .t { font-weight:700; color:#0B1F3A; margin-bottom:3px; }
 .hm-step .d { font-size:.86rem; color:#475569; line-height:1.4; }
 div[class*="st-key-hm_intent_"] { border-radius:18px; padding:16px 18px 12px; border:1px solid #E2E8F0; background:#fff; box-shadow:0 6px 18px rgba(15,23,42,.07); }
@@ -83,7 +83,7 @@ div[class*="st-key-hm_lvl_"] { border-radius:16px; padding:14px 16px 10px; backg
 
 def _tile_css(key: str, colour: str) -> str:
     return (f'<style>div.st-key-{key}{{border-left:5px solid {colour} !important;'
-            f'background:linear-gradient(135deg,{colour}14 0%,#FFFFFF 55%) !important}}</style>')
+            f'background:#F8FAFC !important; box-shadow:inset 3px 0 0 {colour} !important}}</style>')
 
 
 def _project_box(version: str):
