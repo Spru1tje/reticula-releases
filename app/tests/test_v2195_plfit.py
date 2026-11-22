@@ -163,7 +163,7 @@ def test_finite_difference_mode_gives_the_same_fit(monkeypatch):
 
 def test_old_relative_difference_step_failed_for_parameters_at_zero():
     """scipy's diff_step is RELATIVE: for a parameter at 5e-17 (eta of a Gaussian line on its bound) the old step was ~5e-21 and the column was
-    rounding noise (here up to ~1e7 instead of ~10). The exact column equals a central difference with an absolute step."""
+    rounding noise or exactly zero (here up to ~1e7, or 0, instead of ~10). The exact column equals a central difference with an absolute step."""
     from scipy.optimize._numdiff import approx_derivative
     sp = _series(lines=True)
     lines = PR.auto_lines(sp[0]["x"], np.mean([s["y"] for s in sp], 0), 505, 570)
@@ -178,7 +178,8 @@ def test_old_relative_difference_step_failed_for_parameters_at_zero():
     for i in at0:
         assert np.allclose(J[:, i], Jn[:, i], rtol=1e-5, atol=1e-6 * np.abs(Jn[:, i]).max())
         if th[i] != 0.0:                                                 # exactly 0 -> scipy falls back to an absolute step
-            assert np.abs(Jold[:, i] - J[:, i]).max() > np.abs(J[:, i]).max()      # off by more than the column itself
+            # rounding noise or nothing at all (the tiny step does not change the residual): off by at least half the column
+            assert np.abs(Jold[:, i] - J[:, i]).max() >= 0.5 * np.abs(J[:, i]).max()
 
 
 def test_ratio_errors_match_the_monte_carlo_scatter():
@@ -320,3 +321,44 @@ def test_start_for_maps_parameters_by_band_guess():
     assert st == {"c0": 545.1, "w0": 3.3, "e0": 0.4, "s0": 0.1, "c1": 520.2, "w1": 3.1, "e1": 0.3}
     assert PR._start_for(None, prev_bands, new_bands) is None
     assert PR._start_for(prev, prev_bands, [(600.0, 2.0)]) is None
+
+
+def test_drift_columns_are_t_times_the_base_columns():
+    """dM/ds_k = t dM/dc_k and dM/dg_k = t dM/dw_k exactly (t is a constant per spectrum): the Jacobian columns follow the same rule."""
+    m = PR._Model(_three_line_series(), BANDS3, (505, 565), 1, True, True, True)
+    th = _theta(m)
+    J = m.jacobian(th).reshape(len(m.data), -1, m.n_par)
+    for k in range(m.nb):
+        assert np.allclose(J[:, :, m._is[k]], J[:, :, m._ic[k]] * m.tf[:, None], rtol=1e-12, atol=1e-12)
+        assert np.allclose(J[:, :, m._ig[k]], J[:, :, m._iw[k]] * m.tf[:, None], rtol=1e-12, atol=1e-12)
+
+
+def test_one_line_residual_equals_the_full_residual():
+    m = PR._Model(_three_line_series(clamp=True), BANDS3, (505, 565), 1, True, True, True)
+    th = _theta(m)
+    _, batch = m._eval(th, with_batch=True)
+    for p in range(m.n_par):
+        tp = th.copy()
+        tp[p] += 1e-3 * max(1.0, abs(th[p]))
+        assert np.allclose(m._residual_one_line(tp, int(m._pband[p]), batch), m.residual(tp), rtol=1e-12, atol=1e-9)
+
+
+def test_batched_pseudo_voigt_equals_the_single_band_function():
+    m = PR._Model(_three_line_series(), BANDS3, (505, 565), 1, True, True, True)
+    th = _theta(m)
+    C, W, E, _ = m._bp_all(th)
+    P = m._pv_batch(C, W, E)[4]
+    for ti in (0, 3, 6):
+        for k in range(m.nb):
+            assert np.allclose(P[ti, :, k], PR.pv_unit(m.X, C[ti, k], W[ti, k], E[ti, k]), rtol=1e-12, atol=1e-15)
+
+
+def test_refits_without_errors_give_the_same_ratios():
+    sp = _series(lines=True)
+    b = PR.auto_lines(sp[0]["x"], np.mean([s["y"] for s in sp], 0), 505, 570)
+    g = ([0, 1, 2], [3, 4, 5])
+    a = PR.fit_global(sp, b, (505, 570), 1, "none", True, 80, g)
+    c = PR.fit_global(sp, b, (505, 570), 1, "none", True, 80, g, errors=False)
+    assert [r["ratio"] for r in a["rows"]] == [r["ratio"] for r in c["rows"]]
+    assert all(rc["ratio_err"] <= ra["ratio_err"] for ra, rc in zip(a["rows"], c["rows"]))     # only the area part
+    assert a["at_bound"] == c["at_bound"] and c["esd"] == {}

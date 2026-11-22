@@ -341,18 +341,38 @@ class _Model:
         c = c + np.zeros_like(t)
         return c, np.maximum(wr, 1e-3), np.broadcast_to(th[self._ie][None, :], c.shape), wr > 1e-3
 
+    def _pv_batch(self, C, W, E):
+        """Unit-area pseudo-Voigt columns of every band in every spectrum, (S, n, nb), with the pieces the derivatives reuse.
+        v2.19.5: in-place arithmetic (fewer temporary arrays) and P = G + eta (L - G)."""
+        z = self.X[None, :, None] - C[:, None, :]
+        z /= W[:, None, :]
+        z2 = z * z
+        G = np.exp(z2 * (-4.0 * LN2))
+        G *= (2.0 * math.sqrt(LN2 / math.pi) / W)[:, None, :]
+        den = z2 * 4.0
+        den += 1.0
+        L = (2.0 / (math.pi * W))[:, None, :] / den
+        P = L - G
+        P *= E[:, None, :]
+        P += G
+        return z, den, G, L, P
+
     def _eval_batch(self, th):
         """All spectra in one batched QR (common grid). Spectra whose free solution has a negative area, or a singular design, are redone one by one
-        with NNLS. Returns the per-spectrum list (as _eval) and the batched arrays for the vectorised derivatives (or None)."""
+        with NNLS. Returns the per-spectrum list (as _eval) and the batched arrays for the vectorised derivatives."""
         C, W, E, _ = self._bp_all(th)
-        z = (self.X[None, :, None] - C[:, None, :]) / W[:, None, :]
-        G = (2.0 * math.sqrt(LN2 / math.pi) / W)[:, None, :] * np.exp(-4.0 * LN2 * z * z)
-        L = (2.0 / (math.pi * W))[:, None, :] / (1.0 + 4.0 * z * z)
-        P = E[:, None, :] * L + (1.0 - E[:, None, :]) * G                       # (S, n, nb)
+        z, den, G, L, P = self._pv_batch(C, W, E)
+        ev, Q, R, coef, good, Rres = self._solve_batch(P)
+        # the batched pieces are kept also when some spectra needed NNLS: the Jacobian then still builds every derivative in one go
+        batch = {"z": z, "den": den, "G": G, "L": L, "P": P, "W": W, "E": E, "Q": Q, "R": R, "coef": coef, "good": good, "r": Rres}
+        return ev, batch
+
+    def _solve_batch(self, P):
+        """Linear step for the columns P (S, n, nb) of every spectrum: batched QR, NNLS for the spectra that need it."""
         S = P.shape[0]
+        nb = self.nb
         Bb = np.broadcast_to(self.B0[None, :, :], (S,) + self.B0.shape)
         M = np.concatenate([P, Bb], axis=2) * self.SW[:, :, None]
-        nb = self.nb
         Q, R = np.linalg.qr(M)
         d = np.abs(np.diagonal(R, axis1=1, axis2=2))
         good = (d.min(axis=1) > 1e-11 * d.max(axis=1))
@@ -374,11 +394,18 @@ class _Model:
             else:
                 amp, bg, Qi, Ri, active = self._linear(A, ti, try_free=False)
                 r = self.sw[ti] * (self.data[ti][1] - A @ amp - self.B0 @ bg)
+                Rres[ti] = r
                 ev.append((amp, bg, A, Qi, Ri, active, r))
-        # the batched pieces are kept also when some spectra needed NNLS: the Jacobian then still builds every derivative in one go
-        batch = {"z": z, "G": G, "L": L, "P": P, "W": W, "E": E, "Q": Q, "R": R, "coef": coef, "good": good,
-                 "r": Rres if bool(good.all()) else np.stack([e[6] for e in ev])}
-        return ev, batch
+        return ev, Q, R, coef, good, Rres
+
+    def _residual_one_line(self, th, k, batch):
+        """Residual after a change of the parameters of band k only (difference columns of the Jacobian): the other columns are reused,
+        only column k is recomputed (same formula, same numbers as a full evaluation)."""
+        C, W, E, _ = self._bp_all(th)
+        P = batch["P"].copy()
+        P[:, :, k:k + 1] = self._pv_batch(C[:, k:k + 1], W[:, k:k + 1], E[:, k:k + 1])[4]
+        ev = self._solve_batch(P)[0]
+        return np.concatenate([e[6] for e in ev])
 
     def _eval(self, th, with_batch=False):
         th = np.asarray(th, float)
@@ -400,30 +427,32 @@ class _Model:
         return hit if with_batch else hit[0]
 
     def _batch_derivs(self, th, batch, amp=None):
-        """Vectorised version of _derivs for all spectra (common grid, every band active): D, DA (S, n, n_par)."""
-        z, G, L, P, W, E = batch["z"], batch["G"], batch["L"], batch["P"], batch["W"], batch["E"]
+        """Vectorised derivatives for all spectra (common grid) in the BASE columns only: (S, n, 3 nb) = d/dc_k, d/dw_k, d/deta_k of every band.
+        The drift columns follow exactly: dM/ds_k = t dM/dc_k and dM/dg_k = t dM/dw_k (t is a constant per spectrum), see _expand."""
+        z, G, L, P, W, E, den = batch["z"], batch["G"], batch["L"], batch["P"], batch["W"], batch["E"], batch["den"]
         _, _, _, free = self._bp_all(th)
-        den = 1.0 + 4.0 * z * z
         Ee = E[:, None, :]
         dPz = Ee * (L * (-8.0 * z / den)) + (1.0 - Ee) * (G * (-8.0 * LN2 * z))
         Wn = W[:, None, :]
-        dPc = -dPz / Wn
-        dPw = -(P + z * dPz) / Wn * free[:, None, :]
-        dPe = L - G
-        S, n, _ = P.shape
         sw = self.SW[:, :, None]
-        D = np.empty((S, n, self.n_par))
-        D[:, :, self._ic] = dPc * sw
-        D[:, :, self._iw] = dPw * sw
-        D[:, :, self._ie] = dPe * sw
-        t = self.tf[:, None, None]
-        if self.drift_pos:
-            D[:, :, self._is] = dPc * t * sw
-        if self.drift_width:
-            D[:, :, self._ig] = dPw * t * sw
+        D = np.concatenate([-dPz / Wn, -(P + z * dPz) / Wn * free[:, None, :], L - G], axis=2) * sw
         amp = batch["coef"][:, :self.nb] if amp is None else amp
-        DA = D * amp[:, self._pband][:, None, :]
+        DA = D * np.tile(amp, (1, 3))[:, None, :]
         return D, DA
+
+    def _expand(self, Jb, t=None):
+        """Base columns (..., 3 nb) -> all parameters (..., n_par); the first axis is the spectrum. Exact (linear in the column)."""
+        nb = self.nb
+        out = np.empty(Jb.shape[:-1] + (self.n_par,))
+        out[..., self._ic] = Jb[..., :nb]
+        out[..., self._iw] = Jb[..., nb:2 * nb]
+        out[..., self._ie] = Jb[..., 2 * nb:]
+        t = (self.tf if t is None else np.asarray(t, float)).reshape((-1,) + (1,) * (Jb.ndim - 1))
+        if self.drift_pos:
+            out[..., self._is] = Jb[..., :nb] * t
+        if self.drift_width:
+            out[..., self._ig] = Jb[..., nb:2 * nb] * t
+        return out
 
     def solve(self, th, ti):
         amp, bg, A, _, _, _, _ = self._eval(th)[ti]
@@ -479,15 +508,17 @@ class _Model:
         """Exact Jacobian of the projected residual: J_p = -(P_perp dM/dtheta_p a + (M+)^T (dM/dtheta_p)^T r). One evaluation instead of n_par + 1."""
         th = np.asarray(th, float)
         ev, batch = self._eval(th, with_batch=True)
+        b3 = np.tile(np.arange(self.nb), 3)                               # band of every base column
         if batch is not None and bool(batch["good"].all()):              # all spectra at once
             D, DA = self._batch_derivs(th, batch)
             Q, R, r = batch["Q"], batch["R"], batch["r"]
             Qt = np.swapaxes(Q, 1, 2)
-            J = DA - Q @ (Qt @ DA)
+            Jb = DA - Q @ (Qt @ DA)
             U = Q @ np.swapaxes(self._rinv_batch(R), 1, 2)
-            J += U[:, :, self._pband] * np.einsum("snp,sn->sp", D, r)[:, None, :]
-            return -J.reshape(-1, self.n_par)
-        if batch is not None:                                            # mixed: derivatives in one go, projection per group
+            Jb += U[:, :, b3] * np.einsum("snp,sn->sp", D, r)[:, None, :]
+            J = -self._expand(Jb).reshape(-1, self.n_par)
+            blocks = None
+        elif batch is not None:                                          # mixed: derivatives in one go, projection per group
             good = batch["good"]
             AMP = np.stack([e[0] for e in ev])
             D, DA = self._batch_derivs(th, batch, AMP)
@@ -497,19 +528,20 @@ class _Model:
                 Q, R, r = batch["Q"][g], batch["R"][g], batch["r"][g]
                 Jg = DA[g] - Q @ (np.swapaxes(Q, 1, 2) @ DA[g])
                 U = Q @ np.swapaxes(self._rinv_batch(R), 1, 2)
-                Jg += U[:, :, self._pband] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
-                Jb[g] = -Jg
+                Jg += U[:, :, b3] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
+                Jb[g] = Jg
             for ti in np.flatnonzero(~good):
                 _, _, _, Qi, Ri, active, ri = ev[ti]
                 pos = {int(k): j for j, k in enumerate(active)}
-                jpos = np.array([pos.get(int(k), -1) for k in self._pband])
+                jpos = np.array([pos.get(int(k), -1) for k in b3])
                 m = jpos >= 0
                 Di = D[ti] * m[None, :]
                 Ji = DA[ti] - Qi @ (Qi.T @ DA[ti])
                 if m.any() and Ri.size:
                     Ji[:, m] += (Qi @ self._rinv(Ri).T)[:, jpos[m]] * (Di[:, m].T @ ri)[None, :]
-                Jb[ti] = -Ji
-            blocks = list(Jb)
+                Jb[ti] = Ji
+            J = -self._expand(Jb).reshape(-1, self.n_par)
+            blocks = None
         else:
             blocks = []
         for ti in (range(len(self.data)) if batch is None else ()):
@@ -520,12 +552,14 @@ class _Model:
                 U = Q @ self._rinv(R).T
                 J[:, m] += U[:, jpos[m]] * (D[:, m].T @ r)[None, :]
             blocks.append(-J)
-        J = np.vstack(blocks)
+        if blocks is not None:
+            J = np.vstack(blocks)
         # A line that NNLS holds at zero area in a spectrum has an exactly zero shape derivative there, so the optimiser could never move it
         # back into place (tried: difference columns only for lines that are off in EVERY spectrum - the fits then need more steps, slower). For the parameters of such lines the column is the forward difference of the pre-2.19.5 code (same step, same bound rule):
         # it sees that a small shift switches the line on again. One batched residual per parameter (cheaper than spectrum by spectrum when the
         # line is off in many spectra); usually 0-2 lines, so the saving stays.
-        inactive = sorted({int(k) for e in ev for k in range(self.nb) if k not in set(int(a) for a in e[5])})
+        on = [set(int(a) for a in e[5]) for e in ev]
+        inactive = sorted({k for o in on for k in range(self.nb) if k not in o})
         if inactive:
             r0 = np.concatenate([e[6] for e in ev])
             for p in np.flatnonzero(np.isin(self._pband, inactive)):
@@ -534,7 +568,8 @@ class _Model:
                     h = -h
                 tp = th.copy()
                 tp[p] += h
-                J[:, p] = (self.residual(tp) - r0) / h
+                rp = self._residual_one_line(tp, int(self._pband[p]), batch) if batch is not None else self.residual(tp)
+                J[:, p] = (rp - r0) / h
         return J
 
     @staticmethod
@@ -562,15 +597,16 @@ class _Model:
             D, DA = self._batch_derivs(th, batch, AMP)
             Q, R, r = batch["Q"][g], batch["R"][g], batch["r"][g]
             Ri = self._rinv_batch(R)
+            b3 = np.tile(np.arange(self.nb), 3)
             dcoef = -Ri @ (np.swapaxes(Q, 1, 2) @ DA[g])
-            dcoef += (Ri @ np.swapaxes(Ri, 1, 2))[:, :, self._pband] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
+            dcoef += (Ri @ np.swapaxes(Ri, 1, 2))[:, :, b3] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
             da = dcoef[:, :self.nb, :]
             amp = AMP[g]
             s1, s2 = amp[:, g1].sum(1), amp[:, g2].sum(1)
             with np.errstate(divide="ignore", invalid="ignore"):
                 og = (da[:, g1, :].sum(1) * s2[:, None] - s1[:, None] * da[:, g2, :].sum(1)) / (s2 ** 2)[:, None]
             og[s2 <= 0] = np.nan
-            out[g] = og
+            out[g] = self._expand(og, self.tf[g])
         for ti in np.flatnonzero(~good):
             out[ti] = self.ratio_grad(th, ti, g1, g2)
         off = [set(range(self.nb)) - set(int(a) for a in e[5]) for e in ev]
@@ -625,12 +661,13 @@ def _group_ratio(amp, cov, g1, g2):
 
 
 @single_blas
-def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=False, max_nfev=80, groups=None, start=None):
+def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=False, max_nfev=80, groups=None, start=None, errors=True):
     """Global fit of the whole series. spectra = [{'T': K, 'x': nm, 'y': counts}], bands = [(centre, fwhm_guess), ...] with the ratio pair FIRST
     (I1 = bands[0], I2 = bands[1]). drift = 'none' | 'drift' | 'auto' (BIC decides). Returns the result dict (see keys below).
     v2.18.4: groups = ([band indices of I1], [band indices of I2]) - the ratio of SUMMED areas, for bands that are split into several lines (Stark
     components of a lanthanide manifold): every line has its own shape, the ratio uses the sum of each group. Default ([0], [1]).
-    v2.19.5: start = {parameter name: value} of an earlier fit (warm start; see _start_for)."""
+    v2.19.5: start = {parameter name: value} of an earlier fit (warm start; see _start_for). errors=False skips the shape-parameter part of
+    the ratio errors (the robustness refits only need their ratios); the ratios are the same."""
     window = window or default_window(bands, np.concatenate([np.asarray(s["x"], float) for s in spectra]))
     if drift == "auto":
         if _warm():
@@ -649,18 +686,18 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
         best["model_compare"] = {"shared shape": a["bic"], "drifting shape": b["bic"]}
         best["other_model_fit"] = b if best is a else a                 # v2.19.5: robust_ratio reuses it instead of fitting it again
         return best
-    res = _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start)
+    res = _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start, errors)
     if start and res["status"] == 0 and not _fd_mode():
         # v2.19.5 safety net: a warm-started fit that did not converge within max_nfev is repeated from the ordinary start, and the lower
         # robust cost wins - a warm start can then only save time, never give a worse fit
-        cold = _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, None)
+        cold = _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, None, errors)
         if cold["cost"] <= res["cost"]:
             res = cold
         res["warm_retry"] = True
     return res
 
 
-def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start):
+def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start, errors=True):
     """One fit with a fixed shape model ('none' or 'drift'); see fit_global."""
     mdl = _Model(spectra, bands, window, bg_order, drift == "drift", drift == "drift", counts)
     th0 = mdl.p0.copy()
@@ -694,19 +731,20 @@ def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups
     bic = n_pts * math.log(max(rss, 1e-300) / n_pts) + n_par * math.log(n_pts)
     # v2.18.5: covariance of the NON-LINEAR shape parameters (centres, widths, eta, drifts) from the Jacobian of the projected residual.
     # Their uncertainty propagates into every ratio through its sensitivity to them; without this term the ratio errors were 10-20 % too small.
+    free = (np.asarray(sol.active_mask) == 0) if not fd else np.ones(len(th), bool)
     try:
+        if not errors:
+            raise ValueError("errors not wanted")
         J_ = sol.jac
         # v2.19.5: a parameter that the fit holds ON a bound (a Gaussian line: eta = 0) does not scatter with the noise - in repeated noisy
         # series it stays on the bound - so it is left out of the covariance (Monte Carlo, 150 series of 6 Gaussian lines: ratio errors were
         # 1.28-1.42 x the true scatter with it, 1.01-1.13 x without). Lines with eta inside its range are not affected. The pre-2.19.5 path
         # (MFS_PL_FD_JAC=1) keeps its old rule for comparisons.
-        free = (np.asarray(sol.active_mask) == 0) if not fd else np.ones(len(th), bool)
         cov_th = np.zeros((len(th), len(th)))
         if free.any():
             cov_th[np.ix_(free, free)] = np.linalg.pinv(J_[:, free].T @ J_[:, free]) * (rss / max(n_pts - n_par, 1))
     except Exception:
         cov_th = None
-        free = np.ones(len(th), bool)
     g1_, g2_ = (list(groups[0]), list(groups[1])) if groups else ([0], [1])
     grads = mdl.ratio_grads(th, g1_, g2_) if (cov_th is not None and not fd) else None     # v2.19.5: exact, all spectra at once
 
@@ -762,6 +800,8 @@ def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups
                      "components": [A[:, k] * amp[k] for k in range(mdl.nb)], "centres": cc, "widths": ww, "etas": ee})
     esd = {}
     try:
+        if not errors:
+            raise ValueError("errors not wanted")
         J = sol.jac
         cov_e = np.zeros((len(th), len(th)))                          # same rule as above: a parameter held on a bound has esd 0
         cov_e[np.ix_(free, free)] = np.linalg.inv(J[:, free].T @ J[:, free]) * (rss / max(n_pts - n_par, 1))
@@ -831,7 +871,8 @@ def robust_ratio(spectra, bands, window=None, bg_order=1, counts=False, rel_wind
                 gg = None
         except Exception:
             continue
-        win_calls.append((fit_global, (spectra, bb, w, bg_order, same, counts, 80, gg), {"start": _start_for(main.get("params"), main.get("fit_bands", bands), bb) if _warm() else None}))
+        win_calls.append((fit_global, (spectra, bb, w, bg_order, same, counts, 80, gg), {"start": _start_for(main.get("params"), main.get("fit_bands", bands), bb) if _warm() else None,
+                                                                                    "errors": False}))
         win_labs.append(lab)
     # v2.19.5: the other shape model was already fitted by the 'auto' choice; it is reused when it is EXACTLY the fit that would be made here
     # (same lines, window, groups, background order, weights, and converged in fewer than 80 evaluations = the same path as a refit capped at 80)
@@ -841,10 +882,10 @@ def robust_ratio(spectra, bands, window=None, bg_order=1, counts=False, rel_wind
                        and tuple(of.get("window", ())) == tuple(map(float, main["window"])) and gl(of.get("groups")) == gl(groups)
                        and of.get("bg_order") == int(bg_order) and of.get("counts") == bool(counts) and of.get("status", 0) > 0 and of.get("nfev", 10 ** 9) < 80)
     other_calls = [] if reuse_other else [(fit_global, (spectra, bands, main["window"], bg_order, other, counts, 80, groups),
-                                           {"start": _start_for(main.get("params"), main.get("fit_bands", bands), bands) if _warm() else None})]
+                                           {"start": _start_for(main.get("params"), main.get("fit_bands", bands), bands) if _warm() else None, "errors": False})]
     bg_list = list(bg_alternatives or [])
     st0 = _start_for(main.get("params"), main.get("fit_bands", bands), bands) if _warm() else None
-    bg_calls = [(fit_global, (sp_alt, bands, main["window"], bg_order, same, counts, 40, groups), {"start": st0}) for _, sp_alt in bg_list]
+    bg_calls = [(fit_global, (sp_alt, bands, main["window"], bg_order, same, counts, 40, groups), {"start": st0, "errors": False}) for _, sp_alt in bg_list]
     results = run_independent(win_calls + other_calls + bg_calls)          # v2.19.5: all alternatives at the same time
     for (ok, r), lab in zip(results[:len(win_calls)], win_labs):
         if ok:
