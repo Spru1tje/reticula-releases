@@ -4,7 +4,9 @@ v2.18.6: nav() waits for the sidebar option, polls for the save dialog (up to 15
 open before a click is answered first. The old fixed 2.5 s wait missed a dialog that appeared later and blocked the next click."""
 import time
 
-SIDEBAR_OPT = "[data-testid='stSidebar'] [data-testid='stRadioOption']"
+# v2.19.2: the sidebar pages are buttons in categorised expanders (sidebar_nav.py), no longer radio options.
+SIDEBAR_OPT = "[data-testid='stSidebar'] button"
+CURRENT_OPT = "[data-testid='stSidebar'] button[data-testid='stBaseButton-primary']"
 DIALOG = "[data-testid='stDialog']"
 
 
@@ -23,6 +25,13 @@ def nav(pg, name, answer="discard", wait_ms=15000):
     """Switch the sidebar page. answer=None: click only and return False (the caller checks the dialog itself).
     Otherwise poll until either the save dialog appears (answered) or the page has switched (no dialog)."""
     opt = pg.locator(SIDEBAR_OPT, has_text=name).first
+    opt.wait_for(state="attached", timeout=60000)                      # the sidebar renders after the first load
+    if not opt.is_visible():
+        # the page sits in a category that is collapsed: open the category that holds this page, as a user would
+        cat = pg.locator("[data-testid='stSidebar'] details", has=pg.locator("button", has_text=name)).first
+        if cat.count() and not cat.evaluate("d => d.open"):
+            cat.locator("summary").first.click()
+            pg.wait_for_timeout(600)
     opt.wait_for(state="visible", timeout=60000)
     if answer is not None:
         _answer(pg, answer)           # a dialog left open by an earlier step would block the click
@@ -34,7 +43,7 @@ def nav(pg, name, answer="discard", wait_ms=15000):
         if _answer(pg, answer):
             return True
         try:
-            if opt.locator("input").first.is_checked():
+            if pg.locator(CURRENT_OPT, has_text=name).count():           # the current page is the primary button
                 pg.wait_for_timeout(800)
                 if _answer(pg, answer):          # the dialog can appear just after the switch
                     return True

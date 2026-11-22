@@ -46,6 +46,9 @@ def _browser(p):
 
 def _check(path):
     data = open(path, "rb").read(); ext = path.rsplit(".", 1)[-1].lower()
+    if ext == "zip":                                  # a small problem report is a valid zip too (the size rule is for figures)
+        import zipfile
+        return zipfile.is_zipfile(path) and len(zipfile.ZipFile(path).namelist()) > 0
     if ext == "svg":
         return b"<svg" in data[:2000] and len(data) > 1000
     if ext == "csv":
