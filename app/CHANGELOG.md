@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.19.3 - 2026-11-22
+
+### CIE chart
+- The CIE 1931 chart draws the sRGB colour gamut (dashed triangle). A point inside it is shown in its own colour; a point outside it is a cross and the table has a column "in sRGB gamut".
+
+### Speed
+- Start-up: scipy is imported on first use in the analysis module (about 0.8 s less at import).
+- Thermometry: the pseudo-Voigt for all bands is one array operation (same numbers; tests in `tests/test_v2194_pv.py`).
+- Measured, not yet solved: the manifold fit takes about 85 s on the 7-spectrum composite sample. Its cost is the number of optimiser steps, so the next step is an analytic Jacobian (not yet done). A warm start was tried and made it slower; it was reverted.
+
 ## 2.19.2 - 2026-11-22
 
 ### Sidebar and theme
