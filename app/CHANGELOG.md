@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.19.5 - 2026-11-22
+
+### PL manifold fit: 12-40x faster, and more exact (known-answer tests in `tests/test_v2195_plfit.py`)
+Whole manifold analysis (line search, both shape models, robustness refits), same computer: test series 10.7 s -> 0.28 s (39x), crowded 13-spectrum series 73.7 s -> 1.9 s (40x), 41-spectrum series 94.9 s -> 3.1 s (31x), Er example 1.34 s -> 0.11 s (12x), Yb/Ho composite 1.96 s -> 0.14 s (14x). Same lines in every data set and the same ratios within their errors. The 7-spectrum test series (made without drift) now gets the shared shape: the old code chose the drifting shape because its shared fit was stuck (BIC 637 -> 553), and its systematic error came from stuck refits (4.7e-3 -> 1.5e-4; 41-spectrum series 5.9e-3 -> 3.3e-5).
+- Exact Jacobian of the projected residual (variable projection, Golub and Pereyra 1973) instead of finite differences: one evaluation per step instead of n_par + 1.
+- Areas by QR; non-negative least squares (NNLS) only when an area would be negative, and then first a batched solution without that line that is accepted only if it passes the Karush-Kuhn-Tucker test (then it IS the NNLS solution).
+- All spectra on a common grid in one batched array operation; the derivatives too, also when a line is switched off in some spectra.
+- One BLAS thread during the fits (`threadpoolctl`): the small matrices were up to 5x slower with several threads.
+- Offset start: the optimiser moves offsets from the start values (first step one scale unit). Fixes a stuck fit of the old code (window 500-575 nm: rss 131 916 instead of 2 603).
+- Warm starts from the fit of the mean spectrum, from the previous trial and from the main solution; start values on a bound are moved 0.1 % inside; a warm fit that does not converge is redone from the ordinary start.
+- Both shape models from the same start, at the same time; the drifting model may never end above the shared model (refit from the shared solution if it does).
+- Robustness refits (other windows, other model, other backgrounds) in parallel, without the unused error terms; the other model of the automatic choice is reused, also for a fixed model on the page.
+- Drift columns of the Jacobian from the base columns (exact), pseudo-Voigt in place, one-line difference columns, folded projection, `ftol` 1e-8.
+- Ratio errors: parameters held on a bound (eta of a Gaussian line) are left out of the shape covariance. Monte Carlo over 150 noisy copies: with them the errors were 1.33-1.43x the true scatter, now 1.05-1.16x (pseudo-Voigt lines with eta inside its range: unchanged, 0.89-1.02x). In v2.19.4 the relative difference step gave rounding noise for parameters at zero, so its errors were erratic (0.65-0.74x, one temperature 4.1x), and its stuck fits (8 of 60 copies) made the scatter of the ratio itself 4.5x larger.
+- Switches for comparisons: `MFS_PL_FD_JAC=1` (old finite-difference path), `MFS_PL_WARM=0`, `MFS_NO_PARALLEL=1`, `MFS_PL_BLAS_THREADS=keep`.
+- The PL info document has a new section with the figures, the reasons and the performance comparison.
+
 ## 2.19.4 - 2026-11-22
 
 ### New methods and checks (ten additions, known-answer tests in `tests/test_v2192_items.py`)

@@ -385,6 +385,74 @@ DOCS["Photoluminescence"] = _doc(
     B("Limit: a concave background (a dip in the middle) is corrected by neither method (about +715 % and +485 % in Figure 2). The program does not yet detect this case. For such a background, use a blank or solvent spectrum."),
     B(GP + "a blank or solvent spectrum, measured under the same settings, is the reliable background for broad emission."),
     K("Summary: where a signal-free window exists, nothing changes. Without one, the emission-masked polynomial replaces the rubber band as the default. The energy gap is reported with the maximum-likelihood uncertainty, and every analysis can be saved as a PDF report."),
+    H("11. Version 2.19.5: a faster and more exact manifold fit"),
+    P("The manifold fit (every Stark line of the two manifolds fitted in all spectra at once) took 11 s on the 7-spectrum test series and 74 s on a crowded "
+      "series of 13 spectra with 10 lines. It is now 12–40 times faster, finds the right minimum where the old fit got stuck, and reports error bars "
+      "that match the real scatter. Every number below was measured on one computer with the real code of the older versions; the figures are made by "
+      "tools/make_pl_speed_figures.py from tools/pl_speed_2195_data.json."),
+    *terms("Jacobian: the matrix of the derivatives of every residual with respect to every shape parameter (centre, width, Lorentzian share η, drifts). The optimiser needs it in every step.",
+           "Variable projection: the areas and the background are solved exactly for given shapes, so the optimiser only sees the shape parameters (Golub and Pereyra, 1973).",
+           "Non-negative least squares (NNLS): a least-squares solution in which no area may be negative.",
+           "Trust region reflective (TRF): the bounded least-squares optimiser of SciPy that the fit uses.",
+           "Basic Linear Algebra Subprograms (BLAS): the library that does the matrix arithmetic.",
+           "Karush–Kuhn–Tucker (KKT) conditions: the conditions that prove a solution with bounds is the optimum.",
+           "Bayesian information criterion (BIC): the number that decides between the shared and the drifting shape, and whether a line is added.",
+           "Residual sum of squares (rss): how far the fit is from the data; lower is better."),
+    I("pl_fig_speed_versions.png", "Figure 3. Time of the whole manifold analysis of the thermometry tab (line search, both shape models, robustness refits with other windows, the other model and two other backgrounds) for five data sets, same computer, same settings.", 0.33),
+    I("pl_fig_speed_table.png", "Table 1. The same times with the result of each version: the energy gap ΔE of the Boltzmann fit and the chosen shape model. The test series was made without drift: the old code chose the drifting shape only because its shared fit got stuck.", 0.2),
+    H("12. Why it was slow"),
+    P("A profile of the crowded series showed 77 % of the time in the Jacobian. It was made by finite differences: for every one of the 30–50 shape parameters "
+      "the whole series was evaluated once more, and every evaluation solved an NNLS problem for every spectrum. One analysis needed 169 Jacobians, "
+      "4 829 series evaluations and 36 456 NNLS solutions. The optimisations below remove this work, one after the other (Figure 4)."),
+    I("pl_fig_speed_steps.png", "Figure 4. Time after each optimisation step (cumulative, median of three runs; the start point is v2.19.4). The numbers 1–8 are the steps in the list below.", 0.3),
+    N("Exact Jacobian. The derivative of the projected residual is written out (variable projection) with the analytic derivatives of the pseudo-Voigt: one evaluation per step "
+      "instead of one per parameter, and exact instead of approximate. The areas are solved by a QR decomposition; NNLS is used only when an area would come out negative "
+      "(when every free area is ≥ 0, the free solution IS the NNLS solution). All spectra on a common wavelength grid are handled in one batched array operation. "
+      "BLAS is limited to one thread during the fit: the matrices are small (a few hundred × ten) and several threads made each operation up to 5 times slower. "
+      "The optimiser moves offsets from the start values, so its first step is one scale unit (the old first step could widen a line to 7 nm and switch another off, see Figure 5). "
+      "The robustness refits run at the same time on several cores, and the other shape model of the automatic choice is reused instead of fitted again."),
+    F(r"$J_p = -\left(P^{\perp}\,\dfrac{\partial M}{\partial \theta_p}\,a + (M^{+})^{T}\left(\dfrac{\partial M}{\partial \theta_p}\right)^{T} r\right)$"),
+    P("M is the design matrix (one column per line plus the background), a the areas, r the residual, P⊥ the projection on the part of the data that M cannot describe, M⁺ the pseudo-inverse and θₚ one shape parameter."),
+    N("Warm starts: a trial with one line more and the robustness refits start from the main solution instead of from the first guess."),
+    N("Lines switched off by NNLS in some spectra: the derivatives of all spectra are still computed in one batch; only those spectra are projected one by one."),
+    N("Start values that lie on a bound (η = 0 for a Gaussian line) are moved 0.1 % inside, because the optimiser scales its steps by the distance to the bound and crawled along it "
+      "(80 evaluations without converging, now 8). A warm-started fit that does not converge is repeated from the ordinary start and the lower cost wins, so a warm start can only save time. "
+      "Parameters held on a bound are left out of the error propagation (section 13)."),
+    N("The drift columns of the Jacobian follow exactly from the others (∂M/∂s = t·∂M/∂c and ∂M/∂g = t·∂M/∂w, t is a constant per spectrum), so only three columns per line are computed. "
+      "The pseudo-Voigt is computed in place; a difference column for a switched-off line recomputes only that line; the robustness refits skip the error terms they do not use."),
+    N("Spectra with a negative free area are solved in one batch without that line, and the solution is accepted only if it passes the KKT test (then it is the unique NNLS solution; "
+      "checked against NNLS on 1 400 spectra: equal to 5·10⁻¹⁵). A cold fit starts from a fit of the mean spectrum (one spectrum: a fraction of the cost). "
+      "The convergence tolerance on the cost is 10⁻⁸ instead of 10⁻⁹ (8–14 % fewer evaluations; the ratios change by less than 3·10⁻⁹ of their error)."),
+    N("The projection and the derivatives are written without temporary arrays (the same numbers to 10⁻¹⁵)."),
+    N("Both shape models start from the same warm start and run at the same time. The drifting model contains the shared one, so it may never end above it; "
+      "if it does, it is repeated from the shared solution. On the 41-spectrum series a trial with a spurious line no longer crawls (74 evaluations, now 29)."),
+    B("On the page: with a fixed shape model the fit of the automatic choice is reused (it had already fitted both models); the laser-heating check refit starts warm."),
+    H("13. Two errors of the old fit that were found and fixed"),
+    P("Stuck fits. With the old start the first optimiser step could be huge: on the test series with the window 500–575 nm one line widened to 7.0 nm (true 3.8 nm) and its neighbour "
+      "was switched off (area 0); the fit stayed there (rss 131 916 instead of 2 603; the ratio at 293 K was 0.2051, true 0.2012; up to 2.1 % off). "
+      "Over 60 noisy copies of the test series the old fit got stuck in 8, which made the true scatter of its ratio 4.5 times larger (Figure 6A; worst ratio 4.2 % off, now 0.66 %)."),
+    I("pl_fig_speed_stuck.png", "Figure 5. Left: one spectrum of the test series with the old (stuck) and the new fit, and their residuals. Right: the ratio of every spectrum against the true ratio.", 0.3),
+    P("Error bars. The old finite-difference step was relative (SciPy's diff_step): for a parameter at zero (η of a Gaussian line on its bound, a drift near zero) the step became about 10⁻²¹ "
+      "and the derivative was rounding noise (up to 10⁷ instead of about 10) or exactly zero. The covariance of the shape parameters, and with it the ratio errors, was then erratic: "
+      "0.65–0.74 times the true scatter of the old results, and 4.1 times at one temperature (Figure 6B). With the exact Jacobian the errors were 1.33–1.43 times the true scatter, "
+      "because a parameter held on a bound was treated as free. It does not scatter (in repeated noisy series it stays on the bound), so it is now left out: 1.05–1.16 times the true scatter. "
+      "For lines with η inside its range nothing changes (0.89–1.02 times, Figure 6C)."),
+    I("pl_fig_speed_errors.png", "Figure 6. Monte Carlo over noisy copies of the test series (known answer: the real scatter). A: scatter of the ratio. B, C: reported error divided by the real scatter; ideal 1, shaded: ±2 standard errors of the scatter itself.", 0.28),
+    H("14. What stayed the same, and how it is checked"),
+    B("The same lines in every data set, the same ratios within their errors, the same ΔE (Table 1). The test series now gets the shared shape and the systematic errors no longer come from stuck refits "
+      "(test series 4.7·10⁻³ → 1.5·10⁻⁴; 41 spectra 5.9·10⁻³ → 3.3·10⁻⁵)."),
+    B("Warm against cold starts over 38 noisy series (30 test series, 8 crowded series): the same model and lines in every case, the BIC never worse, ratios equal to 1.1·10⁻⁴ of their error; 19.5 s against 52.9 s."),
+    B("Tests with known answers (tests/test_v2195_plfit.py): the exact Jacobian against finite differences (common grid, different grids, lines switched off, drift), the ratio gradient, "
+      "noiseless data recovered exactly, the stuck minimum, the Monte Carlo error bars, the NNLS shortcut against NNLS, warm against cold, serial against parallel."),
+    B("Switches for comparisons: MFS_PL_FD_JAC=1 runs the old finite-difference path, MFS_PL_WARM=0 switches the warm starts off, MFS_NO_PARALLEL=1 uses one core, MFS_PL_BLAS_THREADS=keep leaves BLAS alone."),
+    H("15. Tried and rejected"),
+    B("A compact singular value decomposition inside SciPy's optimiser (about 12 % faster): it needs a change inside SciPy; rejected for robustness. The decomposition is now the largest single cost (about 25 %)."),
+    B("Two BLAS threads in the sequential part, an iterative trust-region solver (LSMR), difference rows only for the spectra where a line is off: all measured slower (LSMR also gave a worse BIC)."),
+    B("Normal equations (Cholesky) instead of QR, or single precision: they square the condition number of overlapping lines; rejected for precision."),
+    B("Stopping a trial fit early by its BIC: during a slow convergence the BIC still changed by about 2, which can change which lines are accepted; rejected."),
+    B("Allowing negative areas instead of NNLS: it changes the physics; rejected."),
+    B(GP + "compare times only on the same computer with the same settings; on one core the parallel parts run one after the other (the results are identical)."),
+    K("Summary: the manifold fit is 12–40 times faster (crowded series 74 s → 1.9 s, 41 spectra 95 s → 3.1 s), it no longer gets stuck in a wrong minimum, and its ratio errors now match the real scatter."),
 )
 
 DOCS["1H NMR (digest)"] = _doc(
