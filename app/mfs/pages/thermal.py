@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 import matplotlib.pyplot as plt
 
@@ -47,7 +48,7 @@ def page_tga():
     c1, c2, c3 = st.columns(3)
     dtg = c1.selectbox("DTG", ["panel", "twin", "none"])
     norm_end = c2.checkbox("Normalise to residue = 100 % (Shearer plot)", False)
-    win = c3.slider("DTG smoothing window", 5, 101, 21, 2)
+    win = NE.slider("DTG smoothing window", 5, 101, 21, 2)
     res = []
     for nm, f in samples:
         try:
@@ -303,7 +304,7 @@ def page_dsc():
             except Exception:
                 sug = None
             sug = sug or (lo + 0.15 * (hi - lo), lo + 0.45 * (hi - lo))
-            tgw = c2.slider("Tg window (°C)", lo, hi, (round(sug[0], 1), round(sug[1], 1)), key="dsc_tgw",
+            tgw = NE.slider("Tg window (°C)", lo, hi, (round(sug[0], 1), round(sug[1], 1)), key="dsc_tgw",
                             help="Auto-suggested around the steepest step outside the peaks; tangents use the outer quarters.")
             tg_cool = c2.checkbox("Tg also on cooling segments", False, key="dsc_tgcool")
     styles = DSC.default_styles(list(dict.fromkeys(c["sample"] for c in curves)))

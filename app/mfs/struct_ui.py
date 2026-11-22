@@ -8,6 +8,7 @@ import re
 
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 
 from mfs import structcif as SC
 from mfs import structview as SV
@@ -106,9 +107,9 @@ def render(res: dict, i: int, nm: str, g: dict, version: str = ""):
         else:
             f1, f2, f3, f4 = st.columns(4)
             view = f1.selectbox("View", ["perspective", "along a", "along b", "along c"], key=f"sf_view_{i}")
-            az = f2.slider("Azimuth (°)", 0, 360, 35, 5, key=f"sf_az_{i}", disabled=view != "perspective")
-            el = f3.slider("Elevation (°)", -90, 90, 25, 5, key=f"sf_el_{i}", disabled=view != "perspective")
-            size = f4.slider("Atom size", 0.4, 2.0, 1.0, 0.1, key=f"sf_size_{i}")
+            az = NE.slider("Azimuth (°)", 0, 360, 35, 5, key=f"sf_az_{i}", disabled=view != "perspective")
+            el = NE.slider("Elevation (°)", -90, 90, 25, 5, key=f"sf_el_{i}", disabled=view != "perspective")
+            size = NE.slider("Atom size", 0.4, 2.0, 1.0, 0.1, key=f"sf_size_{i}")
             g1, g2, g3 = st.columns(3)
             cell_on = g1.checkbox("Unit cell", True, key=f"sf_cell_{i}")
             lab_on = g2.checkbox("Atom labels", False, key=f"sf_lab_{i}")

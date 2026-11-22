@@ -264,6 +264,10 @@ def start_page(page):
     ss["_ps_rendering"] = True
 
 
+# v2.19.6: the number box next to a slider (mfs/numentry.py) mirrors the slider's value and is not page work of its own
+_MIRROR_SUFFIXES = ("__n0", "__n1")
+
+
 def end(page):
     """Call after the page has been drawn."""
     ss = _ss()
@@ -272,7 +276,7 @@ def end(page):
     keys = rec.setdefault("keys", [])
     base = ss["_ps_base"].setdefault(page, {})
     for k, vt in _rendered_widget_keys().items():
-        if k in GLOBAL_KEYS or k.startswith(_SKIP_PREFIX) or vt not in _ALLOWED or k not in ss:
+        if k in GLOBAL_KEYS or k.startswith(_SKIP_PREFIX) or k.endswith(_MIRROR_SUFFIXES) or vt not in _ALLOWED or k not in ss:
             continue
         v = ss[k]
         if not _simple(v):

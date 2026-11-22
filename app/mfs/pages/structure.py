@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 import matplotlib.pyplot as plt
 
 from mfs import analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -75,7 +76,7 @@ def page_structure():
         a1, a2, a3, a4 = st.columns(4)
         style = a1.selectbox("Style", ["ortep", "ball", "stick", "space"], key="cx_style",
                              format_func={"ortep": "ORTEP ellipsoids", "ball": "Ball-and-stick", "stick": "Stick", "space": "Space-filling"}.get)
-        prob = a2.select_slider("Ellipsoid probability", [0.3, 0.5, 0.7], 0.5, key="cx_prob", format_func=lambda p: f"{p:.0%}")
+        prob = NE.select_slider("Ellipsoid probability", [0.3, 0.5, 0.7], 0.5, key="cx_prob", format_func=lambda p: f"{p:.0%}")
         mode = a3.selectbox("Grow", ["asu", "molecules", "packing", "cell", "supercell"], index=1 if not is_mof else 3, key="cx_mode",
                             format_func={"asu": "Asymmetric unit", "molecules": "Complete molecules", "packing": "Packing (unit cell)",
                                          "cell": "Atoms in the cell", "supercell": "Supercell"}.get)
@@ -91,7 +92,7 @@ def page_structure():
         hbo = b4.checkbox("H-bonds (dashed)", True, key="cx_hb")
         poly = b4.checkbox("Metal polyhedra", is_mof, key="cx_poly", disabled=not is_mof)
         e1, e2, e3 = st.columns([1, 1, 2])
-        hsc = e1.slider("H atom size", 0.3, 1.5, 0.7, 0.1, key="cx_hsc", help="Scale of the H spheres (ORTEP / ball-and-stick)")
+        hsc = NE.slider("H atom size", 0.3, 1.5, 0.7, 0.1, key="cx_hsc", help="Scale of the H spheres (ORTEP / ball-and-stick)")
         ttl = e2.checkbox("Title on figure", False, key="cx_ttl", help="Off for publication exports (caption goes in the manuscript)")
         offs_txt = e3.text_input("Manual label offsets (Å, screen x y)", "", key="cx_offs", placeholder="C10A 0 -0.8; O5A 0.5 0",
                                  help="Shift single labels after the automatic placement, e.g. 'C10A 0 -0.8; O5A 0.5 0'")
@@ -113,8 +114,8 @@ def page_structure():
         vec = v2.text_input("u v w / h k l", "1 1 0", key="cx_vec", disabled=view not in ("uvw", "hkl"))
         with v3:
             r1, r2, r3 = st.columns(3)
-            rot = (r1.slider("rot x (°)", -180, 180, 0, 5, key="cx_rx"), r2.slider("rot y (°)", -180, 180, 0, 5, key="cx_ry"),
-                   r3.slider("rot z (°)", -180, 180, 0, 5, key="cx_rz"))
+            rot = (NE.slider("rot x (°)", -180, 180, 0, 5, key="cx_rx"), NE.slider("rot y (°)", -180, 180, 0, 5, key="cx_ry"),
+                   NE.slider("rot z (°)", -180, 180, 0, 5, key="cx_rz"))
         try:
             vv = [float(t) for t in vec.replace(",", " ").split()][:3]
         except ValueError:
@@ -172,7 +173,7 @@ def page_structure():
     # ---- PXRD
     with tabs[3]:
         p1, p2, p3 = st.columns(3)
-        lo, hi = p1.slider("2θ range (°)", 2.0, 90.0, (3.0, 50.0), 0.5, key="cx_px_rng")
+        lo, hi = NE.slider("2θ range (°)", 2.0, 90.0, (3.0, 50.0), 0.5, key="cx_px_rng")
         fw = p2.number_input("FWHM (°)", 0.02, 1.0, 0.10, 0.01, key="cx_px_fw")
         nl = p3.number_input("Label strongest n", 0, 40, 12, key="cx_px_nl")
         with st.spinner("Simulating…"):
@@ -204,7 +205,7 @@ def page_structure():
         with tabs[4]:
             from mfs import poretools as PT
             q1, q2, q3 = st.columns(3)
-            spc = q1.select_slider("Grid spacing (Å)", [0.25, 0.3, 0.4, 0.5, 0.7], 0.4, key="cx_pt_sp")
+            spc = NE.select_slider("Grid spacing (Å)", [0.25, 0.3, 0.4, 0.5, 0.7], 0.4, key="cx_pt_sp")
             pr = q2.number_input("Probe radius (Å)", 0.5, 3.0, 1.82, 0.01, key="cx_pt_pr", help="1.82 Å ≈ N₂ (kinetic diameter 3.64 Å)")
             if q3.button("Analyse pores", key="cx_pt_go", type="primary"):
                 with st.spinner("Grid + percolation + Monte Carlo…"):

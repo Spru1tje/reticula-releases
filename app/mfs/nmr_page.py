@@ -169,12 +169,12 @@ def _characterisation(g):
             ref_shift = c2.number_input("Manual shift (ppm, added)", -2.0, 2.0, 0.0, 0.001, format="%.3f", key="nmr1h_refv",
                                         disabled=not ref_mode.startswith("manual"))
             man = c3.checkbox("Manual phase", key="nmr1h_manph")
-            p0 = c3.slider("p0 (°)", -180.0, 180.0, 0.0, 0.5, key="nmr1h_p0", disabled=not man)
-            p1 = c3.slider("p1 (°)", -360.0, 360.0, 0.0, 1.0, key="nmr1h_p1", disabled=not man)
+            p0 = NE.slider("p0 (°)", -180.0, 180.0, 0.0, 0.5, key="nmr1h_p0", disabled=not man)
+            p1 = NE.slider("p1 (°)", -360.0, 360.0, 0.0, 1.0, key="nmr1h_p1", disabled=not man)
             use_ts = c4.checkbox("Use TopSpin's processed 1r instead", key="nmr1h_ts",
                                  disabled=exp is None or exp.proc_1r is None)
             sol_pick = c4.selectbox("Solvent", SOLVENT_CHOICES, key="nmr1h_sol")
-            kpk = c4.slider("Peak threshold (× noise)", 3.0, 30.0, 6.0, 0.5, key="nmr1h_k")
+            kpk = NE.slider("Peak threshold (× noise)", 3.0, 30.0, 6.0, 0.5, key="nmr1h_k")
     reference = "auto" if ref_mode.startswith("auto") else ("none" if ref_mode.startswith("as") else float(ref_shift))
     try:
         sp = _process(f.getvalue(), f.name, ename, lb if exp is not None else None, p0 if man else None,
@@ -352,7 +352,7 @@ def _characterisation(g):
         s_lab = c4.checkbox("Assignment labels", True, key="nmr1h_flab")
         from mfs import nmrfig as F
         h0, l0 = F.auto_xlim(sp, mults)
-        rng = c5.slider("δ window", float(np.floor(sp.ppm.min())), float(np.ceil(sp.ppm.max())), (round(l0, 1), round(h0, 1)), 0.1,
+        rng = NE.slider("δ window", float(np.floor(sp.ppm.min())), float(np.ceil(sp.ppm.max())), (round(l0, 1), round(h0, 1)), 0.1,
                         key="nmr1h_xr|" + skey)
         s_simple = c6.checkbox("Simple mode (black)", False, key="nmr1h_fsimple",
                                help="Final figure without colours: the spectrum, labels, leader lines, integrals and marks are all black.")

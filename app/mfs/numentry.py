@@ -64,9 +64,17 @@ def _boxes(key, parts, lo, hi, step, fmt, label):
         st.number_input(label, key=_k(key, "0"), on_change=_push, args=(key, 1, lo, hi), **kw)
 
 
+def _then(key, parts, cb, args, kwargs):
+    """on_change of the slider: keeps the number boxes in step, then runs the caller's own on_change (if any)."""
+    _pull(key, parts)
+    if cb is not None:
+        cb(*(args or ()), **(kwargs or {}))
+
+
 def slider(label, min_value, max_value, value=None, step=None, format=None, key=None, help=None, **kw):
     """st.slider with a number box next to it (two boxes for a range). Same return value as st.slider."""
     key = key or f"nsl_{label}"
+    cb, cb_args, cb_kw = kw.pop("on_change", None), kw.pop("args", None), kw.pop("kwargs", None)
     parts = 2 if isinstance(value, (tuple, list)) else 1
     lo, hi = min_value, max_value
     if value is None:
@@ -77,7 +85,8 @@ def slider(label, min_value, max_value, value=None, step=None, format=None, key=
         _pull(key, parts)
     col_s, col_n = st.columns([3, 2], vertical_alignment="bottom")
     with col_s:
-        out = st.slider(label, lo, hi, key=key, step=step, format=format, help=help, on_change=_pull, args=(key, parts), **kw)
+        out = st.slider(label, lo, hi, key=key, step=step, format=format, help=help, on_change=_then,
+                        args=(key, parts, cb if callable(cb) else None, cb_args, cb_kw), **kw)
     with col_n:
         _boxes(key, parts, lo, hi, step, format, label)
     st.session_state[last] = out
@@ -89,6 +98,7 @@ def select_slider(label, options, value=None, format_func=None, key=None, help=N
     Returns the option, as st.select_slider does."""
     opts = list(options)
     key = key or f"nss_{label}"
+    cb, cb_args, cb_kw = kw.pop("on_change", None), kw.pop("args", None), kw.pop("kwargs", None)
     idx_default = opts.index(value) if value is not None else len(opts) // 2
     ik = key + "__idx"
     if ik not in st.session_state:
@@ -98,6 +108,8 @@ def select_slider(label, options, value=None, format_func=None, key=None, help=N
 
     def _pull_idx():
         st.session_state[_k(ik, "0")] = opts.index(st.session_state[key])
+        if callable(cb):
+            cb(*(cb_args or ()), **(cb_kw or {}))
 
     def _push_idx():
         st.session_state[key] = opts[int(_clamp(st.session_state[_k(ik, "0")], 0, len(opts) - 1))]
@@ -107,7 +119,8 @@ def select_slider(label, options, value=None, format_func=None, key=None, help=N
         st.session_state[key] = opts[idx_default]
     col_s, col_n = st.columns([3, 2], vertical_alignment="bottom")
     with col_s:
-        out = st.select_slider(label, options=opts, key=key, format_func=format_func, help=help, on_change=_pull_idx, **kw)
+        extra = {} if format_func is None else {"format_func": format_func}      # None would be called as the formatter
+        out = st.select_slider(label, options=opts, key=key, help=help, on_change=_pull_idx, **extra, **kw)
     with col_n:
         st.number_input(f"{label} (index)", min_value=0, max_value=len(opts) - 1, step=1, key=_k(ik, "0"),
                         on_change=_push_idx, label_visibility="collapsed")

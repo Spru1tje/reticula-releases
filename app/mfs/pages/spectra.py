@@ -9,6 +9,7 @@ import io, os, re
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 
 from mfs import analysis as A, plots as P, style as S
@@ -36,7 +37,7 @@ def page_pxrd():
     samples = sample_table(files, "pxrd_tab")
     opts, off = proc_controls("pxrd", "ALS", "max")
     c1, c2, c3 = st.columns(3)
-    lo, hi = c1.slider("2θ range (°)", 2.0, 90.0, (4.0, 50.0), 0.5)
+    lo, hi = NE.slider("2θ range (°)", 2.0, 90.0, (4.0, 50.0), 0.5)
     ref_mode = c2.selectbox("Reference pattern", ["Simulate from bundled MOF-801 CIF (COD 4121459)", "Simulate from bundled UiO-66 CIF (COD 4512074)",
                                                   "Upload CIF", "Upload .xy reference", "none"], index=4)     # v2.18.4: no reference unless you choose one
     subst = c3.selectbox("Metal in simulation", ["As in the CIF (no substitution)", "Hf (replace Zr)"])           # v2.18.4: Hf is an option, not the default
@@ -329,9 +330,9 @@ def _solve_ui(box, raws, nm):
         n_tr, n_it, n_thr = 12, 300, max(1, (_os.cpu_count() or 2))
         if LV.at_least("Advanced"):
             a1, a2, a3 = st.columns(3)
-            n_tr = a1.slider("Random starts per space group", 4, 48, 12, key="sv_trials")
-            n_it = a2.slider("Charge-flipping iterations", 100, 1500, 300, 50, key="sv_iter")
-            n_thr = a3.slider("Parallel threads", 1, max(2, (_os.cpu_count() or 2)), max(1, (_os.cpu_count() or 2)), key="sv_threads")
+            n_tr = NE.slider("Random starts per space group", 4, 48, 12, key="sv_trials")
+            n_it = NE.slider("Charge-flipping iterations", 100, 1500, 300, 50, key="sv_iter")
+            n_thr = NE.slider("Parallel threads", 1, max(2, (_os.cpu_count() or 2)), max(1, (_os.cpu_count() or 2)), key="sv_threads")
         go = st.button("▶ Solve the structure", key="sv_go", type="primary", width="stretch", help="Typically one to several minutes.")
         store = ss.setdefault("sv_res", {})
         if go:
@@ -491,7 +492,7 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     ups = box.file_uploader("…and / or your own CIF file(s)", type=["cif"], accept_multiple_files=True, key="rv_cifs")
     rad = c3.selectbox("Radiation", list(RV.RADIATION), key="rv_rad", help="Kα1 only = monochromated beam (e.g. STOE); Kα1 + Kα2 = Kβ filter (e.g. Rigaku, Bruker).")
     d1, d2, d3 = box.columns([3, 2, 2])
-    rng = d1.slider("2θ range used (°)", float(lo - 2 if lo > 4 else 2.0), 120.0, (float(lo), float(max(hi, lo + 10))), 0.5, key="rv_rng")
+    rng = NE.slider("2θ range used (°)", float(lo - 2 if lo > 4 else 2.0), 120.0, (float(lo), float(max(hi, lo + 10))), 0.5, key="rv_rng")
     mode_l = d2.radio("Method", ["Rietveld (structure known)", "Rietveld + refine the atoms (structure)", "Le Bail (cell + peak shape only)"], key="rv_mode",
                       help="Rietveld uses the intensities of the CIF. 'Refine the atoms' also refines the atom positions (within the site symmetry) and one displacement "
                            "parameter per element, with soft bond restraints, and gives bond lengths, angles, a 3D view and a CIF. Le Bail lets every intensity free – "
@@ -503,9 +504,9 @@ def _rietveld_ui(raws, lo, hi, ref_mode="", subst=""):
     inst_fix = None                                  # v2.18.2: {U..Y, fixed} from a measured standard (None = refined from the pattern)
     if LV.at_least("Advanced"):
         e1, e2 = box.columns(2)
-        rscale = box.slider("Bond restraints (structure refinement)", 0.3, 3.0, 1.0, 0.1, key="rv_rscale",
+        rscale = NE.slider("Bond restraints (structure refinement)", 0.3, 3.0, 1.0, 0.1, key="rv_rscale",
                             help="< 1 tighter: keep the bond lengths of the starting structure; > 1 looser: let the data decide. 1 = default (0.06 → 0.025 Å).")
-        bgo = e1.slider("Background polynomial order", 2, 14, 6, key="rv_bg")
+        bgo = NE.slider("Background polynomial order", 2, 14, 6, key="rv_bg")
         mono = e2.number_input("Monochromator 2θ (° – 0 = none, 26.6 = graphite)", 0.0, 60.0, 0.0, 0.1, key="rv_mono")
         offm = box.radio("Instrument offset", ["sample displacement (reflection geometry – default)", "zero shift (transmission / capillary / calibrated)", "both (only with a measured standard)"],
                          key="rv_off", horizontal=True, help="Zero shift and displacement are strongly correlated; refining both biases the cell (≈ 0.05 % on a real pattern).")
@@ -667,7 +668,7 @@ def _band_tools(traces, kind, lo, hi, is_T):
     names = [t[0] for t in traces]
     c1, c2, c3 = st.columns([2, 1, 1])
     nm = c1.selectbox("Spectrum", names, key="bd_sample")
-    prom = c2.slider("Peak prominence", 0.01, 0.5, 0.05, 0.01, key="bd_prom")
+    prom = NE.slider("Peak prominence", 0.01, 0.5, 0.05, 0.01, key="bd_prom")
     nmax = c3.number_input("Max. bands", 1, 40, 12, key="bd_nmax")
     x, y = next((t[1], t[2]) for t in traces if t[0] == nm)
     pk = SP.pick_peaks(x, y, prom, int(nmax), (lo, hi), minima=is_T)
@@ -730,7 +731,7 @@ def page_ftir():
     samples = sample_table(files, "ftir_tab")
     opts, off = proc_controls("ftir", "none" if "FTIR" in mode else "ALS", "min-max")
     c1, c2 = st.columns(2)
-    lo, hi = c1.slider("Range (cm⁻¹)", 100.0, 4000.0, (400.0, 2000.0) if "FTIR" in mode else (150.0, 1800.0), 10.0)
+    lo, hi = NE.slider("Range (cm⁻¹)", 100.0, 4000.0, (400.0, 2000.0) if "FTIR" in mode else (150.0, 1800.0), 10.0)
     conv = c2.checkbox("Convert transmittance → absorbance", False) if "transmittance" in mode else False
     hl = c2.text_input("Highlight bands (lo-hi:label; …)", "1700-1740:C=O; 1190-1230:S=O; 1030-1055:" if "FTIR" in mode else "")
     highlight = []
@@ -766,7 +767,7 @@ def page_ftir():
             bmode = c4.radio("by", ["height", "area"], horizontal=True, key="ft_bm")
             c1, c2, c3, c4 = st.columns(4)
             pl = c1.checkbox("Label peaks", False, key="ft_pl")
-            prom = c2.slider("min. prominence (fraction of range)", 0.01, 0.5, 0.08, 0.01, key="ft_prom")
+            prom = NE.slider("min. prominence (fraction of range)", 0.01, 0.5, 0.08, 0.01, key="ft_prom")
             npk = c3.number_input("max labels per trace", 1, 40, 8, key="ft_npk")
             npk0 = {t[0]: len(SP.pick_peaks(t[1], t[2], prom, 40, (lo, hi), minima=is_T)) for t in traces}
             pl_which = c4.multiselect("traces", [t[0] for t in traces], default=[max(npk0, key=npk0.get)] if npk0 else [], key="ft_plw")

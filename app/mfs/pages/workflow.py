@@ -78,18 +78,18 @@ def page_composer():
             c1, c2, c3 = st.columns(3)
             if tpl == "custom":
                 width = S.WIDTHS[c1.selectbox("Width", list(S.WIDTHS), index=1)]
-                fsz = c3.slider("Font (pt)", 5.0, 10.0, float(FONT), 0.5, key="comp_fs")
+                fsz = NE.slider("Font (pt)", 5.0, 10.0, float(FONT), 0.5, key="comp_fs")
             else:
                 T_ = TP.TEMPLATES[tpl]; width = TP.width(tpl, colw)
-                fsz = c3.slider("Font (pt)", float(T_["min_font"]), 10.0, float(T_["font_size"]), 0.5, key=f"comp_fs_{tpl}")
+                fsz = NE.slider("Font (pt)", float(T_["min_font"]), 10.0, float(T_["font_size"]), 0.5, key=f"comp_fs_{tpl}")
                 c1.metric("Width", f"{width:.2f} in / {width * 2.54:.1f} cm")
-            asp = c2.slider("Panel height / width", 0.4, 1.5, 0.8, 0.05, key="comp_asp")
+            asp = NE.slider("Panel height / width", 0.4, 1.5, 0.8, 0.05, key="comp_asp")
     with st.expander("🔧 Fine-tune the layout – spacing, wide panels, column / row sizes, letter size", expanded=False):
         f1, f2, f3 = st.columns(3)
         auto_sp = f1.checkbox("Keep panels from overlapping (automatic)", True, key="comp_autosp",
                               help="The gaps grow until colour bars, axis titles and panel letters of neighbouring panels no longer touch.")
-        wsp = f2.slider("Space between columns", 0.1, 1.2, 0.42, 0.02, key="comp_wsp", help="Minimum; the automatic check can add more.")
-        hsp = f3.slider("Space between rows", 0.1, 1.2, 0.42, 0.02, key="comp_hsp")
+        wsp = NE.slider("Space between columns", 0.1, 1.2, 0.42, 0.02, key="comp_wsp", help="Minimum; the automatic check can add more.")
+        hsp = NE.slider("Space between rows", 0.1, 1.2, 0.42, 0.02, key="comp_hsp")
         g1, g2, g3 = st.columns(3)
         wide = g1.multiselect("Wide panels (span all columns)", sel, key="comp_wide", format_func=_lab) if ncols > 1 else []
         wr_txt = g2.text_input("Column widths (relative, e.g. 1, 1.5, 1)", "", key="comp_wr", help="Empty = equal.")
@@ -170,13 +170,13 @@ def page_batch():
                              key="bp_pdark", horizontal=True).startswith("dark")
             pprior = q2.toggle("🔷 Shape model", False, key="bp_prior",
                                help="Learn the outline of the clean isolated particles of each image and use it to split clumps.")
-            pstr_ = q2.slider("Shape-model strength", 0.0, 1.0, 0.7, 0.05, key="bp_pstr", disabled=not pprior)
+            pstr_ = NE.slider("Shape-model strength", 0.0, 1.0, 0.7, 0.05, key="bp_pstr", disabled=not pprior)
             pnm = q3.number_input("Fallback nm/px (files without metadata)", 0.0, 1e4, 0.0, format="%g", key="bp_pnm")
-            plk = q3.slider("Sensitivity (× noise σ)", 2.0, 8.0, 4.0, 0.5, key="bp_plk")
+            plk = NE.slider("Sensitivity (× noise σ)", 2.0, 8.0, 4.0, 0.5, key="bp_plk")
             pagg = q4.checkbox("Exclude aggregates", True, key="bp_pagg")
             psph = q4.selectbox("Particle shape", ["auto", "spheres", "off"], key="bp_sphere",
                                 format_func={"auto": "auto (round → circle fit)", "spheres": "spheres – circle fit", "off": "outlines only"}.get)
-            pcm = q1.slider("Low-confidence threshold", 0.0, 1.0, 0.5, 0.05, key="bp_conf")
+            pcm = NE.slider("Low-confidence threshold", 0.0, 1.0, 0.5, 0.05, key="bp_conf")
             popts = dict(dark=pdark, shape_prior=pprior, prior_strength=pstr_, nm_per_px=pnm or None, low_k=plk, exclude_aggregates=pagg,
                          sphere={"auto": "auto", "spheres": True, "off": False}[psph], conf_min=pcm)
             st.caption("One figure per file = outlines on the image (aggregates red dashed, splits dotted, low-confidence sphere fits orange); "
