@@ -95,6 +95,19 @@ def dof_from_cell(system, c):
     return {n: float(c[idx[n]]) for n in names}
 
 
+_POOL = None
+
+
+def _pool_map():
+    """v2.20: the finite-difference Jacobian columns are evaluated in parallel threads (same numbers, same steps; the residual only reads its inputs)."""
+    global _POOL
+    if _POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        import os as _os
+        _POOL = ThreadPoolExecutor(max_workers=max(1, min(4, (_os.cpu_count() or 2))))
+    return _POOL.map
+
+
 class Phase:
     """One crystalline phase: cell, symmetry-expanded atoms and the reflection list (grouped by d-spacing) with |F|² at B = 0."""
 
@@ -569,7 +582,7 @@ class Refinement:
         starts = [th0] + [np.clip(th0 + rng_ms.normal(0.0, 1.0, th0.size) * sc * 0.5, lo + 1e-12, hi - 1e-12) for _ in range(2)]
         sol = None
         for th_s in starts:
-            s_ = least_squares(self._residual, th_s, bounds=(lo, hi), x_scale=sc, diff_step=1e-5, max_nfev=max_nfev, ftol=1e-7, xtol=1e-9)
+            s_ = least_squares(self._residual, th_s, bounds=(lo, hi), x_scale=sc, diff_step=1e-5, max_nfev=max_nfev, ftol=1e-7, xtol=1e-9, workers=_pool_map())
             if sol is None or float(np.sum(s_.fun ** 2)) < float(np.sum(sol.fun ** 2)):
                 sol = s_
         if float(np.sum(sol.fun ** 2)) < float(np.sum(f0 ** 2)):
