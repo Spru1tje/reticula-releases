@@ -16,6 +16,7 @@ Whole manifold analysis (line search, both shape models, robustness refits), sam
 - Ratio errors: parameters held on a bound (eta of a Gaussian line) are left out of the shape covariance. Monte Carlo over 150 noisy copies: with them the errors were 1.33-1.43x the true scatter, now 1.05-1.16x (pseudo-Voigt lines with eta inside its range: unchanged, 0.89-1.02x). In v2.19.4 the relative difference step gave rounding noise for parameters at zero, so its errors were erratic (0.65-0.74x, one temperature 4.1x), and its stuck fits (8 of 60 copies) made the scatter of the ratio itself 4.5x larger.
 - Switches for comparisons: `MFS_PL_FD_JAC=1` (old finite-difference path), `MFS_PL_WARM=0`, `MFS_NO_PARALLEL=1`, `MFS_PL_BLAS_THREADS=keep`.
 - The PL info document has a new section with the figures, the reasons and the performance comparison.
+- Browser download tests: the sidebar pages are buttons in categories since 2.19.2; the test helper now opens the category of a page and the problem-report zip is checked as a zip.
 
 ## 2.19.4 - 2026-11-22
 

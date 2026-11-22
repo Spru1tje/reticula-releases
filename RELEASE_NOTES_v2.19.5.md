@@ -26,5 +26,6 @@ What changed:
 - The PL info document has a new section: every optimisation and why, the errors that were found, the performance comparison with figures, and what was tried and rejected.
 
 ## Checks
+- Browser download tests (`tests/test_downloads_browser.py`) follow the categorised sidebar again.
 - Known-answer tests: `tests/test_v2195_plfit.py` (exact Jacobian against finite differences, the NNLS shortcut against NNLS, noiseless data recovered exactly, the stuck minimum, Monte Carlo error bars, warm against cold, serial against parallel).
 - Excluded from the gate: the SEM scale-bar OCR check and its OCR tests.
