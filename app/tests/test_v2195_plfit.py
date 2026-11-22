@@ -362,3 +362,66 @@ def test_refits_without_errors_give_the_same_ratios():
     assert [r["ratio"] for r in a["rows"]] == [r["ratio"] for r in c["rows"]]
     assert all(rc["ratio_err"] <= ra["ratio_err"] for ra, rc in zip(a["rows"], c["rows"]))     # only the area part
     assert a["at_bound"] == c["at_bound"] and c["esd"] == {}
+
+
+def test_kkt_shortcut_equals_nnls():
+    """Known answer: scipy's NNLS, spectrum by spectrum. The batched drop-and-check solution must give the same areas, background, residual
+    and set of active lines wherever it is used."""
+    m = PR._Model(_three_line_series(clamp=True), BANDS3, (505, 565), 1, True, True, True)
+    rng = np.random.default_rng(0)
+    used = 0
+    for _ in range(40):
+        th = np.clip(m.p0 + 3e-2 * rng.standard_normal(m.n_par) * np.maximum(1, np.abs(m.p0)), m.lb, m.ub)
+        C, W, E, _ = m._bp_all(th)
+        P = m._pv_batch(C, W, E)[4]
+        ev = m._solve_batch(P)[0]
+        for ti, e in enumerate(ev):
+            amp, bg, _, _, active = m._linear(P[ti], ti, try_free=True)
+            r = m.sw[ti] * (m.data[ti][1] - P[ti] @ amp - m.B0 @ bg)
+            assert list(map(int, e[5])) == list(map(int, active))
+            assert np.allclose(e[0], amp, rtol=1e-9, atol=1e-9 * max(1.0, np.abs(amp).max()))
+            assert np.allclose(e[6], r, rtol=1e-9, atol=1e-9 * max(1.0, np.abs(r).max()))
+            used += len(active) < m.nb
+    assert used > 50                                                     # the clamped case really occurred
+
+
+def test_kkt_shortcut_refuses_a_wrong_drop():
+    """A dropped band whose column still correlates positively with the residual violates KKT: the spectrum must go to NNLS."""
+    m = PR._Model(_three_line_series(), BANDS3, (505, 565), 1, False, False, True)
+    C, W, E, _ = m._bp_all(m.p0)
+    P = m._pv_batch(C, W, E)[4]
+    S = P.shape[0]
+    M = np.concatenate([P, np.broadcast_to(m.B0[None], (S,) + m.B0.shape)], axis=2) * m.SW[:, :, None]
+    coef = np.ones((S, M.shape[2]))
+    coef[:, 0] = -1.0                                                    # pretend band 0 (a strong real line) came out negative
+    assert m._kkt_batch(M, coef, np.arange(S)) == {}
+
+
+def test_mean_spectrum_start_and_carried_drifts_give_the_cold_fit(monkeypatch):
+    sp = _series(lines=True)
+    b = PR.auto_lines(sp[0]["x"], np.mean([s["y"] for s in sp], 0), 505, 570)
+    g = ([0, 1, 2], [3, 4, 5])
+    st = PR._mean_start(sp, b, (505, 570), 1, True, 120, g)
+    assert st and all(abs(st[f"c{k}"] - c) < 2.0 for k, (c, _) in enumerate(b))
+    f = PR.fit_global(sp, b, (505, 570), 1, "auto", True, 120, g)
+    monkeypatch.setenv("MFS_PL_WARM", "0")
+    fc = PR.fit_global(sp, b, (505, 570), 1, "auto", True, 120, g)
+    assert f["model"] == fc["model"]
+    assert np.allclose([r["ratio"] for r in f["rows"]], [r["ratio"] for r in fc["rows"]], rtol=1e-6)
+    assert abs(f["bic"] - fc["bic"]) < 1e-3
+
+
+def test_drift_fit_never_ends_above_the_shared_fit():
+    """The drifting model contains the shared one: with drifts carried over from an earlier fit (even poor ones) the result must still be at
+    least as good as the shared solution."""
+    sp = _series(lines=True)
+    b = PR.auto_lines(sp[0]["x"], np.mean([s["y"] for s in sp], 0), 505, 570)
+    g = ([0, 1, 2], [3, 4, 5])
+    bad = {f"s{k}": 0.4 * w for k, (_, w) in enumerate(b)}              # far from the truth (the data do not drift)
+    bad.update({f"g{k}": -0.5 * w for k, (_, w) in enumerate(b)})
+    f = PR.fit_global(sp, b, (505, 570), 1, "auto", True, 120, g, start=bad)
+    a, d = f["model_compare"]["shared shape"], f["model_compare"]["drifting shape"]
+    other = f["other_model_fit"]
+    shared_cost = (other if f["model"] == "drifting shape" else f)["cost"]
+    drift_cost = (f if f["model"] == "drifting shape" else other)["cost"]
+    assert drift_cost <= shared_cost + 1e-9 and np.isfinite(a) and np.isfinite(d)

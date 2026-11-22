@@ -280,6 +280,16 @@ class _Model:
             for k, p in enumerate(idx):
                 if p >= 0:
                     self._pband[p] = k
+        nb_ = self.nb                                                    # position of every parameter in [c | w | eta | s | g] (see _expand)
+        self._perm = np.zeros(self.n_par, int)
+        for k in range(nb_):
+            self._perm[self._ic[k]] = k
+            self._perm[self._iw[k]] = nb_ + k
+            self._perm[self._ie[k]] = 2 * nb_ + k
+            if self._is[k] >= 0:
+                self._perm[self._is[k]] = 3 * nb_ + k
+            if self._ig[k] >= 0:
+                self._perm[self._ig[k]] = 4 * nb_ + k
         self._cache = {}                                                 # th -> per-spectrum evaluation (least_squares asks f and J at the same th)
         # v2.19.5: one common wavelength grid (the usual case: one instrument) -> every spectrum is handled in ONE batched array operation
         x0 = self.data[0][0] if self.data else np.zeros(0)
@@ -387,16 +397,68 @@ class _Model:
         all_active = np.arange(nb)
         cf = np.where(good[:, None], coef, 0.0)
         Rres = self.SW * (self.Y - np.einsum("snk,sk->sn", P, cf[:, :nb]) - cf[:, nb:] @ self.B0.T)
+        kkt = self._kkt_batch(M, coef, np.flatnonzero(~good)) if not good.all() else {}
         for ti in range(S):
             A = P[ti]
             if good[ti]:
                 ev.append((coef[ti, :nb], coef[ti, nb:], A, Q[ti], R[ti], all_active, Rres[ti]))
+            elif ti in kkt:
+                amp, bg, Qi, Ri, active, r = kkt[ti]
+                Rres[ti] = r
+                ev.append((amp, bg, A, Qi, Ri, active, r))
             else:
                 amp, bg, Qi, Ri, active = self._linear(A, ti, try_free=False)
                 r = self.sw[ti] * (self.data[ti][1] - A @ amp - self.B0 @ bg)
                 Rres[ti] = r
                 ev.append((amp, bg, A, Qi, Ri, active, r))
         return ev, Q, R, coef, good, Rres
+
+    def _kkt_batch(self, M, coef, bad):
+        """v2.19.5: the spectra whose free solution has negative areas, without calling NNLS one by one. The bands with a negative area are
+        dropped and the rest is solved by a batched QR (one group per set of dropped bands). If every remaining area is >= 0 and every
+        dropped band satisfies the Karush-Kuhn-Tucker condition (its column correlates <= 0 with the residual, so a positive area would not
+        lower the residual), this IS the unique NNLS solution (convex problem, full rank). Spectra that fail the test keep the NNLS of
+        _linear. Tolerance as scipy's nnls: max(m, n) * ||M||_1 * eps on the problem scaled by max|y|.
+        Returns {spectrum: (amp, bg, Q, R, active, weighted residual)}."""
+        nb = self.nb
+        nbg = M.shape[2] - nb
+        groups = {}
+        for ti in bad:
+            c = coef[ti]
+            if not np.all(np.isfinite(c)):
+                continue
+            drop = tuple(int(k) for k in np.flatnonzero(c[:nb] < 0.0))
+            if drop and len(drop) < nb:
+                groups.setdefault(drop, []).append(int(ti))
+        out = {}
+        eps = np.finfo(float).eps
+        for drop, tis in groups.items():
+            keep = np.array([k for k in range(nb) if k not in drop], int)
+            cols = np.concatenate([keep, nb + np.arange(nbg)])
+            idx = np.array(tis, int)
+            Mg = M[idx][:, :, cols]
+            Qg, Rg = np.linalg.qr(Mg)
+            d = np.abs(np.diagonal(Rg, axis1=1, axis2=2))
+            ok = d.min(axis=1) > 1e-11 * d.max(axis=1)
+            if not ok.any():
+                continue
+            YWg = self.YW[idx]
+            try:
+                cg = np.linalg.solve(Rg, np.einsum("snk,sn->sk", Qg, YWg)[:, :, None])[:, :, 0]
+            except np.linalg.LinAlgError:
+                continue
+            rw = YWg - np.einsum("snk,sk->sn", Mg, cg)
+            grad = np.einsum("snk,sn->sk", M[idx][:, :, list(drop)], rw)              # d(-cost)/d(area) of each dropped band
+            scale = np.maximum(np.abs(self.Y[idx]).max(axis=1), 1e-12)
+            tol = max(M.shape[1], M.shape[2] + nbg) * np.abs(M[idx]).sum(axis=1).max(axis=1) * eps * scale
+            ok &= np.all(np.isfinite(cg), axis=1) & np.all(cg[:, :len(keep)] >= 0.0, axis=1) & np.all(grad <= tol[:, None], axis=1)
+            for j, ti in enumerate(tis):
+                if not ok[j]:
+                    continue
+                amp = np.zeros(nb)
+                amp[keep] = cg[j, :len(keep)]
+                out[ti] = (amp, cg[j, len(keep):], Qg[j], Rg[j], keep, rw[j])
+        return out
 
     def _residual_one_line(self, th, k, batch):
         """Residual after a change of the parameters of band k only (difference columns of the Jacobian): the other columns are reused,
@@ -441,18 +503,13 @@ class _Model:
         return D, DA
 
     def _expand(self, Jb, t=None):
-        """Base columns (..., 3 nb) -> all parameters (..., n_par); the first axis is the spectrum. Exact (linear in the column)."""
+        """Base columns (..., 3 nb) -> all parameters (..., n_par); the first axis is the spectrum. Exact (linear in the column).
+        One gather with a fixed permutation (was five scattered writes)."""
         nb = self.nb
-        out = np.empty(Jb.shape[:-1] + (self.n_par,))
-        out[..., self._ic] = Jb[..., :nb]
-        out[..., self._iw] = Jb[..., nb:2 * nb]
-        out[..., self._ie] = Jb[..., 2 * nb:]
-        t = (self.tf if t is None else np.asarray(t, float)).reshape((-1,) + (1,) * (Jb.ndim - 1))
-        if self.drift_pos:
-            out[..., self._is] = Jb[..., :nb] * t
-        if self.drift_width:
-            out[..., self._ig] = Jb[..., nb:2 * nb] * t
-        return out
+        if self.drift_pos or self.drift_width:
+            t = (self.tf if t is None else np.asarray(t, float)).reshape((-1,) + (1,) * (Jb.ndim - 1))
+            Jb = np.concatenate([Jb, Jb[..., :nb] * t, Jb[..., nb:2 * nb] * t], axis=-1)
+        return np.take(Jb, self._perm, axis=-1)
 
     def solve(self, th, ti):
         amp, bg, A, _, _, _, _ = self._eval(th)[ti]
@@ -671,10 +728,18 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
     window = window or default_window(bands, np.concatenate([np.asarray(s["x"], float) for s in spectra]))
     if drift == "auto":
         if _warm():
-            # v2.19.5: the drifting model CONTAINS the shared one; started from the shared solution (drifts 0) it can only do better - the BIC
-            # comparison then compares the two models, not two convergences
+            # v2.19.5: the drifting model CONTAINS the shared one; started from the shared solution it can only do better - the BIC comparison
+            # then compares the two models, not two convergences. The drifts (s, g) of an earlier drifting fit (a trial with one line more)
+            # are kept as their start (heavy series: 25 -> 20 evaluations); should that end above the shared solution, the fit is repeated
+            # from the shared solution with drifts 0, so the guarantee stays.
+            if start is None:                                            # v2.19.5: a cold fit starts from a fit of the mean spectrum
+                start = _mean_start(spectra, bands, window, bg_order, counts, max_nfev, groups)
             a = fit_global(spectra, bands, window, bg_order, "none", counts, max_nfev, groups, start=start)
-            b = fit_global(spectra, bands, window, bg_order, "drift", counts, max_nfev, groups, start=a["params"])
+            carried = {k: v for k, v in (start or {}).items() if k[:1] in ("s", "g")}
+            b = fit_global(spectra, bands, window, bg_order, "drift", counts, max_nfev, groups, start={**carried, **a["params"]})
+            if carried and b["cost"] > a["cost"]:
+                b2 = fit_global(spectra, bands, window, bg_order, "drift", counts, max_nfev, groups, start=a["params"])
+                b = b2 if b2["cost"] <= b["cost"] else b
         else:
             (oka, a), (okb, b) = run_independent([(fit_global, (spectra, bands, window, bg_order, "none", counts, max_nfev, groups), {}),
                                                   (fit_global, (spectra, bands, window, bg_order, "drift", counts, max_nfev, groups), {})])
@@ -695,6 +760,22 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
             res = cold
         res["warm_retry"] = True
     return res
+
+
+def _mean_start(spectra, bands, window, bg_order, counts, max_nfev, groups):
+    """Start values for a cold global fit from a fit of the MEAN spectrum (one spectrum: 1/S of the cost)."""
+    if len(spectra) < 3:
+        return None
+    try:
+        grid = np.asarray(spectra[0]["x"], float)
+        ys = [np.interp(grid, np.asarray(s["x"], float), np.asarray(s["y"], float)) for s in spectra]
+        vs = [np.interp(grid, np.asarray(s["x"], float), np.asarray(s["var"] if s.get("var") is not None else s["y"], float)) for s in spectra]
+        S = len(spectra)
+        mean = {"T": float(np.mean([s["T"] for s in spectra])), "x": grid, "y": np.mean(ys, axis=0), "var": np.maximum(np.mean(vs, axis=0), 1.0) / S}
+        r = _fit_fixed([mean], bands, window, bg_order, "none", counts, max_nfev, groups, None, errors=False)
+        return dict(r["params"])
+    except Exception:
+        return None
 
 
 def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start, errors=True):
@@ -722,7 +803,7 @@ def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups
         # themselves (centres ~500 nm), so the first step cannot throw a line far away (it used to widen one line over its neighbour and switch that
         # neighbour off - a poor local minimum the old code sometimes ended in, e.g. a shared-shape fit with a reduced chi-square of 58 instead of 1.0).
         sol = least_squares(lambda d: mdl.residual(th0 + d), np.zeros_like(th0), jac=lambda d: mdl.jacobian(th0 + d), bounds=(mdl.lb - th0, mdl.ub - th0),
-                            x_scale=xs, max_nfev=max_nfev, ftol=1e-9, xtol=1e-10, loss="soft_l1", f_scale=3.0)
+                            x_scale=xs, max_nfev=max_nfev, ftol=1e-8, xtol=1e-10, loss="soft_l1", f_scale=3.0)
         th = th0 + sol.x
     n_pts = sum(len(d[0]) for d in mdl.data)
     n_lin = len(mdl.data) * (mdl.nb + mdl.bg_order + 1)
