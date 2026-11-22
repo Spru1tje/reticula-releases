@@ -155,8 +155,34 @@ def spectral_locus(step=5.0):
     return wl, xb / s, yb / s
 
 
-def draw_cie(ax, points, labels=None, colors=None, locus=True):
-    """CIE 1931 chromaticity diagram (spectral locus + purple line) with the given points [(x, y), ...]."""
+SRGB_PRIMARIES = {"R": (0.64, 0.33), "G": (0.30, 0.60), "B": (0.15, 0.06)}
+_SRGB_INV = None
+
+
+def xy_to_srgb(x, y):
+    """Colour of a chromaticity (x, y) in sRGB (D65). Returns (rgb in 0..1 or None, inside_gamut).
+    inside_gamut is True when the chromaticity lies in the sRGB triangle (the colour can be shown on a screen)."""
+    global _SRGB_INV
+    if not (np.isfinite(x) and np.isfinite(y)) or y <= 0:
+        return None, False
+    X = x / y
+    Z = (1.0 - x - y) / y
+    M = np.array([[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]])
+    lin = M @ np.array([X, 1.0, Z])
+    # the gamut is a property of the chromaticity: a point is inside when no linear channel is negative (any brightness can be chosen);
+    # the displayed colour keeps the hue and sets the brightest channel to 1
+    inside = bool(np.all(lin >= -1e-9))
+    lin = np.clip(lin, 0.0, None)
+    if lin.max() > 0:
+        lin = lin / lin.max()
+    lin = np.clip(lin, 0.0, 1.0)
+    comp = np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * np.power(lin, 1 / 2.4) - 0.055)
+    return tuple(float(v) for v in np.clip(comp, 0.0, 1.0)), inside
+
+
+def draw_cie(ax, points, labels=None, colors=None, locus=True, gamut=True):
+    """CIE 1931 chromaticity diagram: spectral locus + purple line, the sRGB colour gamut (dashed triangle), and the given points [(x, y), ...].
+    A point inside the sRGB gamut is drawn in its own colour; a point outside it is a cross (that colour cannot be shown on a screen)."""
     if locus:
         wl, lx, ly = spectral_locus(2.0)
         ax.plot(np.append(lx, lx[0]), np.append(ly, ly[0]), "-", color="#444444", lw=0.8)
@@ -164,8 +190,18 @@ def draw_cie(ax, points, labels=None, colors=None, locus=True):
             i = int(np.argmin(abs(wl - w)))
             ax.plot(lx[i], ly[i], "|", color="#444444", ms=4)
             ax.annotate(str(w), (lx[i], ly[i]), xytext=(-8 if w < 520 else 4, 2), textcoords="offset points", fontsize=5, color="#444444")
+    if gamut:
+        tri = [SRGB_PRIMARIES["R"], SRGB_PRIMARIES["G"], SRGB_PRIMARIES["B"], SRGB_PRIMARIES["R"]]
+        ax.plot([p[0] for p in tri], [p[1] for p in tri], "--", color="#7A7A7A", lw=0.9, label="sRGB gamut")
     for k, (x, y) in enumerate(points):
-        ax.plot(x, y, "o", ms=4, color=(colors[k] if colors else "#D55E00"), mec="k", mew=0.3, label=(labels[k] if labels else None))
+        rgb, inside = xy_to_srgb(x, y)
+        lab = labels[k] if labels else None
+        if inside and rgb is not None:
+            ax.plot(x, y, "o", ms=5, mfc=rgb, mec="k", mew=0.4, label=lab)
+        elif gamut:
+            ax.plot(x, y, "x", ms=6, color=(colors[k] if colors else "#D55E00"), mew=1.2, label=lab)
+        else:
+            ax.plot(x, y, "o", ms=4, color=(colors[k] if colors else "#D55E00"), mec="k", mew=0.3, label=lab)
     ax.set_xlim(0, 0.8)
     ax.set_ylim(0, 0.9)
     ax.set_xlabel("CIE x")

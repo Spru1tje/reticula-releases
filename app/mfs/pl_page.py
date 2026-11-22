@@ -100,7 +100,8 @@ def _extras_panel(proc, rng, g):
             cov = (min(780.0, float(q["wl_c"].max())) - max(380.0, float(q["wl_c"].min()))) / 400.0
             rows.append({"spectrum": q["name"], "T (K)": q["T"], "x": c["x"], "y": c["y"], "CCT (K)": c["CCT"],
                          ("complementary λ (nm)" if dw["complementary"] else "dominant λ (nm)"): dw["dominant_nm"], "purity (%)": dw["purity_pct"],
-                         "visible range covered (%)": round(100 * max(0.0, min(1.0, cov)))})
+                         "visible range covered (%)": round(100 * max(0.0, min(1.0, cov))),
+                         "in sRGB gamut": ("yes" if PX.xy_to_srgb(c["x"], c["y"])[1] else "no (not showable)") if np.isfinite(c["x"]) else "–"})
             if np.isfinite(c["x"]):
                 pts.append((c["x"], c["y"])); cols.append(pal[k % len(pal)])
         tab = pd.DataFrame(rows)
