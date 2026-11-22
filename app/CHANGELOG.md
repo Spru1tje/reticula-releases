@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.20.0 — 2026-11-22
+
+### Reticon icon library: about 5000 icons
+- The library now holds about 5000 vector icons in total (built-in, v2.18 and 3629 new v2.20 icons, prefix `r22_`).
+- New families: lab vessels (36 silhouettes x 5 contents x 4 details), instrument bodies, devices and cells, material
+  morphologies, spectra and analysis traces, well plates, pipes and valves, reactors, crystal lattices, gas cylinders,
+  process arrows and blocks, charts and data glyphs, tube racks, centrifuge rotors, cuvettes, step markers, brackets,
+  callouts and symbol combinations.
+- One outline width, slate outlines, one steel-blue accent, a light fill only for liquids and samples. Every new icon has
+  base + 5 variants. Generator source: `tools/icon_sources/reticula_v220.py`.
+- Known limits: the icons are parametric and checked by build tests and a visual sample, not each one by eye. They do not yet
+  reach a BioRender-level finish (no shading or depth); the style plan is in `docs/icons/PLAN_v2.20.md`.
+
+### Dark mode is the default
+- The app starts in dark mode; white is still available with the *Dark theme* switch in the sidebar.
+
+### CIE 1931 diagram
+- The chromaticity diagram is painted in its sRGB colours inside the spectral locus (publication style), in the PL module.
+  Other modules do not show it yet.
+
+### Known limits
+- Readability of every chart colour on dark backgrounds has not been checked one by one.
+- Zetasizer 8.02: see the v2.19 to-do list.
+
+
 ## 2.19.6 - 2026-11-22
 
 ### Sliders with a typed number
