@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (2.19.6 candidate, branch numeric-entry)
+## 2.19.6 - 2026-11-22
 
 ### Sliders with a typed number
 - Every slider in every module keeps its slider and gets a number box next to it; the two always show the same value (one box for a value, two for a range). The index of the PL spectrum selector is a number box too.
