@@ -108,7 +108,7 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
             else:
                 a1.caption("Manifold fit: every line between the fit-range limits is found automatically (maxima and shoulders) and gets its own shape; "
                            "lines left in the residual are added while the information criterion improves.")
-            bgo = NE.slider("Background polynomial order", 0, 3, 1, key="pl_bgo")
+            bgo = NE.slider_in(a3, "Background polynomial order", 0, 3, 1, key="pl_bgo")
             model = {"automatic (BIC)": "auto", "shared shape": "none", "shape drifts with T": "drift"}[
                 a3.selectbox("Peak model", ["automatic (BIC)", "shared shape", "shape drifts with T"], key="pl_model")]
     flo, fhi = (float(rng[0]), float(rng[1]))

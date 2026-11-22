@@ -125,7 +125,7 @@ def _inc(col, key, i, name, label, span, help_=None):
     st.session_state.setdefault(kn, 0.0)
     st.session_state.setdefault(ks, 0.0)
     st.session_state[ks] = float(min(max(st.session_state[ks], 0.0), hi))
-    NE.slider(label, 0.0, hi, step=step, key=ks, on_change=_sync, args=(ks, kn), help=help_ or "0 = automatic")
+    NE.slider_in(col, label, 0.0, hi, step=step, key=ks, on_change=_sync, args=(ks, kn), help=help_ or "0 = automatic")
     col.number_input(label + " (exact)", 0.0, None, step=step, key=kn, on_change=_sync, args=(kn, ks, 0.0, hi),
                      format="%g", label_visibility="collapsed")
     return float(st.session_state.get(kn) or 0.0)

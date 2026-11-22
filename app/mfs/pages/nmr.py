@@ -68,7 +68,7 @@ def page_nmr_digest():
         return
     samples = sample_table(files, "nmr_tab")
     c1, c2, c3 = st.columns(3)
-    lo, hi = NE.slider("δ range (ppm)", -1.0, 14.0, (1.5, 9.0), 0.1)
+    lo, hi = NE.slider_in(c1, "δ range (ppm)", -1.0, 14.0, (1.5, 9.0), 0.1)
     cut = c2.text_input("Cut regions (e.g. solvent HDO 4.55-5.05)", "4.55-5.05")
     off = offset_controls(c3, "nmr_off", 1.1, 0.2, 2.0, 0.05, "Offset")
     st.session_state["_even|nmr_off"] = 1.05

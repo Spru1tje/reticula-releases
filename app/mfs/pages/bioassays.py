@@ -240,7 +240,7 @@ def page_xps():
     regs = list(XP.DOUBLETS) + list(XP.SINGLETS) + ["other (singlets)"]
     rsel = c2.selectbox("Region / doublet constraint", regs, index=regs.index(d_["region"]) if d_["region"] in regs else len(regs) - 1,
                         key="xps_fit_reg_" + pick)
-    eta = NE.slider("Lorentzian fraction (GL mix)", 0.0, 1.0, 0.3, 0.05, key="xps_eta")
+    eta = NE.slider_in(c3, "Lorentzian fraction (GL mix)", 0.0, 1.0, 0.3, 0.05, key="xps_eta")
     dd = XP.DOUBLETS.get(rsel)
     if dd:
         st.caption(f"{rsel}: {dd['major']} + {dd['minor']} at +{dd['split']} eV, area {dd['minor']}/{dd['major']} = {dd['ratio']:.3f}, same FWHM.")

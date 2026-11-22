@@ -234,7 +234,7 @@ def _background_block(spectra, mode, g):
             wins = _parse_windows(txt) or None
             m1, m2 = st.columns(2)
             meth = m1.selectbox("Method", ["polynomial in the windows", "rubber band (lower convex hull)", "ModPoly (iterative polynomial)", "arPLS (penalised least squares)", "SNIP (peak clipping)"], key="pl_bg_meth")
-            order = NE.slider("Polynomial order (0 = constant pedestal)", 0, 4, 1, key="pl_bg_order")
+            order = NE.slider_in(m2, "Polynomial order (0 = constant pedestal)", 0, 4, 1, key="pl_bg_order")
             forced = {"polynomial in the windows": ("poly", order), "rubber band (lower convex hull)": ("rubber", None), "ModPoly (iterative polynomial)": ("modpoly", order),
                       "arPLS (penalised least squares)": ("arpls", None), "SNIP (peak clipping)": ("snip", None)}[meth]
         plan = BG.autoselect(grid, ys, dark=dark, windows=wins, max_order=2)
@@ -400,7 +400,7 @@ def render(g):
     has_dwell = all((s.get("meta") or {}).get("dwell_s") for s in spectra)
     norm = p3.selectbox("Normalisation", ["none (counts)", "max", "area", "to the lowest temperature"] + (["per second (dwell time × scans)"] if has_dwell else []), key="pl_norm",
                         help="Per second: divides by the dwell / integration time (and the number of scans) read from the files, so series measured with different settings can be compared.")
-    sm = NE.slider("Smoothing (points)", 0, 31, 0, 2, key="pl_sm", help="Savitzky–Golay, order 3; 0 = none")
+    sm = NE.slider_in(p4, "Smoothing (points)", 0, 31, 0, 2, key="pl_sm", help="Savitzky–Golay, order 3; 0 = none")
     from mfs.pl_thermo import clamp_range
     for _k in ("pl_rng", "pl_reg", "pl_win"):                       # v2.18.5: stored ranges from earlier data must fit the new data
         clamp_range(_k, wl_lo, wl_hi)

@@ -51,7 +51,7 @@ def render(g):
                             "Reconvolution: lifetimes close to the instrument response need the measured instrument response function (IRF).")
     model = {"T": "tail", "R": "rise"}.get(model_l[0], "reconv")
     counts = c2.checkbox("Photon counts (Poisson weights)", all(np.allclose(c["y"], np.round(c["y"])) for c in curves), key="dc_counts")
-    max_exp = NE.slider("Up to … exponentials", 1, 3, 3, key="dc_nexp", help="The simplest model that is not clearly beaten is kept (information criterion, separated lifetimes, every amplitude > 2 %).")
+    max_exp = NE.slider_in(c3, "Up to … exponentials", 1, 3, 3, key="dc_nexp", help="The simplest model that is not clearly beaten is kept (information criterion, separated lifetimes, every amplitude > 2 %).")
     irf = None
     if model == "reconv":
         iu = st.file_uploader("IRF (scatterer measured with the same settings, same time grid)", type=["csv", "txt", "dat"], key="dc_irf")

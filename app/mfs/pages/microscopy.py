@@ -61,7 +61,7 @@ def scalebar_controls(k, pix, width_px, shared=None):
     elif mode.startswith("length"):
         kf, kp = f"{k}_lfrac", f"{k}_lpx"
         st.session_state.setdefault(kf, 0.22); st.session_state.setdefault(kp, round(0.22 * width_px))
-        NE.slider("Bar length (fraction of image width)", 0.02, 0.9, step=0.01, key=kf, on_change=_sync_len, args=(kf, kp, width_px, False))
+        NE.slider_in(c2, "Bar length (fraction of image width)", 0.02, 0.9, step=0.01, key=kf, on_change=_sync_len, args=(kf, kp, width_px, False))
         c2.number_input("Bar length (pixels)", 1.0, float(width_px), step=1.0, key=kp, on_change=_sync_len, args=(kp, kf, width_px, True))
         u = c2.selectbox("Label unit", ["auto", "nm", "µm", "mm", "Å"], key=f"{k}_lunit")
         b.update(mode="length", length_px=float(st.session_state[kp]), unit=u)
@@ -82,7 +82,7 @@ def bar_style_controls(col, k):
     c1, c2 = col.columns(2)
     s["position"] = c1.selectbox("Position", ["lower right", "lower left", "upper right", "upper left"], key=f"{k}_pos")
     s["color"] = c2.selectbox("Colour", ["white", "black"], key=f"{k}_col")
-    s["thickness"] = NE.slider("Thickness (% of height)", 0.3, 6.0, 1.8, 0.1, key=f"{k}_th") / 100
+    s["thickness"] = NE.slider_in(c1, "Thickness (% of height)", 0.3, 6.0, 1.8, 0.1, key=f"{k}_th") / 100
     s["font_size"] = c2.number_input("Font size (pt, 0 = figure font)", 0.0, 30.0, 0.0, 0.5, key=f"{k}_fs")
     s["box"] = c1.checkbox("Background box", False, key=f"{k}_box")
     s["show_label"] = c2.checkbox("Show number", True, key=f"{k}_lab")
@@ -292,7 +292,7 @@ def _manual_bar(col, hk, img, cal, top, lab):
     st.session_state.setdefault(k0, float(bar["x0"]) if bar else round(w * 0.6))
     st.session_state.setdefault(k1, float(bar["x1"]) if bar else round(w * 0.85))
     z1, z2 = col.columns(2)
-    zoom = NE.select_slider("Zoom", [1, 2, 3, 4, 6, 8], 1, key=f"{hk}_zoom")
+    zoom = NE.select_slider_in(z1, "Zoom", [1, 2, 3, 4, 6, 8], 1, key=f"{hk}_zoom")
     span = w / zoom
     if zoom == 1:
         cx = w / 2
@@ -304,7 +304,7 @@ def _manual_bar(col, hk, img, cal, top, lab):
         if kp not in st.session_state or not lo <= st.session_state[kp] <= hi or st.session_state.get(f"{kp}_z") != zoom:
             st.session_state[kp] = int(min(max(mid, lo), hi))      # centre on the bar when the zoom changes
         st.session_state[f"{kp}_z"] = zoom
-        cx = NE.slider("Pan (centre x, px)", lo, hi, key=kp)
+        cx = NE.slider_in(z2, "Pan (centre x, px)", lo, hi, key=kp)
     xa = int(max(0, cx - span / 2)); xb = int(min(w, xa + span))
     disp = 1000
     im, s = _cal_preview(img, cal, top, marks=[st.session_state[k0], st.session_state[k1]], x_range=(xa, xb), zoom=disp / (xb - xa))
@@ -424,7 +424,7 @@ def page_sem():
 
 def sem_panel_fig(ims):
     c1, c2, c3 = st.columns(3)
-    ncol = NE.slider("Columns", 1, 4, min(2, len(ims)))
+    ncol = NE.slider_in(c1, "Columns", 1, 4, min(2, len(ims)))
     lab = c2.selectbox("Panel labels", ["(a)", "a", "A", "none"])
     afs = c3.number_input("Annotation font (pt, 0 = auto per panel size)", 0.0, 14.0, 0.0, 0.5, key="sem_panel_fs",
                           help="Auto: one font for all panels, sized to the panel (4.5–9 pt) and shrunk until every scale-bar "
@@ -745,7 +745,7 @@ def sem_particles(allims):
                                 help="auto: when the clean particles are round, every particle is fitted with a circle on its "
                                      "real edge (sub-pixel), touching pairs / triples are split and overlapping spheres are "
                                      "fitted on their visible arcs. Faceted particles (cubes, octahedra) keep the outline model.")
-        conf_min = NE.slider("Low-confidence threshold", 0.0, 1.0, 0.5, 0.05, key="ps_conf", disabled=not _ad_now,
+        conf_min = NE.slider_in(e2, "Low-confidence threshold", 0.0, 1.0, 0.5, 0.05, key="ps_conf", disabled=not _ad_now,
                              help="Sphere fits below this confidence (little visible edge, poor circle fit, partly outside the "
                                   "particle) are excluded automatically and drawn orange – click one to include it.")
         _sph_hint = e3.empty()
@@ -754,12 +754,12 @@ def sem_particles(allims):
                         format_func=lambda v: {"dark": "dark (on a light background, TEM)", "bright": "bright (on a dark background, SEM)"}[v],
                         help="Default: dark particles on a lighter background (TEM). The bundled SEM example images have bright particles.") == "dark"
         tm = k1.radio("Threshold", ["Otsu (auto)", "manual"], horizontal=True, key="ps_tm")
-        tp = NE.slider("Threshold (intensity percentile)", 1.0, 99.0, 50.0, 0.5, key="ps_tp") if tm == "manual" else None
-        smooth = NE.slider("Smoothing σ (px)", 0.0, 4.0, 1.0, 0.25, key="ps_sm")
-        opx = NE.slider("Opening (px)", 0, 5, 1, key="ps_op")
+        tp = NE.slider_in(k1, "Threshold (intensity percentile)", 1.0, 99.0, 50.0, 0.5, key="ps_tp") if tm == "manual" else None
+        smooth = NE.slider_in(k2, "Smoothing σ (px)", 0.0, 4.0, 1.0, 0.25, key="ps_sm")
+        opx = NE.slider_in(k2, "Opening (px)", 0, 5, 1, key="ps_op")
         split = k3.checkbox("Split touching particles (distance-transform markers)", True, key="ps_split")
         border = k3.checkbox("Exclude particles cut by the image edge", True, key="ps_border")
-        mres = NE.select_slider("Working resolution (px)", [512, 768, 1024, 1536, 2048], 1536, key="ps_res",
+        mres = NE.select_slider_in(k3, "Working resolution (px)", [512, 768, 1024, 1536, 2048], 1536, key="ps_res",
                                 help="Keep 1536 or more for sizing: below ~1000 px the sphere model switches off and the sizes can be 20 % off.")
         if mres < 1024:
             k3.caption("⚠️ A low working resolution is only for a quick look: sizes can be off by up to 20 %.")
@@ -771,19 +771,19 @@ def sem_particles(allims):
         ws = algo.startswith("watershed") or ad
         if ad:
             w1, w2, w3, w4 = st.columns(4)
-            lowk = NE.slider("Sensitivity: lower threshold (× background noise σ)", 2.0, 8.0, 4.0, 0.5, key="ps_lowk",
+            lowk = NE.slider_in(w1, "Sensitivity: lower threshold (× background noise σ)", 2.0, 8.0, 4.0, 0.5, key="ps_lowk",
                              help="After background flattening, pixels darker than the background by this many noise σ grow "
                                   "out from the clear particles (hysteresis): lower = also fainter / lighter-grey particles.")
             expnm = w1.number_input("Expected particle width (nm, 0 = auto)", 0.0, 1e5, 0.0, format="%g", key="ps_expnm",
                                     help="Auto: estimated from the image. Sets the marker scale and the aggregate size limit.")
-            mks = NE.slider("Marker scale (× particle width)", 0.15, 0.4, 0.25, 0.01, key="ps_mks",
+            mks = NE.slider_in(w2, "Marker scale (× particle width)", 0.15, 0.4, 0.25, 0.01, key="ps_mks",
                             help="σ of the blob filter that finds one marker per particle inside clusters.")
             prior = bool(st.session_state.get("ps_prior", False))
-            pstr = NE.slider("Prior strength", 0.0, 1.0, 0.7, 0.05, key="ps_pstr", disabled=not prior)
+            pstr = NE.slider_in(w2, "Prior strength", 0.0, 1.0, 0.7, 0.05, key="ps_pstr", disabled=not prior)
             pk_ = w2.number_input("Prior k (examples for half weight)", 1.0, 500.0, 10.0, 1.0, key="ps_pk", disabled=not prior)
-            sol = NE.slider("Solidity limit", 0.6, 0.98, 0.80, 0.01, key="ps_sol2",
+            sol = NE.slider_in(w3, "Solidity limit", 0.6, 0.98, 0.80, 0.01, key="ps_sol2",
                             help="Area / convex-hull area below this → aggregate.")
-            areaf = NE.slider("Aggregate size limit (× particle area)", 1.3, 5.0, 2.0, 0.1, key="ps_areaf2")
+            areaf = NE.slider_in(w3, "Aggregate size limit (× particle area)", 1.3, 5.0, 2.0, 0.1, key="ps_areaf2")
             pmode = w4.radio("On the image", ["include / exclude (click)", "edit outlines (merge / split / delete / add)"],
                              key="ps_pmode", help="Click mode: one click toggles a particle in/out of the histogram, drag a box "
                              "to exclude many (Shift = include). Aggregates start excluded. Edit mode changes the outlines themselves.")
@@ -794,17 +794,17 @@ def sem_particles(allims):
             _sem_saved = (SS_get(smp_guess, "sem") or {})
         elif ws:
             w1, w2, w3, w4 = st.columns(4)
-            mdf = NE.slider("Min. marker distance (× typical radius)", 0.3, 1.5, 0.7, 0.05, key="ps_mdf",
+            mdf = NE.slider_in(w1, "Min. marker distance (× typical radius)", 0.3, 1.5, 0.7, 0.05, key="ps_mdf",
                             help="The typical radius is estimated automatically from the distance map; lower = more splitting.")
-            hf = NE.slider("Marker depth h (× radius)", 0.02, 0.5, 0.10, 0.01, key="ps_hf", help="h-maxima: a neck must be this much "
+            hf = NE.slider_in(w1, "Marker depth h (× radius)", 0.02, 0.5, 0.10, 0.01, key="ps_hf", help="h-maxima: a neck must be this much "
                            "shallower than both particles to split there; lower = more splitting.")
             meth = w2.selectbox("Flood on", ["distance", "combined", "gradient"], key="ps_wsm",
                                 format_func={"distance": "distance map (shape)", "combined": "distance + image gradient",
                                              "gradient": "image gradient (facet edges)"}.get)
             holes = w2.checkbox("Exclude support holes (bright round areas)", True, key="ps_holes", disabled=not dark)
-            sol = NE.slider("Solidity limit", 0.6, 0.98, 0.85, 0.01, key="ps_sol", help="Area / convex-hull area below this → "
+            sol = NE.slider_in(w3, "Solidity limit", 0.6, 0.98, 0.85, 0.01, key="ps_sol", help="Area / convex-hull area below this → "
                             "re-split; if it cannot be split it is classed as an aggregate.")
-            areaf = NE.slider("Oversize limit (× median area)", 1.3, 5.0, 2.0, 0.1, key="ps_areaf")
+            areaf = NE.slider_in(w3, "Oversize limit (× median area)", 1.3, 5.0, 2.0, 0.1, key="ps_areaf")
             pmode = w4.radio("On the image", ["include / exclude (click)", "edit outlines (merge / split / delete / add)"],
                              key="ps_pmode", help="Click mode: one click toggles a particle in/out of the histogram, drag a box "
                              "to exclude many (Shift = include). Aggregates start excluded. Edit mode changes the outlines themselves.")
@@ -1004,16 +1004,15 @@ def sem_edx(allims, shared):
     mode = c2.radio("Show", ["separate maps", "overlay (one image)", "both"], index=2, key="edx_mode")
     bases = ["none"] + [f.name for f in se] + [im["file"] for im in allims]
     bsel = c3.selectbox("Overlay base image", bases, index=1 if se else 0, key="edx_base")
-    ba = NE.slider("Base image weight", 0.0, 1.0, 0.6, 0.05, key="edx_ba")
-    esm = NE.slider("Smooth maps (σ, px; overlay and line scan)", 0.0, 3.0, 1.0, 0.25, key="edx_sm",
+    ba = NE.slider_in(c3, "Base image weight", 0.0, 1.0, 0.6, 0.05, key="edx_ba")
+    esm = NE.slider_in(c1, "Smooth maps (σ, px; overlay and line scan)", 0.0, 3.0, 1.0, 0.25, key="edx_sm",
                     help="EDX maps are count-noisy; a small Gaussian makes overlays and profiles readable. 0 = raw counts.")
     st.markdown("**Element colours**")
     cc = st.columns(max(1, len(maps)))
     colors, gains = {}, {}
     for i, (el, _) in enumerate(maps):
         colors[el] = cc[i].color_picker(el, EDX_PALETTE.get(el, "#009E73"), key=f"edx_c_{el}")
-        with cc[i]:
-            gains[el] = NE.slider(f"{el} gain", 0.2, 3.0, 1.0, 0.1, key=f"edx_g_{el}")
+        gains[el] = NE.slider_in(cc[i], f"{el} gain", 0.2, 3.0, 1.0, 0.1, key=f"edx_g_{el}")
     ebar = scalebar_controls("edx", epix, maps[0][1].shape[1], shared) if epix else None
     if mode != "overlay (one image)":
         fns = [(lambda ax, el=el, im=im: P.draw_edx_map(ax, im, colors[el], pixel_nm=epix or None, element=el, bar=ebar)) for el, im in maps]
@@ -1042,9 +1041,9 @@ def sem_edx(allims, shared):
     if st.checkbox("Line scan across the maps", False, key="edx_ls"):
         h, w = maps[0][1].shape
         l1, l2, l3 = st.columns(3)
-        y0 = NE.slider("Start y (px)", 0, h - 1, h // 2, key="edx_y0"); x0 = NE.slider("Start x (px)", 0, w - 1, w // 8, key="edx_x0")
-        y1 = NE.slider("End y (px)", 0, h - 1, h // 2, key="edx_y1"); x1 = NE.slider("End x (px)", 0, w - 1, 7 * w // 8, key="edx_x1")
-        bw = NE.slider("Band width (px)", 1, 25, 5, key="edx_bw")
+        y0 = NE.slider_in(l1, "Start y (px)", 0, h - 1, h // 2, key="edx_y0"); x0 = NE.slider_in(l1, "Start x (px)", 0, w - 1, w // 8, key="edx_x0")
+        y1 = NE.slider_in(l2, "End y (px)", 0, h - 1, h // 2, key="edx_y1"); x1 = NE.slider_in(l2, "End x (px)", 0, w - 1, 7 * w // 8, key="edx_x1")
+        bw = NE.slider_in(l3, "Band width (px)", 1, 25, 5, key="edx_bw")
         norm = l3.checkbox("Normalise each profile to its max", True, key="edx_lsn")
         prof = {}
         for el, im in maps:

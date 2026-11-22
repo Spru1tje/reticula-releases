@@ -125,3 +125,15 @@ def select_slider(label, options, value=None, format_func=None, key=None, help=N
         st.number_input(f"{label} (index)", min_value=0, max_value=len(opts) - 1, step=1, key=_k(ik, "0"),
                         on_change=_push_idx, label_visibility="collapsed")
     return out
+
+
+def slider_in(container, *args, **kwargs):
+    """The same slider, drawn inside an existing column or container (for example ``c2.slider(...)``)."""
+    with container:
+        return slider(*args, **kwargs)
+
+
+def select_slider_in(container, *args, **kwargs):
+    """select_slider drawn inside an existing column or container."""
+    with container:
+        return select_slider(*args, **kwargs)

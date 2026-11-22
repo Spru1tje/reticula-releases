@@ -72,17 +72,17 @@ def render(g):
         yshow = c2.selectbox("Plot as", ["absorbance", "%T", "%R (as measured)", "Kubelka–Munk F(R)"],
                              index=2 if kinds == ["R"] else (1 if kinds == ["T"] else 0), key="uv_y")
         blank = c3.selectbox("Blank / baseline spectrum", ["none"] + names, key="uv_blank")
-        xr = NE.slider("λ range (nm)", 150.0, 1100.0, (float(max(150, min(s.x.min() for s in spectra))),
+        xr = NE.slider_in(c4, "λ range (nm)", 150.0, 1100.0, (float(max(150, min(s.x.min() for s in spectra))),
                                                          float(min(1100, max(s.x.max() for s in spectra)))), 1.0, key="uv_xr")
         c1, c2, c3, c4 = st.columns(4)
-        sm = NE.slider("Smoothing (SG window, points; 0 = off)", 0, 51, 0, 2, key="uv_sm")
+        sm = NE.slider_in(c1, "Smoothing (SG window, points; 0 = off)", 0, 51, 0, 2, key="uv_sm")
         norm = c2.selectbox("Normalise", ["none", "max", "min-max", "at λ", "area"], key="uv_norm")
         nat = c2.number_input("λ for 'at λ' (nm)", 150.0, 1100.0, 280.0, 1.0, key="uv_nat") if norm == "at λ" else None
         off = g["offset_controls"](c3, "uv_off", 0.0, 0.0, 10.0, 0.05)
         zero = c3.checkbox("Zero at a non-absorbing λ", False, key="uv_zero")
         zl = c3.number_input("zero λ (nm)", 150.0, 1100.0, 750.0, 5.0, key="uv_zl") if zero else None
         pk = c4.checkbox("Mark λmax / peaks", True, key="uv_pk")
-        prom = NE.slider("peak prominence (fraction)", 0.01, 0.5, 0.08, 0.01, key="uv_prom") if pk else 0.08
+        prom = NE.slider_in(c4, "peak prominence (fraction)", 0.01, 0.5, 0.08, 0.01, key="uv_prom") if pk else 0.08
         path = c4.number_input("Path length (cm)", 0.001, 10.0, 1.0, 0.1, key="uv_path",
                                help="NanoPhotometer data are normalised to 10 mm unless the export says otherwise.")
 
@@ -345,8 +345,8 @@ def render(g):
     with tabs[4]:
         c1, c2, c3 = st.columns(3)
         dord = c1.radio("Order", ["1st", "2nd"], horizontal=True, key="uv_d_ord")
-        dwin = NE.slider("SG window (points)", 5, 61, 15, 2, key="uv_d_win")
-        dpo = NE.slider("SG polynomial", 2, 5, 3, key="uv_d_po")
+        dwin = NE.slider_in(c2, "SG window (points)", 5, 61, 15, 2, key="uv_d_win")
+        dpo = NE.slider_in(c3, "SG polynomial", 2, 5, 3, key="uv_d_po")
         o = 1 if dord == "1st" else 2
         dtr = [(n, x, U.derivative(x, y, o, dwin, dpo)) for n, x, y, _ in proc]
         if dtr:

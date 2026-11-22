@@ -72,7 +72,7 @@ def sidebar(path=None):
     box.selectbox("Journal preset", ["(custom)"] + list(S.JOURNAL_PRESETS), key="gs_preset", on_change=_on_preset,
                   help="Sets width, font, font size and line widths from the journal's artwork guidelines. Every value stays editable.")
     box.selectbox("Width", list(S.WIDTHS), key="gs_width", on_change=_save)
-    NE.slider("Height / width", 0.4, 1.6, key="gs_aspect", step=0.05, on_change=_save)
+    NE.slider_in(box, "Height / width", 0.4, 1.6, key="gs_aspect", step=0.05, on_change=_save)
     c1, c2 = box.columns(2)
     c1.number_input("Font size (pt)", 5.0, 24.0, key="gs_font", step=0.5, on_change=_save)
     c2.selectbox("Font", S.FONT_FAMILIES, key="gs_family", on_change=_save,
