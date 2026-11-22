@@ -307,13 +307,15 @@ class _Model:
         return pv_matrix(self.data[ti][0], c, w, e), self.Bs[ti]
 
     # ---------------------------------------------------------------------------------------------------- linear step
-    def _linear(self, A, ti):
+    def _linear(self, A, ti, try_free=True):
         """Areas and background of one spectrum for fixed shapes: the non-negative least-squares solution.
         v2.19.5: solved by QR; NNLS only when an area would be negative (when the free solution has all areas >= 0 it IS the NNLS solution).
         Returns (amp, bg, Q, R, active) with Q, R the QR factors of the weighted design of the active bands + background."""
         B, sw, yw, nb = self.Bs[ti], self.sw[ti], self.yw[ti], self.nb
         M = np.hstack([A, B]) * sw[:, None]
         try:
+            if not try_free:
+                raise ValueError("free solution already known to fail")
             Q, R = np.linalg.qr(M)
             d = np.abs(np.diag(R))
             if d.size and d.min() > 1e-11 * d.max():
@@ -363,18 +365,19 @@ class _Model:
         good &= np.all(np.isfinite(coef), axis=1) & np.all(coef[:, :nb] >= 0.0, axis=1)
         ev = []
         all_active = np.arange(nb)
+        cf = np.where(good[:, None], coef, 0.0)
+        Rres = self.SW * (self.Y - np.einsum("snk,sk->sn", P, cf[:, :nb]) - cf[:, nb:] @ self.B0.T)
         for ti in range(S):
             A = P[ti]
             if good[ti]:
-                amp, bg = coef[ti, :nb], coef[ti, nb:]
-                r = self.sw[ti] * (self.data[ti][1] - A @ amp - self.B0 @ bg)
-                ev.append((amp, bg, A, Q[ti], R[ti], all_active, r))
+                ev.append((coef[ti, :nb], coef[ti, nb:], A, Q[ti], R[ti], all_active, Rres[ti]))
             else:
-                amp, bg, Qi, Ri, active = self._linear(A, ti)
+                amp, bg, Qi, Ri, active = self._linear(A, ti, try_free=False)
                 r = self.sw[ti] * (self.data[ti][1] - A @ amp - self.B0 @ bg)
                 ev.append((amp, bg, A, Qi, Ri, active, r))
-        batch = {"z": z, "G": G, "L": L, "P": P, "W": W, "E": E, "Q": Q, "R": R, "coef": coef,
-                 "r": np.stack([e[6] for e in ev])} if bool(good.all()) else None
+        # the batched pieces are kept also when some spectra needed NNLS: the Jacobian then still builds every derivative in one go
+        batch = {"z": z, "G": G, "L": L, "P": P, "W": W, "E": E, "Q": Q, "R": R, "coef": coef, "good": good,
+                 "r": Rres if bool(good.all()) else np.stack([e[6] for e in ev])}
         return ev, batch
 
     def _eval(self, th, with_batch=False):
@@ -396,7 +399,7 @@ class _Model:
             hit = self._cache[key] = (ev, batch)
         return hit if with_batch else hit[0]
 
-    def _batch_derivs(self, th, batch):
+    def _batch_derivs(self, th, batch, amp=None):
         """Vectorised version of _derivs for all spectra (common grid, every band active): D, DA (S, n, n_par)."""
         z, G, L, P, W, E = batch["z"], batch["G"], batch["L"], batch["P"], batch["W"], batch["E"]
         _, _, _, free = self._bp_all(th)
@@ -418,7 +421,7 @@ class _Model:
             D[:, :, self._is] = dPc * t * sw
         if self.drift_width:
             D[:, :, self._ig] = dPw * t * sw
-        amp = batch["coef"][:, :self.nb]
+        amp = batch["coef"][:, :self.nb] if amp is None else amp
         DA = D * amp[:, self._pband][:, None, :]
         return D, DA
 
@@ -476,7 +479,7 @@ class _Model:
         """Exact Jacobian of the projected residual: J_p = -(P_perp dM/dtheta_p a + (M+)^T (dM/dtheta_p)^T r). One evaluation instead of n_par + 1."""
         th = np.asarray(th, float)
         ev, batch = self._eval(th, with_batch=True)
-        if batch is not None:                                            # all spectra at once
+        if batch is not None and bool(batch["good"].all()):              # all spectra at once
             D, DA = self._batch_derivs(th, batch)
             Q, R, r = batch["Q"], batch["R"], batch["r"]
             Qt = np.swapaxes(Q, 1, 2)
@@ -484,8 +487,32 @@ class _Model:
             U = Q @ np.swapaxes(self._rinv_batch(R), 1, 2)
             J += U[:, :, self._pband] * np.einsum("snp,sn->sp", D, r)[:, None, :]
             return -J.reshape(-1, self.n_par)
-        blocks = []
-        for ti in range(len(self.data)):
+        if batch is not None:                                            # mixed: derivatives in one go, projection per group
+            good = batch["good"]
+            AMP = np.stack([e[0] for e in ev])
+            D, DA = self._batch_derivs(th, batch, AMP)
+            Jb = np.empty_like(D)
+            g = np.flatnonzero(good)
+            if len(g):
+                Q, R, r = batch["Q"][g], batch["R"][g], batch["r"][g]
+                Jg = DA[g] - Q @ (np.swapaxes(Q, 1, 2) @ DA[g])
+                U = Q @ np.swapaxes(self._rinv_batch(R), 1, 2)
+                Jg += U[:, :, self._pband] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
+                Jb[g] = -Jg
+            for ti in np.flatnonzero(~good):
+                _, _, _, Qi, Ri, active, ri = ev[ti]
+                pos = {int(k): j for j, k in enumerate(active)}
+                jpos = np.array([pos.get(int(k), -1) for k in self._pband])
+                m = jpos >= 0
+                Di = D[ti] * m[None, :]
+                Ji = DA[ti] - Qi @ (Qi.T @ DA[ti])
+                if m.any() and Ri.size:
+                    Ji[:, m] += (Qi @ self._rinv(Ri).T)[:, jpos[m]] * (Di[:, m].T @ ri)[None, :]
+                Jb[ti] = -Ji
+            blocks = list(Jb)
+        else:
+            blocks = []
+        for ti in (range(len(self.data)) if batch is None else ()):
             D, DA, jpos, Q, R, r = self._derivs(th, ti, ev[ti])
             J = DA - Q @ (Q.T @ DA)
             m = jpos >= 0
@@ -494,14 +521,14 @@ class _Model:
                 J[:, m] += U[:, jpos[m]] * (D[:, m].T @ r)[None, :]
             blocks.append(-J)
         J = np.vstack(blocks)
-        # A line that NNLS holds at zero area in some spectrum has an exactly zero shape derivative there, so the optimiser could never move it
-        # back into place. For the parameters of such lines the column is the forward difference of the pre-2.19.5 code (same step, same bound rule):
-        # it sees that a small shift switches the line on again. Usually 0-2 lines, so the saving stays.
+        # A line that NNLS holds at zero area in a spectrum has an exactly zero shape derivative there, so the optimiser could never move it
+        # back into place (tried: difference columns only for lines that are off in EVERY spectrum - the fits then need more steps, slower). For the parameters of such lines the column is the forward difference of the pre-2.19.5 code (same step, same bound rule):
+        # it sees that a small shift switches the line on again. One batched residual per parameter (cheaper than spectrum by spectrum when the
+        # line is off in many spectra); usually 0-2 lines, so the saving stays.
         inactive = sorted({int(k) for e in ev for k in range(self.nb) if k not in set(int(a) for a in e[5])})
         if inactive:
-            cols = [p for p in range(self.n_par) if self._pband[p] in inactive]
             r0 = np.concatenate([e[6] for e in ev])
-            for p in cols:
+            for p in np.flatnonzero(np.isin(self._pband, inactive)):
                 h = 1e-4 * (1.0 if th[p] >= 0 else -1.0) * max(1.0, abs(th[p]))
                 if th[p] + h > self.ub[p] or th[p] + h < self.lb[p]:
                     h = -h
@@ -521,38 +548,49 @@ class _Model:
         return np.linalg.pinv(R)
 
     def ratio_grads(self, th, g1, g2):
-        """d(ratio)/d(theta) of every spectrum: array (n_spectra, n_par). Vectorised on a common grid, else per spectrum.
-        For a line held at zero area the column is the central difference of the pre-2.19.5 code (see jacobian)."""
+        """d(ratio)/d(theta) of every spectrum: array (n_spectra, n_par). Vectorised on a common grid (the spectra that needed NNLS one by one).
+        For a line held at zero area the column is the central difference of the pre-2.19.5 code (see jacobian); one pair of series
+        evaluations per parameter serves every spectrum in which that line is off."""
         th = np.asarray(th, float)
         ev, batch = self._eval(th, with_batch=True)
-        if batch is None:
-            out = np.stack([self.ratio_grad(th, ti, g1, g2) for ti in range(len(self.data))])
-            for ti, e in enumerate(ev):
-                act = set(int(a) for a in e[5])
-                for p in range(self.n_par):
-                    if int(self._pband[p]) in act:
+        S = len(self.data)
+        out = np.full((S, self.n_par), np.nan)
+        good = batch["good"] if batch is not None else np.zeros(S, bool)
+        g = np.flatnonzero(good)
+        if len(g):
+            AMP = np.stack([e[0] for e in ev])
+            D, DA = self._batch_derivs(th, batch, AMP)
+            Q, R, r = batch["Q"][g], batch["R"][g], batch["r"][g]
+            Ri = self._rinv_batch(R)
+            dcoef = -Ri @ (np.swapaxes(Q, 1, 2) @ DA[g])
+            dcoef += (Ri @ np.swapaxes(Ri, 1, 2))[:, :, self._pband] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
+            da = dcoef[:, :self.nb, :]
+            amp = AMP[g]
+            s1, s2 = amp[:, g1].sum(1), amp[:, g2].sum(1)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                og = (da[:, g1, :].sum(1) * s2[:, None] - s1[:, None] * da[:, g2, :].sum(1)) / (s2 ** 2)[:, None]
+            og[s2 <= 0] = np.nan
+            out[g] = og
+        for ti in np.flatnonzero(~good):
+            out[ti] = self.ratio_grad(th, ti, g1, g2)
+        off = [set(range(self.nb)) - set(int(a) for a in e[5]) for e in ev]
+        need = sorted({k for o in off for k in o})
+        if need:
+            for p in np.flatnonzero(np.isin(self._pband, need)):
+                k = int(self._pband[p])
+                h = 1e-5 * max(1.0, abs(th[p]))
+                tp, tm = th.copy(), th.copy()
+                tp[p] += h
+                tm[p] -= h
+                evp, evm = self._eval(tp), self._eval(tm)
+                for ti in range(S):
+                    if k not in off[ti]:
                         continue
-                    h = 1e-5 * max(1.0, abs(th[p]))
-                    tp, tm = th.copy(), th.copy()
-                    tp[p] += h
-                    tm[p] -= h
-                    ap, am = self.solve(tp, ti)[0], self.solve(tm, ti)[0]
+                    ap, am = evp[ti][0], evm[ti][0]
                     rp = float(np.sum(ap[g1])) / float(np.sum(ap[g2])) if np.sum(ap[g2]) > 0 else np.nan
                     rm = float(np.sum(am[g1])) / float(np.sum(am[g2])) if np.sum(am[g2]) > 0 else np.nan
                     out[ti, p] = (rp - rm) / (2 * h)
             self._eval(th)                                               # keep the solution in the cache
-            return out
-        D, DA = self._batch_derivs(th, batch)
-        Q, R, r = batch["Q"], batch["R"], batch["r"]
-        Ri = self._rinv_batch(R)
-        dcoef = -Ri @ (np.swapaxes(Q, 1, 2) @ DA)
-        dcoef += (Ri @ np.swapaxes(Ri, 1, 2))[:, :, self._pband] * np.einsum("snp,sn->sp", D, r)[:, None, :]
-        da = dcoef[:, :self.nb, :]
-        amp = batch["coef"][:, :self.nb]
-        s1, s2 = amp[:, g1].sum(1), amp[:, g2].sum(1)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            out = (da[:, g1, :].sum(1) * s2[:, None] - s1[:, None] * da[:, g2, :].sum(1)) / (s2 ** 2)[:, None]
-        out[s2 <= 0] = np.nan
         return out
 
     def ratio_grad(self, th, ti, g1, g2):
