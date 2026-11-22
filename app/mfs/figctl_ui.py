@@ -150,6 +150,11 @@ def panel(fig, key, units=None, series=None, expanded=False):
         if st.session_state.get(_k(key, "msg")):
             st.info(st.session_state.pop(_k(key, "msg")))
         from mfs import levels as LV
+        # v2.20.2: simple mode is always on top of the panel, whatever the tab or detail level
+        cfg["simple_black"] = st.checkbox("⚫ Simple mode – all black, samples told apart by symbol or line style (sleek journal look)", base.get("simple_black", False),
+                                          key=_k(key, "simple_black"), help="Everything becomes black. Data points get one symbol per sample (● ■ ▲ ◆ ▼ …; the second group of a scatter is open). "
+                                                                             "Continuous curves (spectra, patterns, fits) get one line style per sample (solid, dashed, dotted, dash-dot) with no markers. "
+                                                                             "Bars get a hatch per series, filled areas a light grey. Switch it off to return to the colours.")
         adv = LV.at_least("Advanced")                  # v2.15: Standard shows the essentials; ticks and presets are Advanced
         _tabs = st.tabs(["🖋️ Title & axes", "🏷️ Legend", "🎨 Style & colours"] + (["📏 Axes & ticks", "💾 Preset"] if adv else []))
         t1, t3, t4 = _tabs[:3]
@@ -305,10 +310,6 @@ def panel(fig, key, units=None, series=None, expanded=False):
                         L["custom"] = True
         # ---------------- colours
         with t4:
-            cfg["simple_black"] = st.checkbox("⚫ Simple mode – all black, samples told apart by symbol or line style (sleek journal look)", base.get("simple_black", False),
-                                              key=_k(key, "simple_black"), help="Everything becomes black. Data points get one symbol per sample (● ■ ▲ ◆ ▼ …; the second group of a scatter is open). "
-                                                                                 "Continuous curves (spectra, patterns, fits) get one line style per sample (solid, dashed, dotted, dash-dot) with no markers. "
-                                                                                 "Bars get a hatch per series, filled areas a light grey. Switch it off to return to the colours.")
             names = [n for n in series if n] if series is not None else None
             if names is None:
                 names = [l for l, _ in entries if not NOT_SERIES.match(l)] + [t for t in direct if not NOT_SERIES.match(t)]

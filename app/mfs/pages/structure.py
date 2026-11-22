@@ -9,6 +9,7 @@ import io, os, re, json, glob, zipfile, warnings, datetime, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 import matplotlib.pyplot as plt
 
@@ -162,7 +163,7 @@ def page_structure():
         n0 = st.number_input("First table number (S#)", 1, 99, 1, key="cx_si_n")
         secs = CS.si_sections(struct, geom, hbr, int(n0))
         for title, df, cols, note in secs:
-            with st.expander(f"{title} ({len(df)} rows)", expanded=title.startswith(f"Table S{int(n0)}.")):
+            with LV.gate("Advanced", globals()), st.expander(f"{title} ({len(df)} rows)", expanded=title.startswith(f"Table S{int(n0)}.")):
                 st.dataframe((df[cols] if cols else df).astype(str), hide_index=True, width="stretch")
                 if note:
                     st.caption(note)

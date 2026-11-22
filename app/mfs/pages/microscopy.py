@@ -9,6 +9,7 @@ import io, os, re, json, glob, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import levels as LV
 from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 import matplotlib.pyplot as plt
 
@@ -559,7 +560,7 @@ def _size_templates_ui():
     """v2.15: the detection settings that work for one kind of sample (e.g. 'MOF-801 SEM', 'ZrO2 TEM') are saved under a name and applied
     with one click - no need to tune the same sliders again. Kept across sessions in a file next to the sample store and in project files."""
     tpls = _tpl_load()
-    with st.expander(f"💾 Sizing templates ({len(tpls)} saved) – keep the settings per sample type", expanded=False):
+    with LV.gate("Advanced", globals()), st.expander(f"💾 Sizing templates ({len(tpls)} saved) – keep the settings per sample type", expanded=False):
         c1, c2, c3 = st.columns([2, 1, 1], vertical_alignment="bottom")
         c1.text_input("Save the current settings as", "", key="ps_tpl_name", placeholder="e.g. MOF-801 SEM")
         c2.button("💾 Save", key="ps_tpl_save", on_click=_tpl_cb, args=("save",), width="stretch")
@@ -613,7 +614,7 @@ def _prior_panel(pr, pix_nm, f):
     """Learned shape prior: template outline, N example particles, size histogram and the weight."""
     if not pr:
         return
-    with st.expander(f"🔷 Learned shape prior – {pr.get('n', 0)} isolated example(s), weight {pr.get('weight', 0):.2f}"
+    with LV.gate("Advanced", globals()), st.expander(f"🔷 Learned shape prior – {pr.get('n', 0)} isolated example(s), weight {pr.get('weight', 0):.2f}"
                      + (" (applied)" if pr.get("applied") else " (not applied)"), expanded=bool(pr.get("applied"))):
         if pr.get("n", 0) < 3:
             st.info(pr.get("reason", "Too few isolated single particles to learn a shape.")); return

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.20.2 — 2026-11-22 (detail levels and simple mode)
+
+- **Simple mode is always on top of "Customise this figure"**: the black-figure switch was hidden in the colour tab; it now sits
+  at the top of the panel, on every figure, whatever the tab or detail level.
+- **Detail levels, first pages**: the table expanders on the Structure (CIF) page and two expanders on the Microscopy page
+  (sizing templates, learned shape prior) now follow the detail level: hidden on Standard, shown from Advanced.
+  A test checks Standard (hidden) and Developer (shown).
+- Not yet in this release: the detail-level audit of the other technique pages (Spectra, Sorption, Defects, Kinetics, Bioassays,
+  Elemental, PL). Many of their controls still show on Standard.
+
 ## 2.20.1 — 2026-11-22 (speed-up, identical results)
 
 - **Rietveld refinement is faster with the same output**: the finite-difference Jacobian is evaluated in parallel threads,
