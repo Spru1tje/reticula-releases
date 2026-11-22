@@ -913,6 +913,33 @@ def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups
             "counts": bool(counts), "at_bound": [n for n, f_ in zip(mdl.names, free) if not f_]}
 
 
+def with_model(spectra, fit, model, bands, window, bg_order=1, counts=False, max_nfev=80, groups=None):
+    """v2.19.5: the fit of the series with the shape model `model` ('none', 'drift' or 'auto') and these lines. The 'auto' choice already
+    fitted BOTH models: when lines, window, groups, background order and weights are the same (and that fit converged), it is returned
+    without a refit; otherwise the refit is warm-started from `fit`. Same result as a refit (the refit would start where that fit ended)."""
+    bl = [tuple(map(float, b)) for b in bands]
+    gl = lambda g: None if g is None else [list(map(int, x)) for x in g]      # noqa: E731
+    win = tuple(map(float, window))
+
+    def same(c):
+        return (c is not None and c.get("fit_bands") == bl and tuple(c.get("window", ())) == win and gl(c.get("groups")) == gl(groups)
+                and c.get("bg_order") == int(bg_order) and c.get("counts") == bool(counts) and c.get("status", 0) > 0 and c.get("nfev", 10 ** 9) < max_nfev)
+    if model == "auto" and same(fit) and fit.get("other_model_fit") is not None:
+        return fit
+    if model in ("none", "drift"):
+        other = fit.get("other_model_fit")
+        for c, o in ((fit, other), (other, fit)):
+            if c is not None and c.get("drift") == model and same(c):
+                out = {k: v for k, v in c.items() if k != "other_model_fit"}
+                if o is not None:
+                    out["other_model_fit"] = {k: v for k, v in o.items() if k != "other_model_fit"}
+                if fit.get("model_compare"):
+                    out["model_compare"] = fit["model_compare"]
+                return out
+    st = _start_for(fit.get("params"), fit.get("fit_bands", bands), bands) if _warm() else None
+    return fit_global(spectra, bands, window, bg_order, model, counts, max_nfev, groups, start=st)
+
+
 def window_integration(spectra, w1, w2, baseline="linear"):
     """The classic method for comparison: area in two fixed windows above the straight line through each window's ends."""
     I1, I2 = [], []

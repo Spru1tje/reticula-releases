@@ -436,3 +436,27 @@ def test_parallel_and_serial_model_pairs_give_identical_numbers(monkeypatch):
     assert fa["model"] == fb["model"] and fa["bands"] == fb["bands"]
     assert [r["ratio"] for r in fa["rows"]] == [r["ratio"] for r in fb["rows"]]
     assert fa["model_compare"] == fb["model_compare"]
+
+
+@pytest.mark.parametrize("model", ["none", "drift"])
+def test_with_model_reuses_the_auto_fit_and_equals_a_refit(model, monkeypatch):
+    sp = _series(lines=True)
+    f = PR.fit_manifolds(sp, (515, 532), (540, 560), True, 505, 570, 1)
+    calls = []
+    real = PR.fit_global
+    monkeypatch.setattr(PR, "fit_global", lambda *a, **k: calls.append(a[4]) or real(*a, **k))
+    w = PR.with_model(sp, f, model, f["bands"], f["window"], 1, True, 120, f["groups"])
+    assert calls == []                                                   # no refit: the auto choice had fitted this model already
+    assert w["drift"] == model and w["other_model_fit"]["drift"] != model and "other_model_fit" not in w["other_model_fit"]
+    monkeypatch.setattr(PR, "fit_global", real)
+    r = PR.fit_global(sp, f["bands"], f["window"], 1, model, True, 120, f["groups"])          # known answer: the refit itself
+    assert np.allclose([q["ratio"] for q in w["rows"]], [q["ratio"] for q in r["rows"]], rtol=1e-5)
+    assert abs(w["bic"] - r["bic"]) < 1e-2
+
+
+def test_with_model_refits_when_the_lines_differ():
+    sp = _series(lines=True)
+    f = PR.fit_manifolds(sp, (515, 532), (540, 560), True, 505, 570, 1)
+    bands = list(f["bands"])[:-1]                                        # one line less: must be a new fit
+    w = PR.with_model(sp, f, "none", bands, f["window"], 1, True, 120, ([0, 1, 2], [3, 4]))
+    assert w["fit_bands"] == [tuple(map(float, b)) for b in bands] and w["drift"] == "none"

@@ -175,7 +175,7 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
             if f is None:
                 return None
             if model != "auto":
-                f = PR.fit_global(spec, f["bands"], f["window"], bgo, model, counts, 120, f["groups"]) | {"bands": f["bands"], "extra": [], "groups": f["groups"], "mode": "manifold",
+                f = PR.with_model(spec, f, model, f["bands"], f["window"], bgo, counts, 120, f["groups"]) | {"bands": f["bands"], "extra": [], "groups": f["groups"], "mode": "manifold",
                                                                                                         "ranges": f["ranges"]}
             return PR.robust_ratio(spec, f["bands"], bg_order=bgo, counts=counts, main=f, bg_alternatives=bg_alts)
         with st.spinner("Fitting every line of the two manifolds in all spectra … (cached afterwards)"):
@@ -204,10 +204,10 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
                 return None
             if ext:
                 bb = f["bands"]
-                f = PR.fit_global(spec, bb + [(c, 10.0) for c in ext], (flo, fhi), bgo, model, counts)
+                f = PR.with_model(spec, f, model, bb + [(c, 10.0) for c in ext], (flo, fhi), bgo, counts)
                 f["bands"], f["extra"] = bb, [(c, 10.0) for c in ext]
             elif model != "auto":
-                f = PR.fit_global(spec, f["bands"] + f["extra"], (flo, fhi), bgo, model, counts) | {"bands": f["bands"], "extra": f["extra"]}
+                f = PR.with_model(spec, f, model, f["bands"] + f["extra"], (flo, fhi), bgo, counts) | {"bands": f["bands"], "extra": f["extra"]}
             return PR.robust_ratio(spec, f["bands"], bg_order=bgo, counts=counts, main=f, bg_alternatives=bg_alts)
         with st.spinner("Fitting all spectra … (cached afterwards)"):
             fit = memo(("fit", dh, flo, fhi, bgo, model, add_extra, bands_txt, extra_txt, counts, len(bg_alts)), run)
@@ -674,7 +674,9 @@ def _laser_heating(info, bf, swapped, t_order, counts, B, g):
                  "var": np.asarray(s["I"], float)[(s["wl"] >= lo) & (s["wl"] <= hi)] if counts else None} for k, s in enumerate(sp)]
         if info.get("fit"):
             f = info["fit"]
-            r = PR.fit_global(spec, list(f["bands"]) + list(f.get("extra", [])), f["window"], f.get("bg_order", 1), "none", counts, 60, f.get("groups"))
+            bl = list(f["bands"]) + list(f.get("extra", []))
+            r = PR.fit_global(spec, bl, f["window"], f.get("bg_order", 1), "none", counts, 60, f.get("groups"),           # v2.19.5: warm start, ratios only
+                              start=PR._start_for(f.get("params"), f.get("fit_bands", bl), bl), errors=False)
             Dp = np.array([q["ratio"] for q in r["rows"]])
         else:
             Dp = QA.window_ratio(spec, *info["windows"], info.get("win_baseline", "none"))[2]
