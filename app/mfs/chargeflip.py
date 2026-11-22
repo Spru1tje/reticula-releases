@@ -131,6 +131,7 @@ class Problem:
 
     def _build_symmetry(self):
         self.orb = None
+        self.__dict__.pop("_S", None)
         if self.sym is None or len(self.sym[0]) <= 1:
             return
         R, t = self.sym
@@ -154,15 +155,20 @@ class Problem:
         self.orb = (pos, ph, valid)
 
     def symmetrise(self, f):
+        """Average of f over the symmetry orbit of every reflection. v2.20.3: one sparse matrix S (orbit average with the phase factors)
+        built once; each call is a sparse matrix-vector product. Same result as the old loop (checked: identical to rounding)."""
         if self.orb is None:
             return f
-        pos, ph, valid = self.orb
-        acc = np.zeros_like(f)
-        cnt = np.zeros(len(f))
-        for g in range(len(pos)):
-            acc += np.where(valid[g], ph[g] * f[pos[g]], 0.0)
-            cnt += valid[g]
-        return acc / np.maximum(cnt, 1.0)
+        S = self.__dict__.get("_S")
+        if S is None:
+            import scipy.sparse as sps
+            pos, ph, valid = self.orb
+            g_idx, m_idx = np.nonzero(valid)
+            cnt = np.maximum(valid.sum(axis=0).astype(float), 1.0)
+            vals = ph[g_idx, m_idx] / cnt[m_idx]
+            S = sps.csr_matrix((vals, (m_idx, pos[g_idx, m_idx])), shape=(self.M, self.M))
+            self._S = S
+        return S @ f
 
 
 def _fraction_denominator(x, maxden=24):
@@ -173,7 +179,7 @@ def _fraction_denominator(x, maxden=24):
     return 24
 
 
-def run_trial(P: Problem, seed=0, n_iter=300, delta=1.1, repartition=True, f000=0.0, progress=None, stop_event=None):
+def run_trial(P: Problem, seed=0, n_iter=300, delta=1.1, repartition=True, f000=0.0, progress=None, stop_event=None, plateau=0, plateau_tol=1e-3):
     """One charge-flipping run; returns a dict {F (M,) complex of the final structure factors, R (history), R_final, rho (map from the final F), seed}."""
     rng = np.random.default_rng(seed)
     n = P.n
@@ -215,6 +221,11 @@ def run_trial(P: Problem, seed=0, n_iter=300, delta=1.1, repartition=True, f000=
         s = float(np.sum(A[o_] * amp[o_]) / max(np.sum(amp[o_] ** 2), 1e-30))
         R = float(np.sum(np.abs(A[o_] - s * amp[o_])) / max(np.sum(A[o_]), 1e-30))
         Rh.append(R)
+        # v2.20.3 (opt-in): stop when the R factor no longer improves over the last `plateau` iterations
+        if plateau and len(Rh) >= 2 * plateau and it % 10 == 9:
+            prev = float(np.mean(Rh[-2 * plateau:-plateau])); cur = float(np.mean(Rh[-plateau:]))
+            if prev - cur < plateau_tol * max(prev, 1e-12):
+                break
         if progress is not None and it % 20 == 0:
             progress(it / n_iter, R)
         # re-partition of overlapping reflections (members of one d-spacing group share the group total)
@@ -252,14 +263,14 @@ def run_trial(P: Problem, seed=0, n_iter=300, delta=1.1, repartition=True, f000=
     return {"F": f, "R": Rh, "R_final": float(np.mean(tail)) if tail else 1.0, "rho": rho, "seed": seed, "delta": delta, "A": A}
 
 
-def run_trials(P: Problem, n_trials=12, n_iter=300, threads=None, seed0=0, deltas=(1.0, 1.3, 0.8), progress=None, stop_event=None):
+def run_trials(P: Problem, n_trials=12, n_iter=300, threads=None, seed0=0, deltas=(1.0, 1.3, 0.8), progress=None, stop_event=None, plateau=0):
     """Several charge-flipping runs with different random phases and thresholds, in parallel threads. Returns the results sorted by R (best first)."""
     import os
     threads = threads or max(1, min(n_trials, ((os.cpu_count() or 2) // 2) or 1))     # FFTs release the GIL; hyper-threads add little, so physical cores only
     done = [0]
 
     def job(k):
-        r = run_trial(P, seed=seed0 + k, n_iter=n_iter, delta=deltas[k % len(deltas)], stop_event=stop_event)
+        r = run_trial(P, seed=seed0 + k, n_iter=n_iter, delta=deltas[k % len(deltas)], stop_event=stop_event, plateau=plateau)
         done[0] += 1
         if progress:
             progress(done[0] / n_trials, f"trial {done[0]} of {n_trials}: R = {r['R_final'] * 100:.1f} %")
