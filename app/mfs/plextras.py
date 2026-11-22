@@ -180,12 +180,33 @@ def xy_to_srgb(x, y):
     return tuple(float(v) for v in np.clip(comp, 0.0, 1.0)), inside
 
 
-def draw_cie(ax, points, labels=None, colors=None, locus=True, gamut=True):
+def cie_fill(ax, nx=420, ny=460, xlim=(0.0, 0.8), ylim=(0.0, 0.9)):
+    """Publication-style colour fill inside the spectral locus: each chromaticity in its sRGB colour (same rule as xy_to_srgb, vectorised)."""
+    from matplotlib.path import Path
+    wl, lx, ly = spectral_locus(1.0)
+    poly = np.column_stack([np.append(lx, lx[0]), np.append(ly, ly[0])])
+    X, Y = np.meshgrid(np.linspace(xlim[0], xlim[1], nx), np.linspace(ylim[0], ylim[1], ny))
+    inside = Path(poly).contains_points(np.column_stack([X.ravel(), Y.ravel()])).reshape(X.shape)
+    Yy = np.where(Y > 0, Y, 1.0)
+    Xt = X / Yy
+    Zt = (1.0 - X - Y) / Yy
+    M = np.array([[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]])
+    lin = np.clip(np.stack([Xt, np.ones_like(Xt), Zt], axis=-1) @ M.T, 0.0, None)
+    mx = lin.max(axis=-1, keepdims=True)
+    lin = np.where(mx > 0, lin / np.where(mx > 0, mx, 1.0), 0.0)
+    rgb = np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * np.power(np.clip(lin, 0, 1), 1 / 2.4) - 0.055)
+    rgba = np.dstack([np.clip(rgb, 0.0, 1.0), inside.astype(float)])
+    ax.imshow(rgba, extent=[xlim[0], xlim[1], ylim[0], ylim[1]], origin="lower", interpolation="bilinear", zorder=0, aspect="auto")
+
+
+def draw_cie(ax, points, labels=None, colors=None, locus=True, gamut=True, fill=True):
     """CIE 1931 chromaticity diagram: spectral locus + purple line, the sRGB colour gamut (dashed triangle), and the given points [(x, y), ...].
     A point inside the sRGB gamut is drawn in its own colour; a point outside it is a cross (that colour cannot be shown on a screen)."""
+    if fill:
+        cie_fill(ax)
     if locus:
         wl, lx, ly = spectral_locus(2.0)
-        ax.plot(np.append(lx, lx[0]), np.append(ly, ly[0]), "-", color="#444444", lw=0.8)
+        ax.plot(np.append(lx, lx[0]), np.append(ly, ly[0]), "-", color="#222222", lw=0.8, zorder=2)
         for w in (460, 480, 500, 520, 540, 560, 580, 600, 620):
             i = int(np.argmin(abs(wl - w)))
             ax.plot(lx[i], ly[i], "|", color="#444444", ms=4)
