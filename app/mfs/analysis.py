@@ -4,10 +4,34 @@ from __future__ import annotations
 import math
 import numpy as np
 import pandas as pd
-from scipy import sparse
-from scipy.sparse.linalg import spsolve
-from scipy.signal import savgol_filter, find_peaks
-from scipy.optimize import curve_fit
+# v2.19.4: scipy is imported on first use (start-up was dominated by scipy.signal, about 1 s); the call sites are unchanged
+def savgol_filter(*args, **kwargs):
+    from scipy.signal import savgol_filter as _f
+    return _f(*args, **kwargs)
+
+
+def find_peaks(*args, **kwargs):
+    from scipy.signal import find_peaks as _f
+    return _f(*args, **kwargs)
+
+
+def curve_fit(*args, **kwargs):
+    from scipy.optimize import curve_fit as _f
+    return _f(*args, **kwargs)
+
+
+def spsolve(*args, **kwargs):
+    from scipy.sparse.linalg import spsolve as _f
+    return _f(*args, **kwargs)
+
+
+class _Sparse:
+    def __getattr__(self, name):
+        from scipy import sparse as _sp
+        return getattr(_sp, name)
+
+
+sparse = _Sparse()
 
 # --------------------------------------------------------------------------- generic processing
 def als_baseline(y, lam=1e5, p=0.01, niter=10):
