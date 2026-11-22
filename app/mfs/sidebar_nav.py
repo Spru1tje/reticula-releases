@@ -99,7 +99,7 @@ def render(pages_in_nav: list[str]) -> str:
     st.sidebar.markdown("<style>" + "".join(css) + "</style>", unsafe_allow_html=True)
     # dark theme switch at the bottom of the sidebar (session setting; the sidebar itself stays dark)
     st.sidebar.markdown("---")
-    dark = st.sidebar.toggle("Dark theme", key="rt_dark", value=st.session_state.get("rt_dark", False))
+    dark = st.sidebar.toggle("Dark theme", key="rt_dark", value=st.session_state.get("rt_dark", True))   # v2.20: dark by default
     if dark:
         st.markdown(DARK_CSS, unsafe_allow_html=True)
     return current

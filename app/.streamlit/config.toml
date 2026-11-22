@@ -10,13 +10,13 @@ gatherUsageStats = false
 toolbarMode = "minimal"
 
 [theme]
-base = "light"
-primaryColor = "#2E6F95"             # steel blue: the one accent of the scientific icon palette (docs/icons/STYLE.md)
-backgroundColor = "#F4F7FB"
-secondaryBackgroundColor = "#E8EEF6"
-textColor = "#1E293B"
-linkColor = "#3730A3"                # indigo
-borderColor = "#D5DEEA"
+base = "dark"            # v2.20: dark is the default; white is optional in Settings
+primaryColor = "#8FC5E3"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#E2E8F0"
+linkColor = "#93C5FD"
+borderColor = "#334155"
 font = "sans-serif"
 baseRadius = "10px"
 buttonRadius = "10px"
