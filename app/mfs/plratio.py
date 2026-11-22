@@ -98,6 +98,30 @@ def run_independent(calls):
     return [f.result() for f in futs]
 
 
+def _warm():
+    """MFS_PL_WARM=0 switches the v2.19.5 warm starts off (comparisons)."""
+    return os.environ.get("MFS_PL_WARM") != "0" and not _fd_mode()
+
+
+def _start_for(prev_params, prev_bands, new_bands):
+    """Parameter values of an earlier fit for the bands that are also in a new band list (matched by their start guess), renamed to the new
+    band indices - a warm start for the next fit. Bands that are new keep their own start values."""
+    if not prev_params or prev_bands is None:
+        return None
+    key = lambda b: (round(float(b[0]), 6), round(float(b[1]), 6))     # noqa: E731
+    old = {key(b): k for k, b in enumerate(prev_bands)}
+    out = {}
+    for j, b in enumerate(new_bands):
+        k = old.get(key(b))
+        if k is None:
+            continue
+        for pfx in "cswge":
+            v = prev_params.get(f"{pfx}{k}")
+            if v is not None:
+                out[f"{pfx}{j}"] = float(v)
+    return out or None
+
+
 def _fd_mode():
     """MFS_PL_FD_JAC=1: the pre-2.19.5 finite-difference Jacobian and ratio gradient (for comparisons and tests)."""
     return os.environ.get("MFS_PL_FD_JAC") == "1"
@@ -563,19 +587,26 @@ def _group_ratio(amp, cov, g1, g2):
 
 
 @single_blas
-def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=False, max_nfev=80, groups=None):
+def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=False, max_nfev=80, groups=None, start=None):
     """Global fit of the whole series. spectra = [{'T': K, 'x': nm, 'y': counts}], bands = [(centre, fwhm_guess), ...] with the ratio pair FIRST
     (I1 = bands[0], I2 = bands[1]). drift = 'none' | 'drift' | 'auto' (BIC decides). Returns the result dict (see keys below).
     v2.18.4: groups = ([band indices of I1], [band indices of I2]) - the ratio of SUMMED areas, for bands that are split into several lines (Stark
-    components of a lanthanide manifold): every line has its own shape, the ratio uses the sum of each group. Default ([0], [1])."""
+    components of a lanthanide manifold): every line has its own shape, the ratio uses the sum of each group. Default ([0], [1]).
+    v2.19.5: start = {parameter name: value} of an earlier fit (warm start; see _start_for)."""
     window = window or default_window(bands, np.concatenate([np.asarray(s["x"], float) for s in spectra]))
     if drift == "auto":
-        (oka, a), (okb, b) = run_independent([(fit_global, (spectra, bands, window, bg_order, "none", counts, max_nfev, groups), {}),
-                                              (fit_global, (spectra, bands, window, bg_order, "drift", counts, max_nfev, groups), {})])
-        if not oka:
-            raise a
-        if not okb:
-            raise b
+        if _warm():
+            # v2.19.5: the drifting model CONTAINS the shared one; started from the shared solution (drifts 0) it can only do better - the BIC
+            # comparison then compares the two models, not two convergences
+            a = fit_global(spectra, bands, window, bg_order, "none", counts, max_nfev, groups, start=start)
+            b = fit_global(spectra, bands, window, bg_order, "drift", counts, max_nfev, groups, start=a["params"])
+        else:
+            (oka, a), (okb, b) = run_independent([(fit_global, (spectra, bands, window, bg_order, "none", counts, max_nfev, groups), {}),
+                                                  (fit_global, (spectra, bands, window, bg_order, "drift", counts, max_nfev, groups), {})])
+            if not oka:
+                raise a
+            if not okb:
+                raise b
         best = a if a["bic"] <= b["bic"] + 2.0 else b                    # prefer the simpler model unless the drift model is clearly better
         best["model_compare"] = {"shared shape": a["bic"], "drifting shape": b["bic"]}
         best["other_model_fit"] = b if best is a else a                 # v2.19.5: robust_ratio reuses it instead of fitting it again
@@ -585,6 +616,11 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
 
     fd = _fd_mode()
     xs = np.maximum(np.abs(th0) * 0.1, 0.05)
+    if start and not fd:
+        eps = 1e-6 * (mdl.ub - mdl.lb)
+        for i_, nm_ in enumerate(mdl.names):
+            if nm_ in start and np.isfinite(start[nm_]):
+                th0[i_] = float(np.clip(start[nm_], mdl.lb[i_] + eps[i_], mdl.ub[i_] - eps[i_]))
     if fd:                                                               # pre-2.19.5 path (comparisons, tests)
         sol = least_squares(mdl.residual, th0, jac="2-point", bounds=(mdl.lb, mdl.ub), x_scale=xs, diff_step=1e-4, max_nfev=max_nfev,
                             ftol=1e-9, xtol=1e-10, loss="soft_l1", f_scale=3.0)       # robust: one dirty spectrum must not bend the shared shape
@@ -731,7 +767,7 @@ def robust_ratio(spectra, bands, window=None, bg_order=1, counts=False, rel_wind
                 gg = None
         except Exception:
             continue
-        win_calls.append((fit_global, (spectra, bb, w, bg_order, same, counts, 80, gg), {}))
+        win_calls.append((fit_global, (spectra, bb, w, bg_order, same, counts, 80, gg), {"start": _start_for(main.get("params"), main.get("fit_bands", bands), bb) if _warm() else None}))
         win_labs.append(lab)
     # v2.19.5: the other shape model was already fitted by the 'auto' choice; it is reused when it is EXACTLY the fit that would be made here
     # (same lines, window, groups, background order, weights, and converged in fewer than 80 evaluations = the same path as a refit capped at 80)
@@ -740,9 +776,11 @@ def robust_ratio(spectra, bands, window=None, bg_order=1, counts=False, rel_wind
     reuse_other = bool(of is not None and of.get("drift") == other and of.get("fit_bands") == [tuple(map(float, b)) for b in bands]
                        and tuple(of.get("window", ())) == tuple(map(float, main["window"])) and gl(of.get("groups")) == gl(groups)
                        and of.get("bg_order") == int(bg_order) and of.get("counts") == bool(counts) and of.get("status", 0) > 0 and of.get("nfev", 10 ** 9) < 80)
-    other_calls = [] if reuse_other else [(fit_global, (spectra, bands, main["window"], bg_order, other, counts, 80, groups), {})]
+    other_calls = [] if reuse_other else [(fit_global, (spectra, bands, main["window"], bg_order, other, counts, 80, groups),
+                                           {"start": _start_for(main.get("params"), main.get("fit_bands", bands), bands) if _warm() else None})]
     bg_list = list(bg_alternatives or [])
-    bg_calls = [(fit_global, (sp_alt, bands, main["window"], bg_order, same, counts, 40, groups), {}) for _, sp_alt in bg_list]
+    st0 = _start_for(main.get("params"), main.get("fit_bands", bands), bands) if _warm() else None
+    bg_calls = [(fit_global, (sp_alt, bands, main["window"], bg_order, same, counts, 40, groups), {"start": st0}) for _, sp_alt in bg_list]
     results = run_independent(win_calls + other_calls + bg_calls)          # v2.19.5: all alternatives at the same time
     for (ok, r), lab in zip(results[:len(win_calls)], win_labs):
         if ok:
@@ -832,7 +870,8 @@ def auto_fit(spectra, counts=False, lo=None, hi=None, bg_order=1, max_extra=3, b
         sug = suggest_extra_band(best, exclude=bands + extra)
         if sug is None or any(abs(sug[0] - c) < 0.6 * w for c, w in bands + extra):
             break
-        trial = fit_global(spectra, bands + extra + [sug], win, bg_order, "auto", counts)
+        trial = fit_global(spectra, bands + extra + [sug], win, bg_order, "auto", counts,
+                           start=_start_for(best.get("params"), bands + extra, bands + extra + [sug]) if _warm() else None)
         if trial["bic"] < best["bic"] - 10.0:
             best, extra = trial, extra + [sug]
         else:
@@ -916,7 +955,8 @@ def fit_manifolds(spectra, range1, range2, counts=False, lo=None, hi=None, bg_or
             break
         trial_lines = sorted(lines + [sug])
         t1, t2 = grp(trial_lines)
-        trial = fit_global(spectra, trial_lines, (lo, hi), bg_order, "auto", counts, 120, (t1, t2))
+        trial = fit_global(spectra, trial_lines, (lo, hi), bg_order, "auto", counts, 120, (t1, t2),
+                           start=_start_for(best.get("params"), lines, trial_lines) if _warm() else None)
         if trial["bic"] < best["bic"] - 10.0:
             best, lines, g1, g2 = trial, trial_lines, t1, t2
         else:
