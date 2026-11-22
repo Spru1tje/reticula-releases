@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.20.1 — 2026-11-22 (speed-up, identical results)
+
+- **Rietveld refinement is faster with the same output**: the finite-difference Jacobian is evaluated in parallel threads,
+  and the structure factors are cached on their exact inputs (cell, positions, B values). Results are bit-identical to 2.20.0
+  on the test cases (about 25 % faster on the structure refinement of the test case).
+- Not in this release: an analytic Jacobian for atom positions would be several times faster but changes the numbers in the
+  sixth to seventh digit; it needs a decision on that tolerance first.
+
 ## 2.20.0 — 2026-11-22
 
 ### Reticon icon library: about 5000 icons
