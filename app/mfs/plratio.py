@@ -649,13 +649,29 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
         best["model_compare"] = {"shared shape": a["bic"], "drifting shape": b["bic"]}
         best["other_model_fit"] = b if best is a else a                 # v2.19.5: robust_ratio reuses it instead of fitting it again
         return best
+    res = _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start)
+    if start and res["status"] == 0 and not _fd_mode():
+        # v2.19.5 safety net: a warm-started fit that did not converge within max_nfev is repeated from the ordinary start, and the lower
+        # robust cost wins - a warm start can then only save time, never give a worse fit
+        cold = _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, None)
+        if cold["cost"] <= res["cost"]:
+            res = cold
+        res["warm_retry"] = True
+    return res
+
+
+def _fit_fixed(spectra, bands, window, bg_order, drift, counts, max_nfev, groups, start):
+    """One fit with a fixed shape model ('none' or 'drift'); see fit_global."""
     mdl = _Model(spectra, bands, window, bg_order, drift == "drift", drift == "drift", counts)
     th0 = mdl.p0.copy()
 
     fd = _fd_mode()
     xs = np.maximum(np.abs(th0) * 0.1, 0.05)
     if start and not fd:
-        eps = 1e-6 * (mdl.ub - mdl.lb)
+        # a start value ON a bound (a Gaussian line has eta = 0) is moved 0.1 % of the range inside: the trust-region method scales its steps
+        # by the distance to the bound, so from 1e-6 inside it crawled along the bound (test series, window 508-567: 80 evaluations, not
+        # converged; from 1e-3 inside: 8 evaluations and the same minimum as the ordinary start)
+        eps = 1e-3 * (mdl.ub - mdl.lb)
         for i_, nm_ in enumerate(mdl.names):
             if nm_ in start and np.isfinite(start[nm_]):
                 th0[i_] = float(np.clip(start[nm_], mdl.lb[i_] + eps[i_], mdl.ub[i_] - eps[i_]))
@@ -680,9 +696,17 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
     # Their uncertainty propagates into every ratio through its sensitivity to them; without this term the ratio errors were 10-20 % too small.
     try:
         J_ = sol.jac
-        cov_th = np.linalg.pinv(J_.T @ J_) * (rss / max(n_pts - n_par, 1))
+        # v2.19.5: a parameter that the fit holds ON a bound (a Gaussian line: eta = 0) does not scatter with the noise - in repeated noisy
+        # series it stays on the bound - so it is left out of the covariance (Monte Carlo, 150 series of 6 Gaussian lines: ratio errors were
+        # 1.28-1.42 x the true scatter with it, 1.01-1.13 x without). Lines with eta inside its range are not affected. The pre-2.19.5 path
+        # (MFS_PL_FD_JAC=1) keeps its old rule for comparisons.
+        free = (np.asarray(sol.active_mask) == 0) if not fd else np.ones(len(th), bool)
+        cov_th = np.zeros((len(th), len(th)))
+        if free.any():
+            cov_th[np.ix_(free, free)] = np.linalg.pinv(J_[:, free].T @ J_[:, free]) * (rss / max(n_pts - n_par, 1))
     except Exception:
         cov_th = None
+        free = np.ones(len(th), bool)
     g1_, g2_ = (list(groups[0]), list(groups[1])) if groups else ([0], [1])
     grads = mdl.ratio_grads(th, g1_, g2_) if (cov_th is not None and not fd) else None     # v2.19.5: exact, all spectra at once
 
@@ -739,14 +763,16 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
     esd = {}
     try:
         J = sol.jac
-        cov_th = np.linalg.inv(J.T @ J) * (rss / max(n_pts - n_par, 1))
-        esd = {n: float(math.sqrt(max(cov_th[i, i], 0))) for i, n in enumerate(mdl.names)}
+        cov_e = np.zeros((len(th), len(th)))                          # same rule as above: a parameter held on a bound has esd 0
+        cov_e[np.ix_(free, free)] = np.linalg.inv(J[:, free].T @ J[:, free]) * (rss / max(n_pts - n_par, 1))
+        esd = {n: float(math.sqrt(max(cov_e[i, i], 0))) for i, n in enumerate(mdl.names)}
     except Exception:
         pass
     return {"rows": rows, "params": dict(zip(mdl.names, map(float, th))), "esd": esd, "model": "drifting shape" if mdl.drift_pos else "shared shape",
             "bic": float(bic), "window": tuple(map(float, window)), "n_bands": mdl.nb, "bg_order": mdl.bg_order, "rss": rss, "T0": mdl.T0, "Ts": mdl.Ts,
             "groups": (list(groups[0]), list(groups[1])) if groups else None, "drift": "drift" if mdl.drift_pos else "none",
-            "nfev": int(sol.nfev), "status": int(sol.status), "fit_bands": [tuple(map(float, b)) for b in bands], "counts": bool(counts)}
+            "nfev": int(sol.nfev), "status": int(sol.status), "cost": float(sol.cost), "fit_bands": [tuple(map(float, b)) for b in bands],
+            "counts": bool(counts), "at_bound": [n for n, f_ in zip(mdl.names, free) if not f_]}
 
 
 def window_integration(spectra, w1, w2, baseline="linear"):
