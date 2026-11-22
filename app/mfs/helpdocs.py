@@ -462,6 +462,12 @@ DOCS["TGA"] = _doc(
     B(GP + "measure in air so that the end product is the oxide MO₂."),
 )
 
+DOCS["TGA"]["sections"] += [
+    H("Uncertainty of a mass-loss step (v2.19.2)"),
+    P("A step is the difference of two balance readings, so its mass-loss uncertainty from the balance resolution is √2 × resolution. With a 10 mg sample and 0.001 mg resolution the uncertainty is 0.0141 % of the initial mass; the mass lost (in mg) is the step % times the initial mass."),
+    B("General practice: the balance resolution is a lower limit; buoyancy, purge-gas flow and sample weighing add to it."),
+    B("Checked on synthetic data with a known answer (tests/test_v2192_items.py)."),
+]
 DOCS["DSC"] = _doc(
     "DSC – differential scanning calorimetry", "Peaks, glass transitions, cycles and heat capacity.",
     H("What it does"),
@@ -500,6 +506,12 @@ DOCS["SEM / TEM / EDX"] = _doc(
     B("The 127 mm magnification estimate is only valid for Philips/FEI XL SEMs."),
 )
 
+DOCS["N2 sorption (BET/PSD)"]["sections"] += [
+    H("Gurvich total pore volume (v2.19.2)"),
+    P("Gurvich rule (Gurvich 1915): the nitrogen uptake at a relative pressure near 0.95 is taken to fill all pores; the STP gas volume (cm³ per gram at 0 °C and 1 atm) is converted to liquid nitrogen with molar volume 34.67 cm³/mol, using 22414 cm³ STP per mol."),
+    B("General practice: the Gurvich volume depends on the chosen relative pressure (0.95 is conventional); compare it with the BET or density-functional values before you report a pore volume."),
+    B("Checked on synthetic data with a known answer (tests/test_v2192_items.py: 22.414 cm³ STP/g gives 0.03467 cm³/g)."),
+]
 DOCS["Kinetics & adsorption"] = _doc(
     "Kinetics and adsorption", "Rate constants, activation parameters, turnover frequencies and isotherms.",
     H("What it does"),
@@ -538,6 +550,13 @@ DOCS["Kinetics & adsorption"] = _doc(
     B("General practice: KAS and OFW assume one kinetic model per conversion; Vegard is an approximation (check the bowing parameter); Sauerbrey holds only for thin, rigid films, and a warning is given above 2 % of the crystal frequency; Randles–Sevcik assumes a reversible, planar, diffusion-controlled process."),
     B("Depends on: the constants used (F, R, quartz modulus and density) and the temperature (298.15 K for Randles–Sevcik unless you give another). Check the file's units column before you trust a converted value."),
     B("Checked on synthetic data with known answers (tests/test_v2191_known_answers.py)."),
+    H("Friedman, heating-rate checks, binding and enzyme curves (v2.19.2)"),
+    P("Friedman (1964) differential isoconversional method: at one conversion α the slope of ln(β · dα/dT) against 1 / T gives the activation energy Ea, with no model assumed. The curve is taken as α against temperature for each heating rate β (kelvin per second). It is sensitive to noise, so smooth the curve first."),
+    P("Heating-rate check (before Kissinger or KAS): the rates should span at least a factor of 2 and neighbouring rates should differ by more than 10 %; the peak temperature should rise with the rate. A warning is shown otherwise."),
+    P("Kissinger–Friedman cross-check: the two activation energies must agree within 15 % (relative difference |a − b| / mean). A larger difference points to wrong peak picks or too much smoothing."),
+    P("Hill plot (Hill 1910): the fractional occupancy θ = xⁿ / (Kⁿ + xⁿ) gives K (the concentration at half occupancy) and the Hill coefficient n (n above 1 means cooperative binding). Michaelis–Menten (1913) and Lineweaver–Burk (1934): v = Vmax S / (Km + S), fitted by non-linear least squares; the double-reciprocal line is shown for comparison."),
+    B("General practice: a Hill coefficient from fewer than about 6 concentrations, or from data that do not reach both plateaus, is not reliable; check the residuals."),
+    B("Checked on synthetic data with known answers (tests/test_v2192_items.py: K = 10, n = 2.5; Vmax = 2, Km = 5; Friedman Ea = 120 kJ/mol)."),
 
 )
 

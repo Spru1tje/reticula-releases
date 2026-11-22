@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+import base64
+import functools
 import os
 
 import streamlit as st
@@ -39,9 +41,33 @@ ICON_FILE = {"Home": "home", "PXRD": "pxrd", "Structure (CIF)": "structure_cif",
 
 
 def icon_path(page: str) -> str:
+    """The dark-ink base icon; the stroke is recoloured per row (light on the dark sidebar, navy on the selected row)."""
     name = ICON_FILE.get(page)
-    # the sidebar is always dark: use the light copy of the icon set (the dark ink would be invisible)
-    return os.path.join(ICON_DIR + "_light", f"{name}.svg") if name else ""
+    return os.path.join(ICON_DIR, f"{name}.svg") if name else ""
+
+
+ICON_ON_DARK = "#C9DCEB"     # icon stroke on the dark sidebar (light steel)
+ICON_ON_ACCENT = "#0B1F3A"   # icon stroke on the selected row (light fill)
+
+
+@functools.lru_cache(None)
+def icon_uri(path: str, colour: str) -> str:
+    """The SVG icon as a data URI with its stroke recoloured (the base files are drawn in #1F2D3D)."""
+    with open(path, encoding="utf-8") as fh:
+        svg = fh.read().replace("#1F2D3D", colour)
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+
+
+def row_css(idx: int, page: str, selected: bool) -> str:
+    """CSS for one row: the icon at the left edge, the label left-aligned after it."""
+    path = icon_path(page)
+    if not (path and os.path.isfile(path)):
+        return ""
+    uri = icon_uri(path, ICON_ON_ACCENT if selected else ICON_ON_DARK)
+    sel = f'section[data-testid="stSidebar"] .st-key-nvw{idx}'
+    return (f'{sel} button {{ justify-content:flex-start !important; text-align:left; padding-left:40px !important; '
+            f'background-image:url("{uri}"); background-repeat:no-repeat; background-position:12px center; background-size:18px 18px; }}'
+            f'{sel} button > div, {sel} button p {{ text-align:left !important; justify-content:flex-start !important; width:100%; }}')
 
 
 def _label(page: str) -> str:
@@ -59,16 +85,18 @@ def render(pages_in_nav: list[str]) -> str:
     if current not in pages_in_nav:
         current = "Home"
     st.session_state["nav"] = current
+    css: list[str] = []
+    idx = 0
     for cat, pages in CATEGORIES:
         has_current = current in pages
         with st.sidebar.expander(cat, expanded=has_current):
             for p in pages:
-                c_icon, c_btn = st.columns([1, 6], vertical_alignment="center")
-                path = icon_path(p)
-                if path and os.path.isfile(path):
-                    c_icon.image(path, width=20)
-                c_btn.button(_label(p), key=f"nv_{p}", type="primary" if p == current else "tertiary",
-                             on_click=_pick, args=(p,), width="stretch")
+                idx += 1
+                css.append(row_css(idx, p, p == current))
+                with st.container(key=f"nvw{idx}"):
+                    st.button(_label(p), key=f"nv_{p}", type="primary" if p == current else "tertiary",
+                              on_click=_pick, args=(p,), width="stretch")
+    st.sidebar.markdown("<style>" + "".join(css) + "</style>", unsafe_allow_html=True)
     # dark theme switch at the bottom of the sidebar (session setting; the sidebar itself stays dark)
     st.sidebar.markdown("---")
     dark = st.sidebar.toggle("Dark theme", key="rt_dark", value=st.session_state.get("rt_dark", False))

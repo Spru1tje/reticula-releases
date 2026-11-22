@@ -430,3 +430,13 @@ def stale_bar_notes(info: dict):
             msg += f" It matches the calibration of **{', '.join(hits)}** exactly, so the bar was drawn with a stale magnification setting."
         out.append(msg)
     return out
+
+
+def ocr_missing_message():
+    """v2.19.2 (item 10): the text shown when Tesseract is not found, with the install command for each system.
+    Returns None when OCR can be used. Scale-bar OCR itself is not changed (excluded from the gate)."""
+    if tesseract_cmd() is not None:
+        return None
+    return ("Tesseract OCR was not found, so the scale bar cannot be read automatically. Enter the scale by hand, or install "
+            "Tesseract: Windows - the app ships a copy, or install from github.com/UB-Mannheim/tesseract; Debian/Ubuntu - "
+            "sudo apt install tesseract-ocr; macOS - brew install tesseract. You can also point $MFS_TESSERACT at the executable.")

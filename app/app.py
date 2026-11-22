@@ -437,6 +437,8 @@ def files_input(label, types, example_glob, key, multiple=True):
     use_ex = box.checkbox("Use the bundled EXAMPLE data (synthetic)", value=not up, key=key + "_ex")
     files = (up if multiple else [up]) if up else []
     SOURCES.extend(getattr(f, "name", "") for f in files if f is not None)
+    from mfs import problem_report as _PRF   # v2.19.2: detected file family (names only) for the problem report
+    _PRF.note_file_families(st.session_state, [f for f in files if f is not None])
     if use_ex and not files:
         files = [_F(p) for p in sorted(glob.glob(os.path.join(EX, example_glob)))]
         SOURCES.extend(f.name + " (bundled example)" for f in files)

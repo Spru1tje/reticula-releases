@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.19.4 - 2026-11-22
+
+### New methods and checks (ten additions, known-answer tests in `tests/test_v2192_items.py`)
+- Hill plot for cooperative binding: theta = x^n / (K^n + x^n), K and n with their errors, `hill_fit()` in `mfs/saturation.py`.
+- Michaelis–Menten and Lineweaver–Burk: non-linear fit of Vmax and Km, with the double-reciprocal estimate for comparison, `michaelis_menten_fit()` in `mfs/saturation.py`.
+- Friedman (1964) differential isoconversional activation energy, `friedman()` in `mfs/kinetics_nonisothermal.py`.
+- Heating-rate series check before Kissinger or KAS: rates must span at least 2x and neighbours differ by more than 10 %, peak temperatures must rise with the rate (`beta_spread_warning()`).
+- Kissinger against Friedman agreement within 15 % (`kissinger_friedman_check()`).
+- Gurvich total pore volume from the N₂ uptake near P/P0 = 0.95 (`mfs/gurvich.py`, shown as an info-document section under N₂ sorption).
+- TGA: uncertainty of a mass-loss step from the balance resolution, √2 × resolution (`step_uncertainty()`, `step_with_uncertainty()` in `mfs/tga.py`).
+- Problem report: the detected file family (for example JCAMP-DX or delimited table) of each upload, names only, no data (`note_file_families()`).
+- Missing Tesseract: the message names the install command for each system and `$MFS_TESSERACT` (`ocr_missing_message()`; scale-bar OCR itself is unchanged and not part of the gate).
+
+### Sidebar
+- Each technique button has its icon at the left edge, recoloured for the selected row (navy on the light selection, light steel on the dark sidebar). Tests: `tests/test_v2192_sidebar_icons.py`.
+
 ## 2.19.3 - 2026-11-22
 
 ### CIE chart

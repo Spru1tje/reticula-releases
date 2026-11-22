@@ -71,6 +71,7 @@ def build(session, page: str, version: str, sources=None, note: str = "") -> byt
            "libraries": _versions(), "loaded_files": [_anon(s) for s in (sources or [])][:60], "settings_on_this_page": params,
            "figures_made": figs, "sample_store_sections": store, "last_error": session.get("_last_error"),
            "error_history": list(session.get("_error_history") or [])[-ERROR_HISTORY:],
+           "file_families": dict(session.get("_file_families") or {}),
            "user_note": note.strip()[:4000]}
     md = (f"# Reticula problem report\n\nVersion {version} · page **{page}** · {rep['created']}\n\n"
           f"**What the user was doing:** {note.strip() or '(not given)'}\n\n")
@@ -89,3 +90,20 @@ def build(session, page: str, version: str, sources=None, note: str = "") -> byt
         z.writestr("report.json", json.dumps(rep, indent=1, ensure_ascii=False, default=str))
         z.writestr("report.md", md)
     return buf.getvalue()
+
+
+def note_file_families(session, files) -> None:
+    """v2.19.2: records the detected family of each uploaded file ('jcamp-dx', 'delimited table' or 'unknown'), so the report
+    shows which reader would run. Only the file NAME (anonymised) and the family are kept - never the data. Never raises."""
+    try:
+        from mfs.autoread import detect_format
+        fams = dict(session.get("_file_families") or {})
+        for f in files or []:
+            get = getattr(f, "getvalue", None)
+            if get is None:
+                continue
+            head = bytes(get())[:4000].decode("utf-8", errors="replace")
+            fams[_anon(os.path.basename(str(getattr(f, "name", "?"))))[:120]] = detect_format(head)
+        session["_file_families"] = fams
+    except Exception:
+        pass

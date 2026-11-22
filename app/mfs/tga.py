@@ -80,3 +80,28 @@ def draw_ms(ax, ms, channels, colors=None, log=False, x="T", norm=True):
         ax.set_yscale("log")
     ax.set_ylabel("Ion current (norm.)" if norm else "Ion current (A)")
     ax.legend(frameon=False, fontsize=6, loc="upper left")
+
+
+def step_uncertainty(m0_mg: float, resolution_mg: float = 0.001) -> dict:
+    """v2.19.2: uncertainty of a mass-loss step from the balance resolution (v2.19.2 item 8).
+
+    A step is the difference of two readings (before and after the loss), so the mass-loss uncertainty is sqrt(2) times the
+    resolution. Expressed in % of the initial mass m0 (mg). Known answer: m0 = 10 mg, resolution 0.001 mg -> sqrt(2) × 0.01 % = 0.0141 %.
+    General practice: the balance resolution is only one part of the error; buoyancy, purge-gas flow and the sample weighing
+    contribute too. Quote this value as the lower limit of the uncertainty."""
+    m0 = float(m0_mg)
+    res = float(resolution_mg)
+    if not (m0 > 0 and res >= 0):
+        return {"status": "needs a positive initial mass and a non-negative resolution"}
+    sigma_mg = (2.0 ** 0.5) * res
+    return {"status": "ok", "sigma_mg": sigma_mg, "sigma_pct": 100.0 * sigma_mg / m0,
+            "note": "balance resolution only (lower limit); see General practice in the help document"}
+
+
+def step_with_uncertainty(step_pct: float, m0_mg: float, resolution_mg: float = 0.001) -> dict:
+    """A step in % with its uncertainty from the balance resolution, and the mass lost in mg (step_pct × m0 / 100)."""
+    u = step_uncertainty(m0_mg, resolution_mg)
+    if u.get("status") != "ok":
+        return u
+    return {"status": "ok", "step_pct": float(step_pct), "step_err_pct": u["sigma_pct"],
+            "mass_loss_mg": float(step_pct) * float(m0_mg) / 100.0, "mass_loss_err_mg": u["sigma_mg"]}
