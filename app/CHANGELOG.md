@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased (2.19.6 candidate, branch numeric-entry)
+
+### Sliders with a typed number
+- Every slider in every module keeps its slider and gets a number box next to it; the two always show the same value (one box for a value, two for a range). The index of the PL spectrum selector is a number box too.
+- Implementation: `mfs/numentry.py`; tests: `tests/test_v2196_numentry.py`. Help text: 'Ranges and numbers' in the Getting started document.
+
 ## 2.19.5 - 2026-11-22
 
 ### PL manifold fit: 12-40x faster, and more exact (known-answer tests in `tests/test_v2195_plfit.py`)

@@ -46,6 +46,10 @@ DOCS["Getting started"] = _doc(
     N("Download the figure as SVG, PDF, TIFF (600 dpi), PNG (600 dpi), the processed data as CSV, or everything as one ZIP. "
       "If your browser blocks downloads, use 'Save to folder'."),
     N("Use 'Add to combined figure' to put panels of different techniques into one figure, and tick 'Collect figures for the SI bundle' to get the SI export."),
+    H("Ranges and numbers"),
+    P("Every slider (for example a wavelength range, a fit window, a shift tolerance or a histogram bin count) has a number box next to it. "
+      "Drag the slider, or type the value in the box and press Enter; the slider and the box always show the same value. "
+      "A typed value outside the slider range is set to the nearest end of the range, and a range given as two boxes is kept in order."),
     H("Detail levels"),
     P("The sidebar switch 'Detail level' has three settings. Standard shows only what a publishable figure needs. Advanced adds fit options, corrections, ticks and presets. "
       "Developer adds diagnostics. You can set it for all modules or for one module."),

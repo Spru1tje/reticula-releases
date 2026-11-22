@@ -11,6 +11,7 @@ import math
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 
 from mfs import levels as LV
 from mfs import pl as PL
@@ -114,7 +115,7 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
     user_range = False
     if use_fit and LV.at_least("Advanced"):
         clamp_range("pl_fitwin", float(rng[0]), float(rng[1]))
-        fw = st.slider("Fit range (nm)", float(rng[0]), float(rng[1]), (float(rng[0]), float(rng[1])), 0.5, key="pl_fitwin")
+        fw = NE.slider("Fit range (nm)", float(rng[0]), float(rng[1]), (float(rng[0]), float(rng[1])), 0.5, key="pl_fitwin")
         user_range = (abs(fw[0] - rng[0]) > 1e-6 or abs(fw[1] - rng[1]) > 1e-6)
         flo, fhi = fw
     # ---------- graph with brush
@@ -141,8 +142,8 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
     st.caption("Drag over the graph to select a range, then press a button." + (" Range 1 holds the lines of the upper (thermally populated) level, range 2 those of the lower one; "
                "the order does not matter – the program puts the ratio the right way round." if manifold else " With the automatic method nothing has to be chosen."))
     if show_windows:
-        w1 = st.slider(("Range 1 (nm) – lines summed into I₁" if manifold else "Band 1 window (nm) – I₁"), float(rng[0]), float(rng[1]), b1d, 0.5, key="pl_b1")
-        w2 = st.slider(("Range 2 (nm) – lines summed into I₂" if manifold else "Band 2 window (nm) – I₂"), float(rng[0]), float(rng[1]), b2d, 0.5, key="pl_b2")
+        w1 = NE.slider(("Range 1 (nm) – lines summed into I₁" if manifold else "Band 1 window (nm) – I₁"), float(rng[0]), float(rng[1]), b1d, 0.5, key="pl_b1")
+        w2 = NE.slider(("Range 2 (nm) – lines summed into I₂" if manifold else "Band 2 window (nm) – I₂"), float(rng[0]), float(rng[1]), b2d, 0.5, key="pl_b2")
     else:
         w1, w2 = tuple(b1), tuple(b2)
     # ---------- integration windows: always computed (method, cross-check, alternatives)
@@ -249,7 +250,7 @@ def show_fit(fit, spec, T, Dw, sDw, windows, win_alts, method, counts, g, METHOD
     if bad:
         st.warning("The fit is not trustworthy for: " + ", ".join(f"{r['T']:.1f} K ({r['flag']})" for r in bad)
                    + " – the residual shows structure (dirty / wavy spectrum, an unmodelled band). Look at the fit of those spectra below.")
-    ti = st.select_slider("Show the fit of the spectrum at", options=list(range(len(rows))), value=len(rows) // 2, key="pl_fit_i",
+    ti = NE.select_slider("Show the fit of the spectrum at", options=list(range(len(rows))), value=len(rows) // 2, key="pl_fit_i",
                           format_func=lambda i: f"{rows[i]['T']:.1f} K")
     r = rows[ti]
 

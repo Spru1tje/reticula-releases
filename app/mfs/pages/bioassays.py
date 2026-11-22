@@ -9,6 +9,7 @@ import os, re, glob
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 import matplotlib.pyplot as plt
 
@@ -224,7 +225,7 @@ def page_xps():
     region = c3.text_input("Region label", show_reg if regions else "Hf 4f", key="xps_lab_" + str(show_reg))
     tr = [(d_["name"], d_["x"], d_["y"]) for d_ in spec if not regions or d_["region"] == show_reg]
     lo_, hi_ = (min(t[1].min() for t in tr), max(t[1].max() for t in tr)) if tr else (13.0, 23.0)
-    lo, hi = st.slider("Binding energy (eV)", 0.0, 1200.0, (float(np.floor(lo_)), float(np.ceil(hi_))), 0.5, key="xps_rng_" + str(show_reg))
+    lo, hi = NE.slider("Binding energy (eV)", 0.0, 1200.0, (float(np.floor(lo_)), float(np.ceil(hi_))), 0.5, key="xps_rng_" + str(show_reg))
 
     def draw(ax, tr=tr):
         P.draw_xps(ax, tr, (lo, hi), bgk == "Shirley"); ax.text(0.03, 0.96, region, transform=ax.transAxes, va="top")

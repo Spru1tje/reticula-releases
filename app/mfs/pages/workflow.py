@@ -8,6 +8,7 @@ from __future__ import annotations
 import io, os, re, json
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 
 from mfs import style as S, composer as C
@@ -93,7 +94,7 @@ def page_composer():
         wide = g1.multiselect("Wide panels (span all columns)", sel, key="comp_wide", format_func=_lab) if ncols > 1 else []
         wr_txt = g2.text_input("Column widths (relative, e.g. 1, 1.5, 1)", "", key="comp_wr", help="Empty = equal.")
         hr_txt = g3.text_input("Row heights (relative, e.g. 1, 2)", "", key="comp_hr", help="Empty = equal.")
-        lsz = st.slider("Panel letter size (pt, 0 = automatic)", 0.0, 24.0, 0.0, 0.5, key="comp_lsz")
+        lsz = NE.slider("Panel letter size (pt, 0 = automatic)", 0.0, 24.0, 0.0, 0.5, key="comp_lsz")
 
         def _ratios(t):
             try:

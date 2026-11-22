@@ -9,6 +9,7 @@ import io, os, re, json, glob, hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 import matplotlib.pyplot as plt
 
 from mfs import plots as P, style as S, composer as C
@@ -914,7 +915,7 @@ def sem_particles(allims):
             if fn_ in sel:
                 _ex[f"excluded::{fn_}"] = list(ex_); _ex[f"excl_sig::{fn_}"] = sg_
         store_put(smp, "sem", {"metric": metric, **{k: float(v) for k, v in summ.items()}, **_ex}, "SEM particle sizing")
-    nb = st.slider("Histogram bins (0 = auto)", 0, 60, 0, key="ps_bins")
+    nb = NE.slider("Histogram bins (0 = auto)", 0, 60, 0, key="ps_bins")
     col = st.color_picker("Histogram colour", "#0072B2", key="ps_col")
 
     def draw_h(ax, d=d, fit=fit):

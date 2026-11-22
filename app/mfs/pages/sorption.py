@@ -8,6 +8,7 @@ from __future__ import annotations
 import re, hashlib
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 
 from mfs import analysis as A, plots as P, style as S, composer as C
@@ -224,7 +225,7 @@ def page_sorption():
                                  ncols=2, width=max(WIDTH, 5.0), panel_aspect=0.8, wspace=0.5)
             show(fig, "BET_all" if ov else f"BET_{re.sub(r'[^A-Za-z0-9]+', '_', sel)}")
             st.subheader("t-plot (Harkins–Jura) – micropore volume")
-            trng = st.slider("t range for the linear fit (Å)", 3.0, 10.0, (3.5, 5.0), 0.1, key="sorp_trng")
+            trng = NE.slider("t range for the linear fit (Å)", 3.0, 10.0, (3.5, 5.0), 0.1, key="sorp_trng")
             a_ = data[sel]["iso"][data[sel]["iso"].branch == "ads"]
             tp = A.t_plot(a_.p_rel.values, a_.q.values, trng)
             if tp:

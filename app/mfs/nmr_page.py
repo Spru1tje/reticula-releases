@@ -10,6 +10,7 @@ import zipfile
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 
 from mfs import nmrproc as NP, nmrpeaks as PK
@@ -107,7 +108,7 @@ def _nmr_library_panel(mults, solvent):
                          column_config={"solvent": st.column_config.SelectboxColumn("solvent", options=["D2O", "DMSO", "CDCl3"])})
     ss["nmr_lib_user"] = own.dropna(how="all").to_dict("records")
     pairs = [(m.centre, m.integral) for m in mults if not m.note]
-    tol = st.slider("Shift tolerance (ppm)", 0.03, 0.4, 0.12, 0.01, key="nmrlib_tol",
+    tol = NE.slider("Shift tolerance (ppm)", 0.03, 0.4, 0.12, 0.01, key="nmrlib_tol",
                     help="Shifts move with pH, concentration and counter-ion: a digest in NaOD can be 0.1 ppm away from a table value.")
     res = NL.match(pairs, solvent, ss["nmr_lib_user"], tol)
     if not res:

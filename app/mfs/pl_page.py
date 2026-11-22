@@ -9,6 +9,7 @@ import os
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 
 from mfs import pl as PL
@@ -403,10 +404,10 @@ def render(g):
     from mfs.pl_thermo import clamp_range
     for _k in ("pl_rng", "pl_reg", "pl_win"):                       # v2.18.5: stored ranges from earlier data must fit the new data
         clamp_range(_k, wl_lo, wl_hi)
-    rng = st.slider("Wavelength range (nm)", wl_lo, wl_hi, (wl_lo, wl_hi), 0.5, key="pl_rng")
+    rng = NE.slider("Wavelength range (nm)", wl_lo, wl_hi, (wl_lo, wl_hi), 0.5, key="pl_rng")
     reg = None
     if base.startswith("Constant: mean"):
-        reg = st.slider("Baseline region (nm)", wl_lo, wl_hi, (wl_lo, min(wl_hi, wl_lo + 0.05 * (wl_hi - wl_lo))), 0.5, key="pl_reg")
+        reg = NE.slider("Baseline region (nm)", wl_lo, wl_hi, (wl_lo, min(wl_hi, wl_lo + 0.05 * (wl_hi - wl_lo))), 0.5, key="pl_reg")
     # ---- v2.18.4: background subtraction on the WHOLE spectra of the series (same plan for every spectrum), before the range is cut
     plan, bg_res = None, None
     for s in spectra:
@@ -490,7 +491,7 @@ def render(g):
                    "T₅₀ = Eₐ/(k_B ln A) the temperature at which the intensity has halved. The Arrhenius plot ln(I₀/I − 1) vs 1/T "
                    "is a straight line of slope −Eₐ/k_B.")
         clamp_range("pl_win", float(rng[0]), float(rng[1]))
-        w = st.slider("Integration window (nm)", rng[0], rng[1], rng, 0.5, key="pl_win")
+        w = NE.slider("Integration window (nm)", rng[0], rng[1], rng, 0.5, key="pl_win")
         I_T = np.array([PL.band_integral(p["wl_c"], p["y_c"], w[0], w[1], "linear") for p in t_order])
         pos = np.array([PL.peak_stats(p["wl_c"], p["y_c"], w[0], w[1])["pos"] for p in t_order])
         fw = np.array([PL.peak_stats(p["wl_c"], p["y_c"], w[0], w[1])["fwhm"] for p in t_order])

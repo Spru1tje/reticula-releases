@@ -9,6 +9,7 @@ import io, os
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 from mfs import levels as LV
 
 from mfs import analysis as A, plots as P, style as S
@@ -91,7 +92,7 @@ def page_kinetics():
         fig, ax = newfig(); drawk(ax)
         show(fig, "k_obs_bars", None, drawk, "k_obs bars")
         with st.expander("⏱️ Initial rates (linear fit up to a chosen conversion)"):
-            frac = st.slider("use points up to conversion", 0.02, 0.5, 0.10, 0.01, key="kin_ir_frac")
+            frac = NE.slider("use points up to conversion", 0.02, 0.5, 0.10, 0.01, key="kin_ir_frac")
             ir = []
             for key_, g_ in df.groupby(gcols, sort=False):
                 try:
