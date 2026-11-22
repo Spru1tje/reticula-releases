@@ -8,6 +8,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 import streamlit as st
+from mfs import numentry as NE  # every slider takes a typed number too (2.19.6)
 import matplotlib.pyplot as plt
 
 from mfs import readers as R, analysis as A, plots as P, style as S, defects as D, composer as C, report as REP
@@ -489,7 +490,7 @@ def offset_controls(col, key, default, lo, hi, step, label="Offset between trace
         v = st.session_state.get("_even|" + k)
         if v is not None:
             st.session_state[k] = float(min(max(v, lo), hi))
-    v = col.slider(label, lo, hi, default, step, key=k, help=help)
+    v = NE.slider(label, lo, hi, default, step, key=k, help=help)
     col.button("⇅ Stack evenly", key=k + "_even", on_click=_even, disabled=ev is None,
                help="Offset = the largest trace height (+5 %), so the traces never overlap and are equally spaced")
     return v
@@ -526,7 +527,7 @@ def proc_controls(key, default_baseline="none", default_norm="max", norm_opts=("
                       index=["none", "ALS", "rolling minimum", "polynomial", "linear (ends)"].index(default_baseline), key=key + "bl")
     lam = c1.number_input("ALS λ", 1e2, 1e9, 1e6, format="%.0e", key=key + "lam") if bl == "ALS" else 1e6
     sm = c2.selectbox("Smoothing", ["none", "Savitzky-Golay", "moving average"], key=key + "sm")
-    win = c2.slider("Window (points)", 3, 51, 11, 2, key=key + "win") if sm != "none" else 11
+    win = NE.slider("Window (points)", 3, 51, 11, 2, key=key + "win") if sm != "none" else 11
     nm = c3.selectbox("Normalisation", list(norm_opts), index=list(norm_opts).index(default_norm), key=key + "nm")
     off = offset_controls(c4, key + "off", 1.05, 0.0, 2.0, 0.05)
     return dict(baseline=bl, lam=lam, smooth_method=sm, window=win, norm=nm), off
