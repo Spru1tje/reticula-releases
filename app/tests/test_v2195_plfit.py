@@ -425,3 +425,14 @@ def test_drift_fit_never_ends_above_the_shared_fit():
     shared_cost = (other if f["model"] == "drifting shape" else f)["cost"]
     drift_cost = (f if f["model"] == "drifting shape" else other)["cost"]
     assert drift_cost <= shared_cost + 1e-9 and np.isfinite(a) and np.isfinite(d)
+
+
+def test_parallel_and_serial_model_pairs_give_identical_numbers(monkeypatch):
+    """The two shape models are fitted at the same time; every fit is independent, so one core must give exactly the same result."""
+    sp = _series(lines=True)
+    fa = PR.fit_manifolds(sp, (515, 532), (540, 560), True, 505, 570, 1)
+    monkeypatch.setenv("MFS_NO_PARALLEL", "1")
+    fb = PR.fit_manifolds(sp, (515, 532), (540, 560), True, 505, 570, 1)
+    assert fa["model"] == fb["model"] and fa["bands"] == fb["bands"]
+    assert [r["ratio"] for r in fa["rows"]] == [r["ratio"] for r in fb["rows"]]
+    assert fa["model_compare"] == fb["model_compare"]

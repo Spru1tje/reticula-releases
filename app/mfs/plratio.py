@@ -741,16 +741,20 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
     window = window or default_window(bands, np.concatenate([np.asarray(s["x"], float) for s in spectra]))
     if drift == "auto":
         if _warm():
-            # v2.19.5: the drifting model CONTAINS the shared one; started from the shared solution it can only do better - the BIC comparison
-            # then compares the two models, not two convergences. The drifts (s, g) of an earlier drifting fit (a trial with one line more)
-            # are kept as their start (heavy series: 25 -> 20 evaluations); should that end above the shared solution, the fit is repeated
-            # from the shared solution with drifts 0, so the guarantee stays.
-            if start is None:                                            # v2.19.5: a cold fit starts from a fit of the mean spectrum
+            # v2.19.5: both shape models start from the same warm start (an earlier fit, or a fit of the mean spectrum for a cold series) and
+            # run at the same time when there are cores. Starting the drifting model from the freshly fitted shared solution instead was
+            # measured slower: a trial with a spurious line then crawled (41-spectrum series: 74 instead of 29 evaluations, 5.4 -> 3.3 s even
+            # on one core). The drifting model CONTAINS the shared one, so it may never end above it: if it does, it is repeated from the
+            # shared solution (drifts 0) and the better of the two is kept - the BIC then compares models, not convergences.
+            if start is None:
                 start = _mean_start(spectra, bands, window, bg_order, counts, max_nfev, groups)
-            a = fit_global(spectra, bands, window, bg_order, "none", counts, max_nfev, groups, start=start)
-            carried = {k: v for k, v in (start or {}).items() if k[:1] in ("s", "g")}
-            b = fit_global(spectra, bands, window, bg_order, "drift", counts, max_nfev, groups, start={**carried, **a["params"]})
-            if carried and b["cost"] > a["cost"]:
+            (oka, a), (okb, b) = run_independent([(fit_global, (spectra, bands, window, bg_order, "none", counts, max_nfev, groups), {"start": start}),
+                                                  (fit_global, (spectra, bands, window, bg_order, "drift", counts, max_nfev, groups), {"start": start})])
+            if not oka:
+                raise a
+            if not okb:
+                raise b
+            if b["cost"] > a["cost"]:
                 b2 = fit_global(spectra, bands, window, bg_order, "drift", counts, max_nfev, groups, start=a["params"])
                 b = b2 if b2["cost"] <= b["cost"] else b
         else:
