@@ -18,4 +18,5 @@ def test_pv_matrix_has_unit_area_per_band():
     x = np.linspace(400.0, 700.0, 6001)
     M = PR.pv_matrix(x, [550.0], [4.0], [0.5])
     area = np.trapezoid(M[:, 0], x)
-    assert abs(area - 1.0) < 1e-3
+    # the Lorentzian wings beyond the grid (150 nm either side) hold about 0.4 % of the area
+    assert abs(area - 1.0) < 1e-2
