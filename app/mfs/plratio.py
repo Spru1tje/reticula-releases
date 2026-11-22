@@ -494,10 +494,24 @@ class _Model:
         z, G, L, P, W, E, den = batch["z"], batch["G"], batch["L"], batch["P"], batch["W"], batch["E"], batch["den"]
         _, _, _, free = self._bp_all(th)
         Ee = E[:, None, :]
-        dPz = Ee * (L * (-8.0 * z / den)) + (1.0 - Ee) * (G * (-8.0 * LN2 * z))
-        Wn = W[:, None, :]
-        sw = self.SW[:, :, None]
-        D = np.concatenate([-dPz / Wn, -(P + z * dPz) / Wn * free[:, None, :], L - G], axis=2) * sw
+        # dP/dz = -8 z [eta L / den + (1 - eta) ln2 G]; the three base derivatives written straight into one array
+        q = L / den
+        q *= Ee
+        q += (LN2 * (1.0 - Ee)) * G
+        q *= z                                                           # q = -dP/dz / 8
+        nb = self.nb
+        S, n, _ = P.shape
+        D = np.empty((S, n, 3 * nb))
+        swW = self.SW[:, :, None] / W[:, None, :]
+        np.multiply(q, 8.0 * swW, out=D[:, :, :nb])                       # dP/dc = -dP/dz / w
+        dw = D[:, :, nb:2 * nb]                                          # dP/dw = -(P + z dP/dz) / w
+        np.multiply(z, q, out=dw)
+        dw *= 8.0
+        dw -= P
+        dw *= swW * free[:, None, :]
+        de = D[:, :, 2 * nb:]                                            # dP/deta = L - G
+        np.subtract(L, G, out=de)
+        de *= self.SW[:, :, None]
         amp = batch["coef"][:, :self.nb] if amp is None else amp
         DA = D * np.tile(amp, (1, 3))[:, None, :]
         return D, DA
@@ -569,10 +583,10 @@ class _Model:
         if batch is not None and bool(batch["good"].all()):              # all spectra at once
             D, DA = self._batch_derivs(th, batch)
             Q, R, r = batch["Q"], batch["R"], batch["r"]
-            Qt = np.swapaxes(Q, 1, 2)
-            Jb = DA - Q @ (Qt @ DA)
-            U = Q @ np.swapaxes(self._rinv_batch(R), 1, 2)
-            Jb += U[:, :, b3] * np.einsum("snp,sn->sp", D, r)[:, None, :]
+            # J = DA - Q (Q^T DA) + Q R^-T[:, b3] * (D^T r): folded into ONE product with the tall Q (identical algebra, one big product less)
+            X = np.swapaxes(Q, 1, 2) @ DA
+            X -= np.swapaxes(self._rinv_batch(R), 1, 2)[:, :, b3] * np.einsum("snp,sn->sp", D, r)[:, None, :]
+            Jb = DA - Q @ X
             J = -self._expand(Jb).reshape(-1, self.n_par)
             blocks = None
         elif batch is not None:                                          # mixed: derivatives in one go, projection per group
@@ -583,10 +597,9 @@ class _Model:
             g = np.flatnonzero(good)
             if len(g):
                 Q, R, r = batch["Q"][g], batch["R"][g], batch["r"][g]
-                Jg = DA[g] - Q @ (np.swapaxes(Q, 1, 2) @ DA[g])
-                U = Q @ np.swapaxes(self._rinv_batch(R), 1, 2)
-                Jg += U[:, :, b3] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
-                Jb[g] = Jg
+                X = np.swapaxes(Q, 1, 2) @ DA[g]
+                X -= np.swapaxes(self._rinv_batch(R), 1, 2)[:, :, b3] * np.einsum("snp,sn->sp", D[g], r)[:, None, :]
+                Jb[g] = DA[g] - Q @ X
             for ti in np.flatnonzero(~good):
                 _, _, _, Qi, Ri, active, ri = ev[ti]
                 pos = {int(k): j for j, k in enumerate(active)}
