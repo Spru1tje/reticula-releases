@@ -36,6 +36,18 @@ def pv_unit(x, c, w, eta):
     return eta * l + (1.0 - eta) * g
 
 
+def pv_matrix(x, c, w, eta):
+    """Same as pv_unit for several bands at once: returns an array (len(x), number of bands)."""
+    x = np.asarray(x, float)[:, None]
+    c = np.asarray(c, float)[None, :]
+    w = np.asarray(w, float)[None, :]
+    eta = np.asarray(eta, float)[None, :]
+    z = (x - c) / w
+    g = (2.0 * math.sqrt(LN2 / math.pi) / w) * np.exp(-4.0 * LN2 * z * z)
+    l = (2.0 / (math.pi * w)) / (1.0 + 4.0 * z * z)
+    return eta * l + (1.0 - eta) * g
+
+
 # ------------------------------------------------------------------------------------------------------------- start values
 def auto_bands(x, y, lo=None, hi=None, n_extra=0):
     """The two strongest separate bands (+ optionally further ones) of a (mean) spectrum: [(centre, fwhm_guess), ...] sorted by centre.
@@ -160,10 +172,10 @@ class _Model:
     def design(self, th, ti):
         x = self.data[ti][0]
         c, w, e = self.band_params(th, ti)
-        cols = [pv_unit(x, c[k], w[k], e[k]) for k in range(self.nb)]
+        A = pv_matrix(x, c, w, e)
         xn = (x - x.mean()) / max(np.ptp(x), 1e-9) * 2
         cols_bg = [np.polynomial.chebyshev.chebval(xn, [0] * j + [1]) for j in range(self.bg_order + 1)]
-        return np.stack(cols, 1), np.stack(cols_bg, 1)
+        return A, np.stack(cols_bg, 1)
 
     def solve(self, th, ti):
         A, B = self.design(th, ti)
@@ -211,6 +223,7 @@ def fit_global(spectra, bands, window=None, bg_order=1, drift="auto", counts=Fal
         return best
     mdl = _Model(spectra, bands, window, bg_order, drift == "drift", drift == "drift", counts)
     th0 = mdl.p0.copy()
+
     sol = least_squares(mdl.residual, th0, bounds=(mdl.lb, mdl.ub), x_scale=np.maximum(np.abs(th0) * 0.1, 0.05), diff_step=1e-4, max_nfev=max_nfev,
                         ftol=1e-9, xtol=1e-10, loss="soft_l1", f_scale=3.0)       # robust: one dirty spectrum must not bend the shared shape
     th = sol.x
