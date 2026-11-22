@@ -408,10 +408,22 @@ class Refinement:
         return np.array([v[f"sB{i}.{e}"] for e in ph.model.atom_el])
 
     def _class_F2(self, i, v):
+        """|F|² of the reflection classes. v2.20: cached on the exact cell, positions and B values (profile-only steps of the
+        Jacobian reuse it; the result is bit-identical because the key is the exact inputs)."""
         ph = self.phases[i]
-        Gs = np.linalg.inv(_cell_metric(self.cell(i, v)))
+        cell = self.cell(i, v)
+        pos = self._pos_vec(i, v)
+        Bat = self._B_atoms(i, v)
+        key = (tuple(np.asarray(cell, float).ravel()), tuple(np.asarray(pos, float).ravel()), tuple(np.asarray(Bat, float).ravel()))
+        cache = self.__dict__.setdefault("_f2cache", {})
+        hit = cache.get(i)
+        if hit is not None and hit[0] == key:
+            return hit[1]
+        Gs = np.linalg.inv(_cell_metric(cell))
         s2 = np.einsum("ki,ij,kj->k", ph.cls_hkl, Gs, ph.cls_hkl) / 4.0
-        return ph.model.f2(ph.cls_hkl, s2, self._pos_vec(i, v), self._B_atoms(i, v))
+        F2 = ph.model.f2(ph.cls_hkl, s2, pos, Bat)
+        cache[i] = (key, F2)
+        return F2
 
     def _dw(self, i, v, s2):
         """Overall Debye-Waller factor of the intensities; with the structure model every atom carries its own B (already inside |F|²)."""
