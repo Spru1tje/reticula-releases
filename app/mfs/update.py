@@ -222,7 +222,21 @@ def settings_box(data_dir, current):
                    + (" (skipped)" if r["version"] == cfg.get("skip") else ""))
     elif s.get("error") and on:
         st.caption("Last check failed (offline?) – will try again next start.")
-    if st.button("Check now", key="_upd_now", disabled=not on):
+    # v2.20.3: a manual check always works (the opt-in only controls the automatic check on start); it runs in the foreground
+    # with a spinner and shows the result at once, instead of a background thread whose result appeared only on the next click
+    if st.button("Check now", key="_upd_now"):
         cfg.pop("skip", None); save_settings(data_dir, cfg); st.session_state.pop("_upd_later", None)
-        start_check(feed_url(cfg), current, force=True); st.rerun()
+        url = feed_url(cfg)
+        with st.spinner("Checking for updates…"):
+            try:
+                res = summarize(fetch(url), current)
+                with _LOCK:
+                    _STATE.update(result=res, error=None, url=url, t=time.time(), running=False)
+            except Exception as e:
+                with _LOCK:
+                    _STATE.update(result=None, error=f"{type(e).__name__}: {e}"[:200], url=url, t=time.time(), running=False)
+                st.warning(f"Could not check for updates: {type(e).__name__}. Check your internet connection and try again.")
+        s = status()
+        if s.get("result"):
+            st.success(f"Latest release: {s['result']['version']}" + (" – a newer version is available" if s["result"]["newer"] else " – you are up to date"))
     st.caption(f"Feed: {feed_url(cfg)}")
