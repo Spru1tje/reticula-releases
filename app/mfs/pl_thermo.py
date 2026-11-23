@@ -430,7 +430,7 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
                     break
         if ref_txt.strip() and refs is None:
             st.warning("The reference list contains a value that is not a number.")
-    checks.append(QA.validation_check(T, refs if refs else None))
+    checks.append(QA.validation_check(T_pred, refs if refs else None))      # the ratio thermometer's readout vs the reference
     # v2.18.6: Poisson maximum-likelihood fit on the raw counts (integration windows), compared with the subtraction result
     mle = _mle_window_block(t_order, info, swapped, counts)
     if mle is not None:
@@ -612,7 +612,9 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
                         "fit bands (nm)": (info.get("fit") or {}).get("bands"), "fit model": (info.get("fit") or {}).get("model")}
         pdf_bytes = PRPT.build_pdf(sample=sample, version=version, T=T, D=D, D_stat=D_stat, bf=bf, Sr=Sr, table=res, budget_rows=B["rows"],
                                    checks=checks, verdict=v, settings=rep_settings, u_dE_cm1=u_dE, T_res=B["T_res"], T_cal=B["T_cal"],
-                                   sigma_scaled=any(c.get("title") == "Ratio noise" for c in checks))
+                                   sigma_scaled=any(c.get("title") == "Ratio noise" for c in checks),
+                                   model=QA.model_comparison(T, D, D_stat), refs=(refs or None), T_pred=T_pred, corrected=bool(ss.get("pl_cal_applied")),
+                                   band_info={"method": info.get("method"), "windows": info.get("windows"), "fit": (info.get("fit") or {}).get("bands")})
         dl(c3, "📄 Report (PDF)", pdf_bytes, "PL_analysis_report.pdf", "pl_report_pdf")
     except Exception as _e:
         st.caption(f"Report (PDF) could not be built: {_e}")

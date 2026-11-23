@@ -577,7 +577,8 @@ def model_comparison(T, D, sD=None):
             continue
         chi2 = float(np.sum(((D - f(T, *p)) / sg) ** 2))
         out[name] = {"chi2": chi2, "k": k, "aic": chi2 + 2 * k, "bic": chi2 + k * math.log(n),
-                     "dE_cm1": float(p[1] * 8065.544), "C": float(p[2]) if k == 3 else None}
+                     "dE_cm1": float(p[1] * 8065.544), "C": float(p[2]) if k == 3 else None,
+                     "alpha": float(p[0]), "dE_eV": float(p[1]), "params": [float(v) for v in p]}
     a0, a1 = out["Boltzmann"]["aic"], out["Boltzmann + offset"]["aic"]
     delta = a0 - a1 if np.isfinite(a0) and np.isfinite(a1) else float("nan")
     if not np.isfinite(delta):

@@ -33,8 +33,8 @@ def test_report_is_a_pdf_with_all_sections():
     pypdf = pytest.importorskip("pypdf")
     reader = pypdf.PdfReader(io.BytesIO(pdf))
     text = "\n".join(p.extract_text() or "" for p in reader.pages)
-    for section in ["1. Verdict", "2. Settings used", "3. Equations", "4. Calibration", "5. Thermometry table",
-                    "6. Uncertainty budget", "7. Checks and advice", "8. Limitations"]:
+    for section in ["1. Verdict", "2. Methods", "3. Model choice and validation", "4. Settings used", "5. Equations",
+                    "6. Calibration", "7. Thermometry table", "8. Uncertainty budget", "9. Checks and advice", "10. Limitations"]:
         assert section in text, section
 
 
