@@ -412,6 +412,25 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
     else:
         gap_spec = None
     checks += QA.boltzmann_checks(T, D, D_stat, bf, gap_spec if gap_spec and np.isfinite(gap_spec) else None, n_bad, len(T) if info.get("fit") else None)
+    # v2.20.4: model choice (AIC), spectral response correction, and validation against an independent thermometer (optional)
+    checks.append(QA.model_check(T, D, D_stat))
+    checks.append(QA.correction_check(bool(ss.get("pl_cal_applied"))))
+    with st.expander("🎯 Validation against an independent thermometer (optional, for a paper)", expanded=False):
+        ref_txt = st.text_area("Reference temperatures (K), one per spectrum, in the order of the table", key="pl_ref_T", height=80,
+                               help="Read them from a calibrated thermocouple, Pt100 or a certified reference measured at the same time as each spectrum. "
+                                    "Leave empty if you have none; the report then says so.")
+        refs = []
+        for tok in ref_txt.replace(";", ",").replace(chr(10), ",").split(","):
+            tok = tok.strip()
+            if tok:
+                try:
+                    refs.append(float(tok))
+                except ValueError:
+                    refs = None
+                    break
+        if ref_txt.strip() and refs is None:
+            st.warning("The reference list contains a value that is not a number.")
+    checks.append(QA.validation_check(T, refs if refs else None))
     # v2.18.6: Poisson maximum-likelihood fit on the raw counts (integration windows), compared with the subtraction result
     mle = _mle_window_block(t_order, info, swapped, counts)
     if mle is not None:

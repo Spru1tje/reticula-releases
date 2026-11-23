@@ -537,3 +537,105 @@ def analysis_record(version, files, settings, results, checks=None):
     rec = {"program": f"Reticula {version}", "module": "Photoluminescence", "created": _dt.datetime.now().isoformat(timespec="seconds"),
            "files": files, "settings": settings, "results": results, "quality_checks": checks or []}
     return json.dumps(_jsonable(rec), indent=2, ensure_ascii=False)
+
+
+# ------------------------------------------------------------------------------------------- v2.20.4: publication checks
+KB_EV_PQ = 8.617333262e-5
+
+
+def model_comparison(T, D, sD=None):
+    """Boltzmann law with and without a constant offset C (D = a exp(-dE/kT) [+ C]), compared by AIC and BIC.
+
+    Weighted least squares with the given errors sD (a 1 % relative error when they are missing; the same weights for both
+    models). chi2 is the weighted residual sum of squares; AIC = chi2 + 2k, BIC = chi2 + k ln n, with k the number of parameters.
+    Returns {'status': 'ok', 'n', 'models': {name: {chi2, k, aic, bic, dE_cm1, C}}, 'delta_aic', 'preferred', 'text'}."""
+    from scipy.optimize import curve_fit
+    T = np.asarray(T, float)
+    D = np.asarray(D, float)
+    sg = np.asarray(sD, float) if sD is not None else None
+    ok = np.isfinite(T) & np.isfinite(D) & (D > 0)
+    if sg is not None:
+        ok &= np.isfinite(sg) & (sg > 0)
+    T, D = T[ok], D[ok]
+    sg = sg[ok] if sg is not None else 0.01 * D
+    n = len(T)
+    if n < 4:
+        return {"status": "needs at least 4 temperatures", "n": n}
+    slope, icpt = np.polyfit(1.0 / T, np.log(D), 1)
+    out = {}
+    for name, k in (("Boltzmann", 2), ("Boltzmann + offset", 3)):
+        if k == 2:
+            f = lambda t, a, de: a * np.exp(-de / (KB_EV_PQ * t))
+            p0 = [float(np.exp(icpt)), float(max(-slope * KB_EV_PQ, 1e-3))]
+        else:
+            f = lambda t, a, de, c: a * np.exp(-de / (KB_EV_PQ * t)) + c
+            p0 = [float(np.exp(icpt)), float(max(-slope * KB_EV_PQ, 1e-3)), 0.0]
+        try:
+            p, _ = curve_fit(f, T, D, p0=p0, sigma=sg, absolute_sigma=True, maxfev=20000)
+        except Exception:
+            out[name] = {"chi2": float("nan"), "k": k, "aic": float("nan"), "bic": float("nan"), "dE_cm1": float("nan"), "C": None}
+            continue
+        chi2 = float(np.sum(((D - f(T, *p)) / sg) ** 2))
+        out[name] = {"chi2": chi2, "k": k, "aic": chi2 + 2 * k, "bic": chi2 + k * math.log(n),
+                     "dE_cm1": float(p[1] * 8065.544), "C": float(p[2]) if k == 3 else None}
+    a0, a1 = out["Boltzmann"]["aic"], out["Boltzmann + offset"]["aic"]
+    delta = a0 - a1 if np.isfinite(a0) and np.isfinite(a1) else float("nan")
+    if not np.isfinite(delta):
+        pref, text = None, "the comparison could not be made (a fit failed)"
+    elif delta > 10:
+        pref, text = "Boltzmann + offset", f"the offset model is strongly preferred (AIC difference {delta:.1f}); a constant background is present"
+    elif delta > 2:
+        pref, text = "Boltzmann + offset", f"the offset model is preferred (AIC difference {delta:.1f}); report both fits"
+    else:
+        pref, text = "Boltzmann", f"the simple Boltzmann law is sufficient (AIC difference {delta:.1f} < 2): the offset is not needed"
+    return {"status": "ok", "n": n, "models": out, "delta_aic": float(delta), "preferred": pref, "text": text}
+
+
+def model_check(T, D, sD=None):
+    """Quality check: is the Boltzmann law sufficient or is an offset needed (AIC)?"""
+    mc = model_comparison(T, D, sD)
+    if mc.get("status") != "ok":
+        return check("Model choice (AIC)", "info", "not evaluated: " + mc.get("status", "too few points"))
+    d = mc["delta_aic"]
+    if not np.isfinite(d):
+        return check("Model choice (AIC)", "warn", mc["text"], "Check the fit and the data.")
+    if d > 10:
+        return check("Model choice (AIC)", "warn", "Boltzmann + offset is strongly preferred: " + mc["text"],
+                     "A constant background (stray light, detector offset, non-thermal emission) is present. Subtract it before the ratio, or report the offset fit.")
+    if d > 2:
+        return check("Model choice (AIC)", "info", "Boltzmann + offset is weakly preferred: " + mc["text"],
+                     "Report the choice and the ΔE of both fits; the simpler law is the default in the paper.")
+    return check("Model choice (AIC)", "ok", "Boltzmann: " + mc["text"])
+
+
+def validation_check(T_meas, T_ref, tol_ok=1.0, tol_warn=3.0):
+    """Accuracy against an independent reference (calibrated thermocouple, Pt100, certified reference): bias, RMS and largest deviation.
+    The thresholds are a convention (1 K ok, 3 K warn, above that fail); change them in the report if your field uses others."""
+    T_meas = np.asarray(T_meas, float)
+    if T_ref is None or len(T_ref) == 0:
+        return check("Validation against a reference temperature", "info", "No independent reference temperatures given.",
+                     "Without a reference the absolute accuracy of the temperatures is not shown. Give the reference temperature of each spectrum.")
+    T_ref = np.asarray(T_ref, float)
+    if len(T_ref) != len(T_meas) or not np.all(np.isfinite(T_ref)):
+        return check("Validation against a reference temperature", "fail", "The reference list does not match the temperatures (same length, numbers only).",
+                     f"{len(T_ref)} reference values for {len(T_meas)} temperatures.")
+    d = T_meas - T_ref
+    bias, rms, mx = float(np.mean(d)), float(np.sqrt(np.mean(d ** 2))), float(np.max(np.abs(d)))
+    text = f"bias {bias:+.2f} K, RMS {rms:.2f} K, largest |Δ| {mx:.2f} K over {len(d)} points"
+    if rms <= tol_ok and abs(bias) <= tol_ok:
+        return check("Validation against a reference temperature", "ok", text, "Within the convention of 1 K.")
+    if rms <= tol_warn:
+        return check("Validation against a reference temperature", "warn", text,
+                     "Agreement within 3 K but not 1 K. Check the sensor position, the thermal contact and the reference's own uncertainty.")
+    return check("Validation against a reference temperature", "fail", text,
+                 "The temperatures disagree with the reference by more than 3 K. Do not quote the temperatures without a correction.")
+
+
+def correction_check(applied):
+    """Spectral response correction (detector, grating, filters). A constant response error cancels in a calibration measured the same way;
+    it changes the fitted amplitude α and the comparison between setups."""
+    if applied:
+        return check("Spectral response correction", "ok", "The spectra are corrected for the detector and grating response.")
+    return check("Spectral response correction", "info", "No spectral response correction was applied.",
+                 "The ratio of two bands is biased by the response unless calibration and measurement use the same uncorrected setup. "
+                 "The energy gap ΔE is not affected; α and comparisons between setups are. For a paper state which spectra were corrected.")
