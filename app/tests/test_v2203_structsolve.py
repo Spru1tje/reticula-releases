@@ -59,11 +59,11 @@ def test_uio66_search_reaches_a_good_fit():
     sh, dev = SS.origin_shift(centres, nodes, L)
     assert dev < 0.05
     lk_el, lk_xyz = SS.load_linker()
-    lk_occ = [0.714 if e in ("C", "H") else 1.0 for e in lk_el]          # disordered BDC in the CIF (C, H at 0.714)
+    lk_occ = [0.714] * len(lk_el)          # disordered BDC in the CIF: the linker atoms carry occupancy 0.714 (as in the pipeline)
     cost = SS.RigidCost(hkl, Fsq, L, sym_R, sym_t, lk_el, lk_xyz, lk_occ, zr_pk, faces)
     i, j, sf = edges[0]
     centre0 = (nodes[i] + nodes[j] + sf) / 2 + sh
-    best, p = SS.search(cost, centre0, len(faces), grid=60, steps=150, seed=0)
-    # Short run (60 orientations, 150 steps). The full search (500 / 2000+) reaches about 0.20; this guard catches a broken
-    # cost (0.6 and higher). Known gap: the short run gives ~0.45 (see the task notes), so the threshold is 0.50 for now.
+    best, p = SS.search(cost, centre0, len(faces), grid=500, steps=150, seed=0)
+    # 500 orientations (the grid needs this many to find the basin; 60 does not: it ends near 0.7). Module result with 300 steps:
+    # 0.41; the earlier pipeline reached ~0.24 with the same grid. Known gap, see the task notes; threshold 0.50 for now.
     assert best < 0.50, best
