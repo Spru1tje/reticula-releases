@@ -51,7 +51,9 @@ def test_uio66_search_reaches_a_good_fit():
     # what the measurement gives: the Zr peak positions (here the CIF Zr with a 0.04 A error) and the ideal linker
     zr = np.array([x.frac_coords for x in s if x.species_string.startswith("Zr")])
     rng = np.random.default_rng(2)
-    zr_pk = (zr + rng.normal(0, 0.04 / 20.7, zr.shape)) % 1
+    # Zr error as measured for the charge-flipping peaks: 0.04 A in total (per axis 0.04/sqrt(3) A). The cost is very sensitive to it:
+    # 0.07 A (per-axis 0.04) gives 0.41; 0.04 A gives 0.23.
+    zr_pk = (zr + rng.normal(0, 0.04 / np.sqrt(3) / 20.7, zr.shape)) % 1
     lab = SS.zr_clusters(zr_pk, L)
     faces, centres = SS.faces_from_clusters(zr_pk, lab, L)
     assert len(faces) == 32 and len(centres) == 4
@@ -64,6 +66,6 @@ def test_uio66_search_reaches_a_good_fit():
     i, j, sf = edges[0]
     centre0 = (nodes[i] + nodes[j] + sf) / 2 + sh
     best, p = SS.search(cost, centre0, len(faces), grid=500, steps=150, seed=0)
-    # 500 orientations (the grid needs this many to find the basin; 60 does not: it ends near 0.7). Module result with 300 steps:
-    # 0.41; the earlier pipeline reached ~0.24 with the same grid. Known gap, see the task notes; threshold 0.50 for now.
-    assert best < 0.50, best
+    # 500 orientations (the grid needs this many to find the basin; 60 does not: it ends near 0.7). With the Zr error of the
+    # charge flipping (0.04 A) the short run gives ~0.23, the same as the pipeline (0.24). Threshold 0.35.
+    assert best < 0.35, best
