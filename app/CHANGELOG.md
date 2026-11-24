@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.22.1 — 2026-11-24 (hotfix: agglomerate tagger on the TEM page)
+
+- **Agglomerate tagger on the TEM page**: an expander "Agglomerate tag: rods and clumps (first image)" lets you click
+  objects and tag them agglomerate or rod. The segmentation is cached, so a click does not segment again. A fault in the
+  tagger shows a message in the expander and does not take the TEM page down.
+- Release-build fix for the macOS job of 2.22.0 (see the log of that run).
+
 ## 2.22.0 — 2026-11-24 (TEM particle sizing: edge particles, rods, agglomerate tagger)
 
 ### TEM particle sizing

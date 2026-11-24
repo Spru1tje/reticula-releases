@@ -847,6 +847,20 @@ def sem_particles(allims):
         elif _todo:
             with st.spinner("Segmenting particles …"):
                 SPL.prefetch(_jobs, parallel=False)
+        # v2.22.1: agglomerate tagger for elongated particles and clumps (first image; segmentation cached per picture)
+        if ims and ims[0].get("pixel_nm"):
+            with st.expander("Agglomerate tag: rods and clumps (first image)", expanded=False):
+                try:                                  # a fault here must not take the whole page down
+                    from mfs import agglo_ui as AUI
+                    _im0 = ims[0]
+                    _img0 = _im0["image"][:_im0.get("crop_row") or None]
+                    if _img0.ndim == 3:
+                        _img0 = _img0.mean(axis=2)
+                    _nm0 = float(_im0["pixel_nm"])
+                    _lab0, _objs0 = AUI.segment_cached(np.asarray(_img0), _nm0)
+                    AUI.render_tagger(np.asarray(_img0), _lab0, _objs0, _nm0, str(_im0.get("file") or "image"))
+                except Exception as _e:               # noqa: BLE001
+                    st.error(f"Agglomerate tagger unavailable: {_e}")
         for im in ims:
             img = im["image"][:im.get("crop_row") or None]
             if ws:
