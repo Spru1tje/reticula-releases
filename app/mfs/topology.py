@@ -31,7 +31,18 @@ def fcu():
                 edges.append((i, j, np.array(s)))
     return nodes, edges
 
-LIB = {"pcu": pcu, "fcu": fcu, "dia": dia}
+def tbo():
+    """tbo (3,4-c, HKUST-1 type). Node positions taken from data/tbo_nodes.json (paddlewheel 4-c centres and
+    benzene-ring 3-c centres of the HKUST-1 cell). NOTE: derived from the HKUST-1 CIF, so a match on HKUST-1 is
+    not an independent test of the net. Edges are not stored (the net matcher uses node positions only)."""
+    import json, os
+    path = os.path.join(os.path.dirname(__file__), "data", "tbo_nodes.json")
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+    nodes = np.array(d["four_c"] + d["three_c"], float)
+    return nodes, []
+
+LIB = {"pcu": pcu, "fcu": fcu, "dia": dia, "tbo": tbo}
 
 def describe(name):
     n, e = LIB[name]()

@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.21.0 — 2026-11-24 (structure solution from powder data, PL publication checks)
+
+### Structure solution for an unknown compound (new, experimental)
+- **Net matcher** (`mfs/netmatch.py`): chooses the net (fcu, pcu, dia, tbo) from the observed reflections. It includes the
+  absent reflections (zero intensity), which separate fcu from pcu. A metal-pair test on the charge-flip density peaks picks
+  the paddlewheel (tbo) case: 48 strongest HKUST-1 peaks, all with a neighbour at 2.3–2.9 Å. UiO-66 selects fcu (R 0.690 against
+  dia 0.783 and pcu 0.932).
+- **Carbon recovery from the charge-flip Zr peaks** (not from the CIF): 100 % of the 192 UiO-66 carbons within 0.7 Å
+  (median 0.05 Å). The pattern is simulated from the reference CIF, so this checks the method, not a measurement.
+- **tbo net** (`mfs/data/tbo_nodes.json`): node positions taken from the HKUST-1 CIF. A HKUST-1 net choice is therefore not an
+  independent test.
+- **Info document** "Structure solution (unknown compound)" with six figures, on the Help page and in the PDF.
+- **Speed**: the peak profile of the Rietveld refinement is evaluated in float32 (lead-sulfate refinement 89 s → 48 s; Rwp
+  0.086712 → 0.086710, positions within 2e-5). The rigid-body search settings were compared over three seeds: 150-point grid,
+  300 steps, five refined starts gives R 0.196 (spread 0.001), the most stable setting.
+- **Known limits**: the solver is validated on simulated UiO-66 data only; HKUST-1 and MIL-53 are not finished (task #93 open);
+  the linker search is not validated for other nets. The Zetasizer test on the local `.dts` file gives z-averages of 33.6–34.9 nm
+  against the ≈32 nm the test expects; this is open (the test and reader are unchanged since 2.20.2).
+
+### PL publication checks and PDF
+- **Publication checks** for ratiometric thermometry: model choice by AIC/BIC (Boltzmann or Boltzmann + offset), validation
+  against an independent reference temperature, and the spectral response correction.
+- **PL report PDF**: methods section with figures, model figure and validation figure.
+
+### Tests
+- The TriStar tests skip, with a reason, when the private measurement file is absent (they used to error).
+- New net-matcher test file (5 tests).
+
 ## 2.20.2 — 2026-11-22 (detail levels and simple mode)
 
 - **Simple mode is always on top of "Customise this figure"**: the black-figure switch was hidden in the colour tab; it now sits

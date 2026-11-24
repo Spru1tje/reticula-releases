@@ -9,6 +9,8 @@ import xlrd
 from mfs import readers as R, analysis as A
 
 F = os.path.join(os.path.dirname(__file__), "data", "SampleASGA2_TriStar_full_report_REAL.xls")
+# private measurement data (not in the repository): skip instead of erroring when it is absent, as the Zetasizer test does
+pytestmark = pytest.mark.skipif(not os.path.exists(F), reason="no TriStar test file (private measurement data is not part of the repository)")
 
 
 @pytest.fixture(scope="module")
