@@ -147,17 +147,22 @@ class RigidCost:
                 keep.append(k)
         return f2[keep]
 
-    def mu3(self, radii):
-        out = []
+    def mu3(self, radii, delta=0.0):
+        """mu3-O positions: for each face two half-occupied sites, split by delta (A) along the face normal (delta = 0: one full site).
+        Returns (positions (2n, 3) fractional, occupancies (2n,))."""
+        pos, occ = [], []
         for (cen, nd, Rc), r in zip(self.faces, radii):
             h = np.sqrt(max(r ** 2 - Rc ** 2, 0.0))
-            out.append(np.linalg.solve(self.L.T, cen + h * nd) % 1)
-        return np.array(out)
+            for sgn in (1.0, -1.0):
+                pos.append(np.linalg.solve(self.L.T, cen + (h + sgn * 0.5 * delta) * nd) % 1)
+                occ.append(0.5)
+        return np.array(pos), np.array(occ)
 
     # ------------------------------------------------------------------ cost
     def __call__(self, p):
         """p = [centre (3, fractional), rotation vector (3), one radius per face]."""
         centre, rv, radii = p[:3], p[3:6], np.asarray(p[6:6 + self.n_faces], float)
+        delta = float(p[6 + self.n_faces]) if len(p) > 6 + self.n_faces else 0.0
         R_ = Rot.from_rotvec(rv).as_matrix()
         cart = self.lk_xyz @ R_.T + centre @ self.L
         ims = self.images(np.linalg.solve(self.L.T, cart.T).T)                         # (n_img, 16, 3)
@@ -166,10 +171,10 @@ class RigidCost:
         occ = np.tile(self.lk_occ, n_img)
         eidx = np.tile(self.lk_idx, n_img)
         F_lk = self._part(X, occ, eidx)
-        key = radii.tobytes()
+        key = radii.tobytes() + np.float64(delta).tobytes()
         if key != self._mu_key:
-            mu = self.mu3(radii)
-            self._F_mu = self._part(mu, np.ones(len(mu)), np.full(len(mu), self.elems.index("O")))
+            mu, mocc = self.mu3(radii, delta)
+            self._F_mu = self._part(mu, mocc, np.full(len(mu), self.elems.index("O")))
             self._mu_key = key
         F = F_lk + self.F_zr + self._F_mu
         I = np.abs(F) ** 2
@@ -199,7 +204,7 @@ def _chain(cost, cand0, c0, n_faces, steps, seed):
         elif u < 0.7:
             cand[3:6] = (Rot.from_rotvec(rng.normal(0, 0.12 * fr + 0.01, 3)) * Rot.from_rotvec(cand[3:6])).as_rotvec()
         else:
-            j = 6 + rng.integers(n_faces)
+            j = 6 + rng.integers(n_faces + 1)                       # one of the radii, or delta (the last parameter)
             cand[j] += rng.normal(0, 0.04 * fr + 0.003)
         cn = cost(cand)
         if cn < cc or rng.random() < np.exp(-(cn - cc) / T):
@@ -214,7 +219,7 @@ def search(cost, centre0, n_faces, grid=500, steps=2000, seed=0, workers=None, r
     Returns (best cost, best parameters)."""
     rng = np.random.default_rng(seed)
     rots = Rot.from_euler("ZYZ", rng.uniform([0, 0, 0], [2 * np.pi, np.pi, 2 * np.pi], size=(grid, 3)))
-    base = np.concatenate([np.asarray(centre0, float), np.zeros(3), np.full(n_faces, 2.20)])
+    base = np.concatenate([np.asarray(centre0, float), np.zeros(3), np.full(n_faces, 2.20), [0.6]])
     cands = []
     for r in rots:
         q = base.copy()
