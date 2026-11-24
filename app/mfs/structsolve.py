@@ -113,6 +113,19 @@ class RigidCost:
         self.elems = sorted(set(self.lk_el) | {"Zr", "O"})
         self.FE = np.stack([self.fe[e] for e in self.elems], axis=1).astype(np.float32)        # (M, E)
         self.H32 = self.hkl.astype(np.float32)
+        # v2.20.4 speed: a symmetry image multiplies every reflection by a signed permutation (cubic group). The phase of image g
+        # at reflection h equals the base phase at h' = h R_g (a permutation of h) times exp(2 pi i h.t_g). So the phases of the
+        # base atoms are computed once per evaluation at the reflections U (closed under the operations), not for every image.
+        R_int = np.rint(self.sym_R).astype(int)
+        Hp = np.einsum("mi,gij->gmj", self.hkl, R_int)                       # (ops, M, 3): rows h R_g
+        allr = Hp.reshape(-1, 3)
+        U, inv = np.unique(allr, axis=0, return_inverse=True)
+        self.U = U.astype(float)
+        self.perm = inv.reshape(len(R_int), len(self.hkl))                    # perm[g, r] -> row of U
+        self.sU = np.linalg.norm(self.U @ np.linalg.inv(self.L).T, axis=1) / 2.0
+        self.tfac = np.exp(2j * np.pi * (self.hkl @ self.sym_t.T)).T          # (ops, M)
+        feU = _scattering(list(self.lk_el), self.sU)
+        self.WfU = np.stack([feU[e] for e in self.lk_el], axis=1)           # (|U|, n_lk_atoms) form factor per atom
         self.is_c = np.array([e == "C" for e in self.lk_el])
         self.lk_idx = np.array([self.elems.index(e) for e in self.lk_el])
         # fixed part: the Zr atoms (their positions and occupancy never change)
@@ -133,19 +146,20 @@ class RigidCost:
         S = ph @ Mcol.astype(np.complex64)                                         # (M, E): per-element sums
         return np.sum(self.FE * S, axis=1).astype(complex)
 
-    def images(self, frac_lk):
-        """All symmetry images of one linker (array (n_images, n_atoms, 3)). Images whose centres lie within img_tol (A) of an
-        earlier image are the same linker (the orbit of a site), so they are removed: a cell has 24 linkers, not 192 copies."""
-        f2 = np.einsum("oij,aj->oai", self.sym_R, frac_lk) + self.sym_t[:, None, :]    # (ops, atoms, 3)
-        cm = (f2[:, self.is_c, :].mean(axis=1)) % 1.0                                   # (ops, 3)
+    def _kept(self, frac_lk):
+        """Indices of the symmetry operations whose images are distinct linkers (centres farther than img_tol apart)."""
+        f2 = np.einsum("oij,aj->oai", self.sym_R, frac_lk) + self.sym_t[:, None, :]
+        cm = (f2[:, self.is_c, :].mean(axis=1)) % 1.0
         d = cm[:, None, :] - cm[None, :, :]
         d -= np.round(d)
-        close = np.linalg.norm(d @ self.L, axis=-1) < self.img_tol                     # (ops, ops)
-        keep = []
-        for k in range(len(cm)):
-            if not keep or not close[k, keep].any():
-                keep.append(k)
-        return f2[keep]
+        close = np.linalg.norm(d @ self.L, axis=-1) < self.img_tol
+        first = np.argmax(close, axis=1)              # the first operation equivalent to each operation (itself at the latest)
+        return np.unique(first)                       # one representative per class of equivalent images
+
+    def images(self, frac_lk):
+        """All distinct symmetry images of one linker (array (n_images, n_atoms, 3))."""
+        f2 = np.einsum("oij,aj->oai", self.sym_R, frac_lk) + self.sym_t[:, None, :]
+        return f2[self._kept(frac_lk)]
 
     def mu3(self, radii, delta=0.0):
         """mu3-O positions: for each face two half-occupied sites, split by delta (A) along the face normal (delta = 0: one full site).
@@ -165,12 +179,12 @@ class RigidCost:
         delta = float(p[6 + self.n_faces]) if len(p) > 6 + self.n_faces else 0.0
         R_ = Rot.from_rotvec(rv).as_matrix()
         cart = self.lk_xyz @ R_.T + centre @ self.L
-        ims = self.images(np.linalg.solve(self.L.T, cart.T).T)                         # (n_img, 16, 3)
-        n_img = ims.shape[0]
-        X = ims.reshape(-1, 3)
-        occ = np.tile(self.lk_occ, n_img)
-        eidx = np.tile(self.lk_idx, n_img)
-        F_lk = self._part(X, occ, eidx)
+        f0 = np.linalg.solve(self.L.T, cart.T).T                                   # base linker atoms (fractional)
+        keep = self._kept(f0)
+        A = (self.U @ f0.T).astype(np.float32) * np.float32(TWO_PI)                 # (|U|, base atoms), float32 phases
+        Pu = np.cos(A) + 1j * np.sin(A)
+        Gv = np.sum(self.WfU * self.lk_occ * Pu, axis=1).astype(complex)                             # per reflection of U
+        F_lk = np.sum(self.tfac[keep] * Gv[self.perm[keep]], axis=0)                 # sum over the distinct images
         key = radii.tobytes() + np.float64(delta).tobytes()
         if key != self._mu_key:
             mu, mocc = self.mu3(radii, delta)
