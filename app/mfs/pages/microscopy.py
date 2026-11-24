@@ -597,7 +597,11 @@ def _sphere_hint(ph, info):
     """v2.12: one line next to the sphere controls: what the circle model decided and did."""
     s_ = info.get("_sphere") or {}
     rd = s_.get("roundness") or {}
+    # v2.21: particles cut by the image edge are never measured; say how many were left out
+    n_edge = int(s_.get("n_edge_excluded", info.get("_edge_excluded", 0)) or 0)
     with ph.container():
+        if n_edge:
+            st.info(f"✂️ {n_edge} particle(s) touch the image edge and are not measured (a cut particle has an unknown size).")
         if s_.get("active"):
             st.markdown(f"⚪ **Spheres{' detected' if s_.get('mode') == 'auto' else ''}**: {s_.get('n', 0)} circle fits · "
                         f"{s_.get('n_split', 0)} in touching / overlapping groups · {s_.get('n_occluded', 0)} occluded · "
@@ -740,8 +744,9 @@ def sem_particles(allims):
         _shape_hint = d3.empty()
         # v2.12: sphere model (circle fit on the real edge, splits touching / overlapping spheres, confidence per particle)
         e1, e2, e3 = _sbox.columns([1.6, 1.6, 2.8], vertical_alignment="center")
-        sph_mode = e1.selectbox("⚪ Particle shape", ["auto", "spheres", "off"], key="ps_sphere", disabled=not _ad_now,
+        sph_mode = e1.selectbox("⚪ Particle shape", ["auto", "spheres", "precise", "off"], key="ps_sphere", disabled=not _ad_now,
                                 format_func={"auto": "auto (detect round / faceted)", "spheres": "spheres – circle fit",
+                                             "precise": "precise, sub-20 nm (experimental, not validated on real data)",
                                              "off": "outlines only (v2.11)"}.get,
                                 help="auto: when the clean particles are round, every particle is fitted with a circle on its "
                                      "real edge (sub-pixel), touching pairs / triples are split and overlapping spheres are "

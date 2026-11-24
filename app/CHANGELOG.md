@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.22.0 — 2026-11-24 (TEM particle sizing: edge particles, rods, agglomerate tagger)
+
+### TEM particle sizing
+- **Edge particles are not measured.** A particle cut by the image edge is excluded in the circle model too (the ray test
+  catches cut particles whose visible arc would otherwise fit a full circle). The number of excluded particles is shown.
+- **Annotation filter (opt-in, `annotations=True`).** Finds the scale bar and removes the text above it and dark panel
+  letters. Off by default because it removed real dark particles on other micrographs.
+- **Precise mode, sub-20 nm (experimental, opt-in).** Each particle is fitted with a blurred absorbing-sphere model on its
+  own Voronoi cell. About 6 s per 370 × 282 px image. Not validated on real images: +23 % against a manual sizing on the
+  20k test image.
+- **Rod-type particles (`mfs/rods.py`).** Length and width per particle from the second moments; the film rim around carbon
+  holes is excluded; large compact clumps are flagged as agglomerates and not counted. Experimental, not validated.
+- **Agglomerate tagger (`mfs/agglo_learn.py`, `mfs/agglo_ui.py`).** Click an object, tag it agglomerate or rod. A logistic
+  regression on six measured features is refitted on all tags and applied to the whole picture, shown with five-fold
+  cross-validation. Used only with at least 20 tags of each kind; below that the fixed rule applies. The tagger is not yet
+  placed on the TEM page.
+- The segmentation of the tagger is cached (a click takes about 0.03 s on the test image).
+
+### Known limits
+- The precise mode and the rod measurement have no manual reference yet.
+- The tagger has no real tags yet; its accuracy on your micrographs is unknown.
+- On the 100 and 200 nm series of the test archive the particles are clusters of spheres; use the sphere mode there.
+
+### Help
+- New info document "TEM particle sizing (v2.21)" with five figures: modes, annotations, rods, tagger, limits.
+
 ## 2.21.0 — 2026-11-24 (structure solution from powder data, PL publication checks)
 
 ### Structure solution for an unknown compound (new, experimental)

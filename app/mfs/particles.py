@@ -644,7 +644,8 @@ def refine_edges(lab, c, level=None, delta_px=None, grow_f=0.35, min_grow_px=4):
 def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=None, marker_sigma=0.25, nms_factor=0.6,
                      core_weight=1.0, dist_weight=0.5, merge_factor=0.3, solidity_min=0.8, area_factor=2.0,
                      clear_border=True, max_px=1536, threshold=None, shape_prior=None, prior_strength=0.7, prior_k=10.0,
-                     sphere="auto", conf_min=None, sphere_level=None, sphere_delta=None, edge_refine=True, merge_pieces="auto"):
+                     sphere="auto", conf_min=None, sphere_level=None, sphere_delta=None, edge_refine=True, merge_pieces="auto",
+                     annotations=False):
     """v2.10 default: background flattening + hysteresis threshold, cube-scale markers (LoG of the contrast at σ =
     marker_sigma·L plus the distance map of the locally-darker cores), greedy NMS at nms_factor·L, marker watershed on
     the contrast; regions > area_factor·L² or with solidity < solidity_min are 'aggregate' (excluded by default).
@@ -697,23 +698,51 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         # a big particle is an aggregate only when it is not convex: an elongated single particle (rod) is much larger than a square
         big_ok = do_merge and so >= 0.93
         info[i] = {"kind": "aggregate" if ((A > area_factor * A1 and not big_ok) or so < solidity_min) else "particle", "solidity": so}
+    # v2.21 (opt-in, annotations=True): text and the scale bar of a micrograph are not particles
+    if annotations:
+        for i in find_annotations(a, lab):
+            lab[lab == i] = 0
+            if isinstance(info.get(i), dict):
+                info[i]["kind"] = "annotation"
     info_extra = {"_r_est_px": L / math.sqrt(math.pi), "_side_px": L, "_min_dist_px": nms_factor * L, "_holes": 0,
                   "_noise": sn, "_lo": lo, "_hi": hi, "_contrast": c, "_elongated": ep, "_pieces_merged": do_merge}
     sph = None
     if sphere:
         from mfs import spheres as SPH
         rd = SPH.roundness(lab, info, L)
-        sph = {"mode": "auto" if sphere == "auto" else ("on" if sphere else "off"), "roundness": rd,
-               "active": bool(sphere is True or sphere == "on" or (sphere == "auto" and rd.get("round")))}
-        if sph["active"]:
+        precise_mode = sphere == "precise"                  # v2.21: model fit of every sphere (sub-20 nm); needs round particles
+        sph = {"mode": "precise" if precise_mode else ("auto" if sphere == "auto" else ("on" if sphere else "off")), "roundness": rd,
+               "active": bool(precise_mode or sphere is True or sphere == "on" or (sphere == "auto" and rd.get("round")))}
+        if sph["active"] and precise_mode:
+            # v2.21 precise mode: the outline candidates are fitted one by one with the blurred absorbing-sphere model
+            # on their own Voronoi cell (mfs.precise.refine_labels). Edge particles are dropped there.
+            from mfs import precise as PR
+            lab, info, psum = PR.refine_labels(c, lab, info)
+            sph.update(psum)
+            info_extra["_sphere"] = sph
+            clear_border = False
+            shape_prior = False
+        elif sph["active"]:
             lv = SPH.LEVEL if sphere_level is None else float(sphere_level)
             de = SPH.DELTA_PX if sphere_delta is None else float(sphere_delta)
             cm = SPH.CONF_MIN if conf_min is None else float(conf_min)
             circ, rest = SPH.resolve(c, m, L, level=lv, delta_px=de, conf_min=cm)
             H_, W_ = m.shape
+            n_edge = 0
             if clear_border:
-                circ = [o for o in circ if o["cx"] - o["r_edge"] > 0.5 and o["cy"] - o["r_edge"] > 0.5
-                        and o["cx"] + o["r_edge"] < W_ - 1.5 and o["cy"] + o["r_edge"] < H_ - 1.5]
+                # v2.21: a particle cut by the image edge is not measured. The circle fit alone can put a cut particle inside
+                # the image (it sees only the visible arc), so the ray test is used too: any ray that leaves the image before
+                # it finds the particle edge means the particle is cut.
+                keep_c = []
+                for o in circ:
+                    inside = (o["cx"] - o["r_edge"] > 0.5 and o["cy"] - o["r_edge"] > 0.5
+                              and o["cx"] + o["r_edge"] < W_ - 1.5 and o["cy"] + o["r_edge"] < H_ - 1.5)
+                    cut = (not inside) or o.get("out_frac", 0.0) > 0.02
+                    if cut:
+                        n_edge += 1
+                    else:
+                        keep_c.append(o)
+                circ = keep_c
             for j, o in enumerate(circ, start=1):
                 o["id"] = j
             lab, extra = SPH.to_labels(circ, m.shape, rest)
@@ -731,7 +760,7 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
             sph.update({"n": len(circ), "n_lowconf": sum(o["kind"] == "lowconf" for o in circ),
                         "n_split": sum(1 for v in info.values() if v.get("split") == "circle"),
                         "n_occluded": sum(o["occluded_by"] != [] for o in circ), "level": lv, "delta_px": de, "conf_min": cm,
-                        "n_unexplained": len(extra)})
+                        "n_unexplained": len(extra), "n_edge_excluded": n_edge})
             info_extra["_sphere"] = sph
             shape_prior = False                    # the circle model replaces the learned-outline splitting
             clear_border = False                   # done above on the fitted circles
@@ -744,6 +773,7 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         info_extra["_prior"] = pr
     if clear_border:
         edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+        info_extra["_edge_excluded"] = int((edge > 0).sum())      # v2.21: reported in the module
         lab = np.where(np.isin(lab, edge[edge > 0]), 0, lab)
         info = {k: v for k, v in info.items() if k not in set(edge.tolist())}
     if edge_refine and not (sph and sph.get("active")):      # v2.14: calibrated edge for non-round particles (circles already have it)
@@ -753,3 +783,37 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
     info = {k: v for k, v in info.items() if k in present}
     info.update(info_extra)
     return lab, f, hi, info
+
+
+def find_annotations(a, lab):
+    """Labels of micrograph annotations: the scale bar (a long, nearly black bar), the text in the band just above it,
+    and dark panel letters in the outer 12 % of the image. Particles are grey (median well above half the background),
+    so only objects far darker than the background are considered. Returns a set of label ids (empty without a bar)."""
+    H, W = lab.shape
+    bg = float(np.median(a))
+    stats = []
+    for i, sl in enumerate(ndi.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        m = lab[sl] == i
+        med = float(np.median(a[sl][m]))
+        h, w = m.shape
+        stats.append({"i": i, "sl": sl, "med": med, "area": int(m.sum()), "elong": max(h, w) / max(1.0, min(h, w)),
+                      "cy": (sl[0].start + sl[0].stop) / 2, "cx": (sl[1].start + sl[1].stop) / 2, "box": sl})
+    bars = [s for s in stats if s["med"] < 0.25 * bg and s["elong"] >= 6 and s["area"] >= 60]
+    out = set()
+    if bars:
+        bar = max(bars, key=lambda s: s["area"])
+        out.add(bar["i"])
+        by0, by1 = bar["sl"][0].start, bar["sl"][0].stop
+        bx0, bx1 = bar["sl"][1].start, bar["sl"][1].stop
+        bh = by1 - by0
+        zone_y0, zone_y1 = by0 - 3 * bh - 25, by1 + 4
+        for s in stats:
+            if s["med"] < 0.7 * bg and zone_y0 <= s["cy"] <= by0 and bx0 - 15 <= s["cx"] <= bx1 + 15:
+                out.add(s["i"])
+    for s in stats:
+        if s["med"] < 0.45 * bg and s["area"] >= 60 and (s["cx"] < 0.12 * W or s["cy"] < 0.12 * H):
+            if bars:                                    # letters only when a scale bar confirms this is a micrograph panel
+                out.add(s["i"])
+    return out

@@ -219,6 +219,69 @@ DOCS["Structure solution (unknown compound)"] = _doc(
     B("GSAS-II and TOPAS: established Rietveld programs used as reference methods. checkCIF: the IUCr validation service for a CIF."),
 )
 
+DOCS["TEM particle sizing (v2.21)"] = _doc(
+    "TEM particle sizing: modes, edge particles, annotations, rods and agglomerates",
+    "How the particle measurement works, what it has been checked against, and where it is not yet validated.",
+    H("What it does"),
+    P("Measures the size of particles on a TEM micrograph after the scale is set. Round particles are measured with a circle model, "
+      "elongated particles with their length and width, and clumps (agglomerates) are recognised and can be left out. "
+      "Every number is reported together with its method, so the origin of each result can be stated in a paper."),
+    K("Status: the default circle model agrees with a manual sizing on the test images (209 nm manual; 209.4 nm measured on 52 particles). "
+      "The other modes are not yet validated on real images, see the limits at the end."),
+    *terms("TEM: transmission electron microscopy. Micrograph: the image. Scale bar: the bar with its length in nm, used for calibration.",
+           "Agglomerate: a clump of particles that touches or fuses, measured as one object.",
+           "Solidity: the area of an object divided by the area of its convex hull; 1 means convex, lower values mean irregular or clumped.",
+           "Aspect ratio: length divided by width. Rod: an elongated particle, length well above its width.",
+           "Equivalent diameter: the diameter of a circle with the same area.",
+           "Voronoi cell: the area of the image that lies closer to one particle centre than to any other."),
+    H("The modes"),
+    B("Automatic (default, 'spheres'): round particles are fitted with a circle on their real edge. Touching and overlapping spheres are split. "
+      "On the test images this gives 209.4 nm against 209 nm manual."),
+    B("Outline only: the thresholded outline of every object. Fast (0.3 s on a 370 × 282 px image). On the same test images it gives 218.5 nm (+4.5 %). "
+      "On a dense synthetic network of known spheres it underestimates by about 38 %, so use it only for non-round particles."),
+    B("Precise, sub-20 nm (experimental): each particle is fitted with a blurred absorbing-sphere model on its own Voronoi cell. "
+      "On synthetic spheres of known radius the error is about 0 %, but on the real 20k image it gives 256.4 nm (+23 %). "
+      "Not for publication until calibrated on a manual sizing of small particles. Time: about 6 s on the 370 × 282 px test image."),
+    I("tem_fig_modes.png", "Figure 1. Left: real image, mean diameter per mode against the manual 209 nm. Right: synthetic spheres of known radius, "
+      "our own model (not an independent check). The precise mode is not yet validated on real images.", 0.3),
+    H("Edge particles"),
+    P("A particle cut by the edge of the image is not measured, because its size is unknown. The circle model used to judge a particle "
+      "fitted only the visible arc, so a cut particle could look complete. The rule therefore also checks the rays from the centre: when a ray "
+      "leaves the image before it finds the particle edge, the particle is cut and is excluded. The number of excluded particles is shown in the module."),
+    H("Annotations (scale bar, labels)"),
+    P("The scale bar, the panel letter and the text next to the bar are dark objects that are not particles. The annotation filter finds "
+      "the scale bar (a long, almost black bar), removes the text in the band just above it, and removes dark panel letters in the outer 12 % of the image. "
+      "It is opt-in: it removed real dark particles on other images, so it is not on by default."),
+    I("tem_fig_annotations.png", "Figure 2. The publication micrograph (scale bar 100 nm = 108 px). Left: without the filter the letter, the scale bar and "
+      "the text are counted. Right: with the annotation filter. Some fragments at the ends of the bar remain.", 0.3),
+    H("Elongated particles (rods): length and width"),
+    P("For rod or worm-like particles each object is measured by its second moments: the length is the full major axis and the width the full minor axis "
+      "of the ellipse with the same moments. The image is first normalised by the local film level, so the grey film texture does not give objects. "
+      "Objects in the dark rim of the carbon-film holes are flagged 'film edge' and not counted. Objects that are large and compact, or very irregular, are flagged as "
+      "agglomerates and not counted (large = more than max(150 nm², 6 × the median area of the image))."),
+    I("tem_fig_rods_overlay.png", "Figure 3. Overlay on the first rod-type micrograph. Red: counted rods. Green: agglomerates, not counted. "
+      "The rule removes the large clumps; chains of rods that are still connected can remain.", 0.3),
+    I("tem_fig_rod_table.png", "Figure 4. Median length and width for the nine micrographs of the archive, each with its own scale. "
+      "On the 100 and 200 nm series the particles are clusters of spheres; those values are not single-particle sizes.", 0.3),
+    H("Agglomerate tagger (learned)"),
+    P("You can tag objects yourself: click an object on the overlay and mark it 'agglomerate' or 'rod / particle'. The model is refitted on all tags "
+      "and then recounts the whole picture, so agglomerates that resemble your tags are also left out. "
+      "The tags are stored per object (its measured features), so tags from several micrographs are combined."),
+    I("tem_fig_tagger.png", "Figure 5. The tagging loop. The model is a logistic regression on six measured features "
+      "(area, length, width, aspect, solidity, relative area) with an L2 penalty.", 0.22),
+    B("The learned model is used only with at least 20 tags of each kind. Below that, the fixed rule above is used."),
+    B("Its quality is shown as five-fold cross-validated accuracy and balanced accuracy on your tags, with the coefficients per feature."),
+    B("A refit takes a few milliseconds; the segmentation is cached, so a click takes about 0.03 s on the test image."),
+    K("Not yet on the TEM page: the tagger is a module and is not yet placed on the TEM page. Its first real use, on the rod images, is still to be checked."),
+    H("Limits and what is needed for publication"),
+    B("The circle model is checked against one manual sizing of 209 nm on the test images. Sub-20 nm particles have no manual reference yet."),
+    B("The precise mode and the rod measurement are not validated against manual sizes. They are experimental."),
+    B("The learned model can only use the six measured features. It cannot see that a clump is next to other clumps."),
+    B("Images 5 to 9 of the archive (100 and 200 nm series) are clusters of spheres; they need the particle-level model, not the rod measurement."),
+    P(GP + "For a publication: measure 20 to 30 particles by hand on each micrograph type, report the method per number, state the number of excluded edge and "
+         "agglomerate objects, and keep the scale calibration in the same units. Validate the learned model on tags from images that were not used for training."),
+)
+
 DOCS["N2 sorption (BET/PSD)"] = _doc(
     "N₂ sorption – isotherms, BET and pore size distribution", "From the instrument export to surface area, micropore volume and pore sizes.",
     H("What it does"),

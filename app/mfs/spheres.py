@@ -163,12 +163,13 @@ def refine(c, cx, cy, r0, level=LEVEL, n=N_RAYS, iters=3):
         nf = int(free.sum())
         if nf < max(8, 0.15 * n):
             return best if best else {"cx": cx, "cy": cy, "r": r0, "rms": float("inf"), "arc": nf / n, "core": core,
-                                      "n_free": nf, "contact": float((kinds == 1).mean()), "fitted": False}
+                                      "n_free": nf, "contact": float((kinds == 1).mean()), "fitted": False,
+                                      "out_frac": float((kinds == 2).mean())}
         fx, fy, fr, rms = fit_circle(ex[free], ey[free])
         if not np.isfinite(fr) or fr < 0.4 * r0 or fr > 1.8 * r0 or math.hypot(fx - cx, fy - cy) > 0.6 * r0:
             return best
         best = {"cx": fx, "cy": fy, "r": fr, "rms": rms, "arc": nf / n, "core": core, "n_free": nf,
-                "contact": float((kinds == 1).mean()), "fitted": True}
+                "contact": float((kinds == 1).mean()), "fitted": True, "out_frac": float((kinds == 2).mean())}
         if math.hypot(fx - cx, fy - cy) < 0.3 and abs(fr - r0) < 0.3:
             break
         cx, cy, r0 = fx, fy, fr

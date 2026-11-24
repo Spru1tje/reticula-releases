@@ -43,7 +43,7 @@ def adaptive(img, dark, smooth, low_k, size_px, mks, sol, areaf, border, max_px,
     lab, f, t, info = PA.segment_adaptive(a, dark_particles=dark, smooth=smooth, low_k=low_k, size_px=size_px or None,
                                           marker_sigma=mks, solidity_min=sol, area_factor=areaf, clear_border=border,
                                           max_px=max_px, shape_prior=prior, prior_strength=pstr, prior_k=pk,
-                                          sphere={"auto": "auto", "spheres": True, "off": False}.get(sph, "auto"), conf_min=cmin)
+                                          sphere={"auto": "auto", "spheres": True, "precise": "precise", "off": False}.get(sph, "auto"), conf_min=cmin)
     info = {k: v for k, v in info.items() if k != "_contrast"}
     return lab, f, t, info
 
