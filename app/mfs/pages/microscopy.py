@@ -159,7 +159,8 @@ def calibration_panel(hk, m, fname):
     from mfs import semcal
     img = m["image"]; h, w = img.shape
     meta_mag = m["meta"].get("magnification")
-    cal = _sem_calibrate(img, m["pixel_nm"], meta_mag, m["meta"].get("calibration"))
+    # v2.22.2: calibrate on the unstretched values (the contrast stretch can erase a thin scale bar)
+    cal = _sem_calibrate(m.get("raw", img), m["pixel_nm"], meta_mag, m["meta"].get("calibration"))
     bar, lab, mo = cal.get("bar"), cal.get("label"), cal.get("mag_ocr")
     box = st.container(border=True, key=f"cal_{hk}")
     box.markdown('<div class="rt-sec">📐 Calibration from the original image</div>', unsafe_allow_html=True)
@@ -724,6 +725,26 @@ def sem_particles(allims):
     meth = c2.radio("Method", ["automatic (threshold + split touching)", "click-to-measure (two clicks per particle)"], key="ps_meth")
     if not sel:
         return
+    # v2.22.2: a new upload resets the page to its default state. Tags are saved per sample on every click, so nothing is
+    # lost; the user is asked whether to keep the previous sample's tags (deleting them needs an explicit button).
+    _set = tuple(sorted(sel))
+    _prev = st.session_state.get("ps_last_set")
+    if _prev is not None and _prev != _set:
+        for _k in [k for k in list(st.session_state.keys()) if str(k).startswith(("agglo_click_", "agg_", "rod_", "rm_"))]:
+            del st.session_state[_k]
+        _batch = len(set(_set) - set(_prev)) > 1
+        _prev_smp = st.session_state.get("ps_last_sample")
+        st.warning(("A new batch of %d images was loaded" % len(_set)) if _batch else "A new image was loaded"
+                   + ". The page was reset to its default state. Your agglomerate tags are saved per sample"
+                   + (f" ('{_prev_smp}')" if _prev_smp else "") + "; do you want to keep them?")
+        if _prev_smp and st.button(f"Delete the tags of '{_prev_smp}' (cannot be undone)", key="ps_wipe_prev"):
+            from mfs import agglo_learn as AL_
+            _p = AL_.default_store(_prev_smp)
+            if _p.exists():
+                _p.unlink()
+            st.success(f"Tags of '{_prev_smp}' deleted.")
+    st.session_state["ps_last_set"] = _set
+    st.session_state["ps_last_sample"] = str(st.session_state.get("ps_sample") or "")
     ims = [cal[names.index(n_)] for n_ in sel]
     if meth.startswith("automatic"):
         _size_templates_ui()
@@ -858,9 +879,50 @@ def sem_particles(allims):
                         _img0 = _img0.mean(axis=2)
                     _nm0 = float(_im0["pixel_nm"])
                     _lab0, _objs0 = AUI.segment_cached(np.asarray(_img0), _nm0)
-                    AUI.render_tagger(np.asarray(_img0), _lab0, _objs0, _nm0, str(_im0.get("file") or "image"))
+                    AUI.render_tagger(np.asarray(_img0), _lab0, _objs0, _nm0, str(_im0.get("file") or "image"),
+                                      sample=str(st.session_state.get("ps_sample") or _im0.get("title") or _im0.get("file") or "image"))
                 except Exception as _e:               # noqa: BLE001
                     st.error(f"Agglomerate tagger unavailable: {_e}")
+        # v2.22.2: rod-type particles - length and width per particle, agglomerates left out
+        with st.expander("Rods: length and width per particle (agglomerates left out)", expanded=False):
+            try:
+                import pandas as pd
+                from mfs import rods as RO
+                from mfs import agglo_ui as AUI2
+                _c1, _c2 = st.columns(2)
+                _amin = _c1.number_input("Smallest object to count (nm²)", 0.0, 100.0, 0.0, 0.5, key="rod_amin",
+                                         help="Objects smaller than this are not counted (0 = no limit).")
+                # exclusion circles: click the centre of an area (e.g. empty film), pick the radius, add it
+                _im_first = np.asarray(ims[0]["image"][:ims[0].get("crop_row") or None])
+                if _im_first.ndim == 3:
+                    _im_first = _im_first.mean(axis=2)
+                _circles = AUI2.circle_picker(_im_first, [], "rodexcl")
+                _summ, _parts = [], []
+                for _im in ims:
+                    _img = np.asarray(_im["image"][:_im.get("crop_row") or None])
+                    if _img.ndim == 3:
+                        _img = _img.mean(axis=2)
+                    _nm = float(_im["pixel_nm"])
+                    _objs = [dict(o) for o in AUI2.rods_cached(_img, _nm)]
+                    RO.in_circles(_objs, _circles)
+                    for _o in _objs:
+                        _o["manual_excluded"] = _o["manual_excluded"] or (_o["area_px"] * _nm * _nm < _amin)
+                    _c2.caption(f"{sum(1 for _o in _objs if _o['manual_excluded'])} objects excluded in {_im.get('file')}")
+                    _s = RO.summary(_objs)
+                    _summ.append({"image": _im.get("file"), "nm/px": round(_nm, 4), **{("n_rods" if k == "n" else k): (round(v, 2) if isinstance(v, float) else v) for k, v in _s.items()}})
+                    for o in _objs:
+                        _parts.append({"image": _im.get("file"), "length_nm": round(o["length_nm"], 2), "width_nm": round(o["width_nm"], 2),
+                                       "aspect": round(o["aspect"], 2), "area_nm2": round(o["area_px"] * _nm * _nm, 1),
+                                       "solidity": round(o["solidity"], 3), "agglomerate": bool(o.get("agglomerate")),
+                                       "film_edge": bool(o["film_edge"])})
+                st.caption("Rod measurement: length = full major axis, width = full minor axis of the same-moment ellipse. "
+                           "Clumps and film-rim objects are not counted. Experimental; not validated against a manual sizing.")
+                st.dataframe(pd.DataFrame(_summ), hide_index=True)
+                _pdf = pd.DataFrame(_parts)
+                st.download_button("Download per-particle table (CSV)", _pdf.to_csv(index=False).encode("utf-8"),
+                                   file_name="rods_per_particle.csv", mime="text/csv")
+            except Exception as _e:               # noqa: BLE001
+                st.error(f"Rod measurement unavailable: {_e}")
         for im in ims:
             img = im["image"][:im.get("crop_row") or None]
             if ws:

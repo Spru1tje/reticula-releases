@@ -86,10 +86,12 @@ def segment_rods(im, nm_per_px, local_sigma=10.0, min_area_px=12, hole_level=230
         major = 4.0 * math.sqrt(max(ev[0], 0.0))          # full length of the ellipse with the same second moments
         minor = 4.0 * math.sqrt(max(ev[1], 0.0))
         in_rim = float(rim[ys, xs].mean())
+        H_, W_ = lab.shape
+        cut_edge = bool(ys.min() == 0 or xs.min() == 0 or ys.max() == H_ - 1 or xs.max() == W_ - 1)   # cut by the picture edge
         sol = _solidity(xs, ys)
         objs.append({"id": i, "area_px": int(A), "length_nm": major * nm_per_px, "width_nm": max(minor, 1e-9) * nm_per_px,
                      "aspect": major / max(minor, 1e-9), "solidity": sol, "cy": float(ys.mean()), "cx": float(xs.mean()),
-                     "film_edge": bool(in_rim > 0.5)})
+                     "film_edge": bool(in_rim > 0.5), "cut_by_edge": cut_edge})
     return lab, objs
 
 
@@ -108,14 +110,24 @@ def flag_agglomerates(objs, nm_per_px, min_big_nm2=150.0, rel_big=6.0):
     return objs
 
 
+def in_circles(objs, circles):
+    """Flag objects whose centre lies inside one of the user's exclusion circles (cx, cy, r in px) as manual_excluded."""
+    for o in objs:
+        o["manual_excluded"] = any((o["cx"] - cx) ** 2 + (o["cy"] - cy) ** 2 <= r * r for cx, cy, r in circles)
+    return objs
+
+
 def summary(objs):
     """Median and inter-quartile range of length and width (only objects that are not at the film edge)."""
-    good = [o for o in objs if not o["film_edge"] and not o.get("agglomerate", False)]
+    good = [o for o in objs if not o["film_edge"] and not o.get("agglomerate", False) and not o.get("cut_by_edge", False)
+            and not o.get("manual_excluded", False)]
     if not good:
         return {"n": 0}
     L = np.array([o["length_nm"] for o in good]); W = np.array([o["width_nm"] for o in good])
     return {"n": len(good), "n_film_edge": sum(o["film_edge"] for o in objs),
             "n_agglomerate": sum(o.get("agglomerate", False) for o in objs),
+            "n_cut_by_edge": sum(o.get("cut_by_edge", False) for o in objs),
+            "n_manual_excluded": sum(o.get("manual_excluded", False) for o in objs),
             "length_nm_median": float(np.median(L)), "length_nm_q25": float(np.percentile(L, 25)), "length_nm_q75": float(np.percentile(L, 75)),
             "width_nm_median": float(np.median(W)), "width_nm_q25": float(np.percentile(W, 25)), "width_nm_q75": float(np.percentile(W, 75)),
             "aspect_median": float(np.median([o["aspect"] for o in good]))}

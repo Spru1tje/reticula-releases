@@ -51,10 +51,28 @@ def _model(p, yy, xx, y0, x0, shape):
     Evaluated on the window (shape) with the blur done on a padded grid, so the edge of the image does not leak in."""
     x_c, y_c, r, k, A, b, s = p
     t = _thickness((yy - y_c) ** 2 + (xx - x_c) ** 2, r)
-    img = A * (1.0 - np.exp(-k * t))
+    img = A * (-np.expm1(-k * t)) / np.maximum(k, 1e-9)     # amplitude A and absorption k no longer trade off (k -> 0 is linear in t)
     if s > 0.05:
         img = _blur(img, s)
     return b + img
+
+
+ROUND_ASPECT = 1.4      # length / width above this: not a sphere (rods, worms) - the sphere model does not apply
+ROUND_SOLIDITY = 0.9    # area / convex-hull area below this: clumped or irregular, not a single sphere
+
+
+def _roundness(lab, i, sl):
+    """(aspect, solidity) of the outline object i inside its bounding box sl."""
+    from mfs.rods import _solidity
+    ys, xs = np.nonzero(lab[sl] == i)
+    ys = ys + sl[0].start
+    xs = xs + sl[1].start
+    if ys.size < 3:
+        return 1.0, 1.0
+    cov = np.cov(np.vstack([xs, ys]))
+    ev = np.sort(np.linalg.eigvalsh(cov))[::-1]
+    major = math.sqrt(max(ev[0], 1e-12)); minor = math.sqrt(max(ev[1], 1e-12))
+    return major / minor, _solidity(xs, ys)
 
 
 def fit_disc(c, cx, cy, r0, s0=1.0, pad=None):
@@ -175,10 +193,19 @@ def refine_labels(c, lab, info, s0=1.0):
     new_info = {}
     n_ok = n_cut = n_low = 0
     jobs = []
+    n_nonround = 0
     for i, (cx, cy, r0) in cent.items():
         # the particle is cut when its outline reaches the image border
         if cx - r0 < 1.5 or cy - r0 < 1.5 or cx + r0 > W - 2.5 or cy + r0 > H - 2.5:
             n_cut += 1
+            continue
+        # the sphere model only applies to round, single particles: rods and clumps keep their outline (not counted)
+        asp, sol = _roundness(lab, i, sls[i - 1])
+        if asp > ROUND_ASPECT or sol < ROUND_SOLIDITY:
+            n_nonround += 1
+            new_info[i] = {"kind": "aggregate", "solidity": sol, "precise": False, "aspect": asp,
+                           "reason": "not round: sphere model does not apply (use the rod mode)"}
+            out[lab == i] = i
             continue
         jobs.append((i, cx, cy, r0))
 
@@ -212,6 +239,7 @@ def refine_labels(c, lab, info, s0=1.0):
         new_info[i] = {"kind": "particle", "solidity": 1.0, "precise": True, "d_px": 2 * f["r"], "rms": f["rms"],
                        "edge_s": f["s"], "circle": (f["cx"], f["cy"], f["r"]), "conf": 1.0}
     summary = {"mode": "precise", "active": True, "n_precise": n_ok, "n_lowconf": n_low, "n_edge_excluded": n_cut,
+               "n_nonround": n_nonround,
                "n_candidates": len(cent)}
     info_out = {k: v for k, v in info.items() if not isinstance(k, int)}
     info_out.update(new_info)

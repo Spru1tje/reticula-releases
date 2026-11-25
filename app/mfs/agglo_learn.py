@@ -26,10 +26,12 @@ MATCH_PX = 3.0          # a tag belongs to the object whose centre is this close
 LAMBDA = 1.0            # L2 penalty on the standardised coefficients (not on the intercept)
 
 
-def default_store() -> Path:
-    base = Path(os.environ.get("RETICULA_DATA", Path.home() / ".reticula"))
+def default_store(sample: str | None = None) -> Path:
+    """Tag file of one sample. Tags are kept per sample, so a new sample starts without the tags of the previous one."""
+    base = Path(os.environ.get("RETICULA_DATA", Path.home() / ".reticula")) / "tags"
     base.mkdir(parents=True, exist_ok=True)
-    return base / "agglomerate_tags.json"
+    name = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in (sample or "default")).strip("_") or "default"
+    return base / f"{name}.json"
 
 
 def features(obj: dict, nm_per_px: float, median_area_nm2: float) -> dict:

@@ -658,6 +658,11 @@ def segment_adaptive(img, dark_particles=True, smooth=1.0, low_k=4.0, size_px=No
         a = a.mean(axis=2)
     c, sn = contrast_map(a, dark_particles, smooth)
     hi = max(otsu(c), 8 * sn); lo = max(low_k * sn, 0.3 * hi)
+    # v2.22.2: on textured film the noise estimate can put the seed level above every contrast value in the picture,
+    # so nothing was found. The seed level is capped at the 99.5th percentile of the contrast.
+    cap = float(np.percentile(c, 99.5))
+    if hi > cap > 0:
+        hi = cap; lo = min(lo, 0.7 * hi)
     if threshold is not None:                      # manual: a fraction of the contrast range (0–1) or 8-bit level
         hi = lo = float(threshold)
     m = ndi.binary_opening(hysteresis(c, lo, hi), iterations=1)

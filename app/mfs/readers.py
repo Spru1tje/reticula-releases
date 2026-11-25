@@ -1204,7 +1204,7 @@ def read_em(src, name: str = ""):
     lo, hi = np.percentile(img, [0.1, 99.9])
     img8 = np.clip((img - lo) / max(hi - lo, 1e-9) * 255, 0, 255).astype(np.uint8)
     meta = {"source": f"ncempy ({ext})", "pixelSize": str(ps), "pixelUnit": str(pu)}
-    return {"image": img8, "pixel_nm": pixel_nm, "meta": meta, "databar_row": None, "kind": "TEM"}
+    return {"image": img8, "raw": np.clip(img, 0, 255).astype(np.uint8), "pixel_nm": pixel_nm, "meta": meta, "databar_row": None, "kind": "TEM"}
 
 
 def parse_sem_sidecar(text: str, width_px=None):
@@ -1327,7 +1327,9 @@ def read_sem(src, name: str = "", sidecar: str | None = None):
     img = np.asarray(img, float)
     lo, hi = np.percentile(img, [0.1, 99.9])
     img8 = np.clip((img - lo) / max(hi - lo, 1e-9) * 255, 0, 255).astype(np.uint8)
-    return {"image": img8, "pixel_nm": pixel_nm, "meta": meta, "databar_row": detect_databar(img8)}
+    # v2.22.2: the contrast stretch above can erase a thin scale bar; calibration reads the unstretched values
+    raw8 = np.clip(img, 0, 255).astype(np.uint8)
+    return {"image": img8, "raw": raw8, "pixel_nm": pixel_nm, "meta": meta, "databar_row": detect_databar(img8)}
 
 
 def pixel_from_magnification(mag: float, width_px: int, ref_width_mm: float = 127.0) -> float:

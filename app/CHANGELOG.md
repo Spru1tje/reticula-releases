@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.22.2 — 2026-11-25 (hotfix: TEM scale bar, circle exclusion, per-sample tags)
+
+- **Scale bar on TEM micrographs**: the contrast stretch of the reader erased thin scale bars (e.g. x.tif: "Scale bar not
+  found"). The calibration now reads the unstretched values (`raw`), so the bar and its label are found again.
+- **Exclusion circles**: click the centre of an area (for example empty carbon film), pick a radius and press "Add
+  circle". Particles whose centre lies inside are not counted. Clear all removes the circles.
+- **Rods**: objects cut by the picture edge and objects in the film rim are not counted; a minimum area can be set.
+- **Agglomerate tags per sample**: tags are stored per sample. A new image shows a reset notice; the tags are only
+  deleted after an explicit button press.
+- **Threshold cap**: the automatic threshold is capped at the 99.5th percentile of the contrast, so textured films
+  no longer give zero particles.
+- **Precise sphere mode** (still experimental): a roundness gate keeps rods and clumps out of the sphere fit. The
+  radius is not yet validated on real micrographs (see the methods text); do not publish results from it.
+
 ## 2.22.1 — 2026-11-24 (hotfix: agglomerate tagger on the TEM page)
 
 - **Agglomerate tagger on the TEM page**: an expander "Agglomerate tag: rods and clumps (first image)" lets you click
