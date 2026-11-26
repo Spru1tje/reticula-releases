@@ -57,6 +57,28 @@ def _structure_from_cif_gemmi(path):
     return Structure(lat, species, coords)
 
 
+def _cell_spacegroup_gemmi(path):
+    """Reserve reader for cell-only phases: (cell, space-group symbol, gemmi Operations) from a CIF with a cell and a
+    space group, without atom sites. Returns None when the file has no cell or no space group. Raises ValueError
+    when gemmi is not installed or cannot read the file."""
+    try:
+        import gemmi
+    except ImportError as e:
+        raise ValueError("gemmi (reserve reader) is not installed") from e
+    doc = gemmi.cif.read_file(str(path))
+    if len(doc) == 0:
+        raise ValueError("CIF has no data block")
+    small = gemmi.make_small_structure_from_block(doc[0])
+    sym = small.spacegroup_hm
+    cell = small.cell
+    if not sym or not (cell.a > 0 and cell.b > 0 and cell.c > 0):
+        return None
+    sg = gemmi.find_spacegroup_by_name(sym)
+    if sg is None:
+        return None
+    return ((cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma), sym, sg.operations())
+
+
 def _cell_metric(c):
     a, b, cc, al, be, ga = c
     al, be, ga = (math.radians(v) for v in (al, be, ga))
@@ -167,9 +189,21 @@ class Phase:
             try:
                 s = Structure.from_file(path)
             except ValueError:
-                # reserve loader: pymatgen rejects some CIFs (symmetry table + full atom list) that gemmi reads.
-                # Used only when pymatgen fails.
-                s = _structure_from_cif_gemmi(path)
+                # reserve 1: pymatgen rejects some CIFs (symmetry table + full atom list) that gemmi reads.
+                try:
+                    s = _structure_from_cif_gemmi(path)
+                except ValueError:
+                    # reserve 2 (Le Bail only): no readable atom sites, but cell and space group are readable.
+                    # The phase then has no atom model: reflections are generated from the cell and the
+                    # space-group absences (gemmi), with intensity 1. Rietveld needs atoms and is not possible.
+                    cs = _cell_spacegroup_gemmi(path)
+                    if cs is None:
+                        raise
+                    cell_, sym_, ops_ = cs
+                    obj = cls.from_cell(cell_, name or sym_)
+                    obj.sg_ops = ops_
+                    obj.sg_symbol = sym_
+                    return obj
         finally:
             if isinstance(src, (bytes, bytearray)):
                 try:
@@ -275,6 +309,10 @@ class Phase:
         inv_d2 = np.einsum("ki,ij,kj->k", hk, Gs, hk)
         sel = inv_d2 <= 1.0 / dmin ** 2
         hk, inv_d2 = hk[sel], inv_d2[sel]
+        ops = getattr(self, "sg_ops", None)
+        if ops is not None:  # space-group absences (gemmi) for a cell-only phase
+            allowed = np.array([not ops.is_systematically_absent([int(v) for v in r]) for r in hk], bool)
+            hk, inv_d2 = hk[allowed], inv_d2[allowed]
         key = np.round(inv_d2 * 1e6).astype(np.int64)
         uk, first, inv = np.unique(key, return_index=True, return_inverse=True)
         self.hkl = hk[first]
@@ -333,6 +371,10 @@ class Refinement:
         self.y = y * self.scale_y
         self.w = 1.0 / np.maximum(self.y, max(1.0, 1e-3 * float(self.y.max())))
         self.phases = phases
+        if mode == "rietveld" and any(getattr(p, "cell_only", False) for p in phases):
+            # a cell-only phase has no atoms (frac empty): the Rietveld route cannot use it; Le Bail only
+            names = ", ".join(str(getattr(p, "name", "?")) for p in phases if getattr(p, "cell_only", False))
+            raise ValueError(f"cell-only phase ({names}) has no atom model: use mode='lebail' (Rietveld needs atoms)")
         self.rad = RADIATION[radiation] if isinstance(radiation, str) else list(radiation)
         self.radiation = radiation if isinstance(radiation, str) else "custom"
         self.mode = mode
