@@ -34,6 +34,29 @@ LN2 = math.log(2.0)
 
 
 # ---------------------------------------------------------------------------------------------------------------- crystal structure
+def _structure_from_cif_gemmi(path):
+    """Reserve CIF reader (gemmi): returns a pymatgen Structure with the symmetry-expanded sites and occupancies.
+    Raises ValueError when gemmi cannot read the file either."""
+    try:
+        import gemmi
+    except ImportError as e:
+        raise ValueError("CIF not readable by pymatgen; gemmi (reserve reader) is not installed") from e
+    from pymatgen.core import Structure, Lattice
+    doc = gemmi.cif.read_file(str(path))
+    if len(doc) == 0:
+        raise ValueError("CIF has no data block")
+    small = gemmi.make_small_structure_from_block(doc[0])
+    cell = small.cell
+    lat = Lattice.from_parameters(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
+    # symmetry-expanded sites (all unit-cell sites) with their occupancies
+    sites = small.get_all_unit_cell_sites()
+    if not sites:
+        raise ValueError("CIF has no atom sites")
+    species = [{s.element.name: float(s.occ)} for s in sites]
+    coords = [[s.fract.x, s.fract.y, s.fract.z] for s in sites]
+    return Structure(lat, species, coords)
+
+
 def _cell_metric(c):
     a, b, cc, al, be, ga = c
     al, be, ga = (math.radians(v) for v in (al, be, ga))
@@ -141,7 +164,12 @@ class Phase:
         else:
             path = str(src)
         try:
-            s = Structure.from_file(path)
+            try:
+                s = Structure.from_file(path)
+            except ValueError:
+                # reserve loader: pymatgen rejects some CIFs (symmetry table + full atom list) that gemmi reads.
+                # Used only when pymatgen fails.
+                s = _structure_from_cif_gemmi(path)
         finally:
             if isinstance(src, (bytes, bytearray)):
                 try:
