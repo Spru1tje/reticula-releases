@@ -1,13 +1,16 @@
 """Synthetic test of touching and separated rods in the rod measurement (mfs.rods.segment_rods).
 
 Two 40 x 8 nm rods end to end, 1 nm per pixel, flat background.
-  * gap 6 px (separated): two objects; each length measured 42.4 nm (pinned within 1 nm), i.e. +6 % over 40 nm.
+"pinned" below means the measured output of the CURRENT code, not the correct value.
+  * gap 6 px (separated): two objects; each length 42.4 nm (pinned within 1 nm). This is +6 % over 40 nm, the same
+    small-rod overestimate as in the 40 x 8 nm measurement (known; see test_rods_synthetic.py).
   * gap 0 px (touching): ONE object of 90.9 nm (pinned within 1 nm). The two rods together are 80 nm in the
-    synthetic image, so the chain is measured as one object and its length is overestimated. This is a KNOWN
-    LIMITATION of the current method: a chain of touching rods is not split and is not reported as two rods.
+    synthetic image, so the chain is not split and its length is overestimated. This is a KNOWN LIMITATION.
+    The test is marked xfail(strict=False): a future fix that splits the chain is not a regression.
 No real micrograph is used; this file is synthetic only.
 """
 import numpy as np
+import pytest
 from scipy import ndimage as ndi
 
 from mfs import rods as RO
@@ -37,6 +40,7 @@ def test_separated_rods_are_two_objects_with_pinned_length():
     assert all(abs(o["length_nm"] - 42.4) < 1.0 for o in objs)
 
 
+@pytest.mark.xfail(strict=False, reason="known limitation: touching rods are merged into one object; a fix that splits them is not a regression")
 def test_touching_rods_are_one_object_known_limitation():
     _, objs = RO.segment_rods(_pair(0), 1.0, min_area_px=25)
     assert len(objs) == 1                      # chain is not split (known limitation)
