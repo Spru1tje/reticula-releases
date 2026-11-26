@@ -187,7 +187,7 @@ DOCS["Structure solution (unknown compound)"] = _doc(
     I("struct_fig_absences.png", "Figure 3. Node-model intensities of fcu and pcu for the lowest reflections. The absent mixed-parity reflections are what separates the two nets.", 0.25),
     F(r"$R_{\mathrm{net}} = \sqrt{\sum_h (|F_o| - s\,|F_c|)^2 \,/\, \sum_h |F_o|^2}$"),
     P("This is the R factor on amplitudes, with a fitted scale s. The node model places one scatterer per node and has no atomic detail, so these values only rank nets; they are not a fit quality."),
-    I("struct_fig_net_ranking.png", "Figure 4. R values of the candidate nets. For UiO-66, fcu beats dia by 0.09 (confident). For HKUST-1 the metal test selects tbo; its R is the worst, so that choice rests on the metal test, not on R.", 0.27),
+    I("struct_fig_net_ranking.png", "Figure 4. R values of the candidate nets. For UiO-66, fcu beats dia by 0.09 (confident). For HKUST-1 the metal test selects tbo.", 0.27),
     H("Rigid-body search"),
     P("The linker is treated as a rigid molecule. The cost is the scaled R factor on squared intensities, with the symmetry images of the linker. "
       "The search has two stages: a grid of orientations (evaluated in parallel), then simulated annealing from the best three to five orientations, with translation, rotation and face radii free."),

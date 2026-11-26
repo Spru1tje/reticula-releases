@@ -15,6 +15,9 @@ import os
 import re
 import sys
 
+# Fixed PDF timestamps: matplotlib reads SOURCE_DATE_EPOCH for CreationDate/ModDate, so the same input gives the same bytes.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1795651200")     # 2026-11-26 00:00 UTC
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # the app folder
 sys.path.insert(0, ROOT)
 
