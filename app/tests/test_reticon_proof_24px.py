@@ -44,7 +44,12 @@ def _compare(png_dir: Path) -> None:
     current = sorted(p.name for p in png_dir.glob("*_24.png"))
     assert current == golden, f"file set differs: current={current} golden={golden}"
     for name in golden:
-        assert _same_pixels(png_dir / name, GOLDEN / name), f"{name} differs from golden"
+        assert _same_pixels(png_dir / name, GOLDEN / name), (
+            f"{name} differs from golden by more than {TOLERANCE} per channel. "
+            "Check first whether the renderer changed: goldens were made with headless Edge "
+            "158.0.4370.33 on Windows 11. If the Edge version or platform differs, re-export, "
+            "review the PNG visually, and update the golden with a reason; if not, it is a real change."
+        )
 
 
 def test_24px_exports_match_goldens():
