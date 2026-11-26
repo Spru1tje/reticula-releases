@@ -350,7 +350,7 @@ DOCS["UV/Vis"] = _doc(
     P("ε is the molar absorption coefficient, c the concentration, l the path length; R the reflectance, hν the photon energy. The exponent n depends on the type of transition (2 for direct, 1/2 for indirect)."),
     B(GP + "read the band gap from the linear part of the Tauc plot and state which n you used."),
     H("Automatic direct or indirect band gap (v2.18.11)"),
-    P("The library can choose between the direct (n = 2) and the indirect (n = 1/2) Tauc form by the better automatic linear edge (higher R²; direct on a tie). Checked on a synthetic direct edge at 3.0 eV, which returns direct and 3.00 eV."),
+    P("The library can choose between the direct (n = 2) and the indirect (n = 1/2) Tauc form by the better automatic linear edge (higher R²; direct on a tie). Checked on a synthetic direct edge at 3.0 eV, which returns direct and an edge within 0.02 eV of 3.0 eV."),
     B("General practice: the rule is a heuristic. Look at both Tauc plots and state which transition you assume."),
 
 )
@@ -367,7 +367,7 @@ DOCS["Photoluminescence"] = _doc(
     B("Intensity of band 1 and band 2 (I1, I2): the area under the shorter- and the longer-wavelength emission band."),
     B("Ratio (Δ): I1 divided by I2."),
     B("Energy gap (ΔE): the energy difference between the two emitting levels, in cm⁻¹ or eV."),
-    B("Boltzmann constant (kB): 0.695 cm⁻¹ per kelvin; the temperature T is in kelvin (K)."),
+    B("Boltzmann constant (kB) in cm⁻¹ per kelvin; the temperature T is in kelvin (K)."),
     B("Relative sensitivity (Sr): how many percent the ratio changes per kelvin."),
     B("Temperature uncertainty (σT): the smallest temperature change that can be told from the noise, in K."),
     B("Full width at half maximum (FWHM): the width of a band at half of its height."),
@@ -451,7 +451,7 @@ DOCS["Photoluminescence"] = _doc(
     H("6c. The uncertainty budget (new in 2.18.4)"),
     P("The ± of ΔE is the square root of the sum of squares of every component:"),
     F(r"$u(\Delta E)^2 = u_\mathrm{stat}^2 + u_{T,\mathrm{rand}}^2 + u_{T,\mathrm{cal}}^2 + \sum_j (\Delta E_j - \Delta E)^2 + u_\mathrm{runs}^2 \,(+\, u_\mathrm{Birge}^2)$"),
-    B("Statistical: Monte Carlo – the ratios are redrawn from their errors 2500 times and the Boltzmann law (a weighted straight line of ln Δ against 1/T) is refitted every time; u is half the 15.9–84.1 % range of the results. The ratio errors (version 2.18.5) include the uncertainty of the non-linear line shapes (centres, widths, η): their covariance from the global fit is propagated through the sensitivity of each ratio to them. Without this term the ratio errors were 10–20 % too small (checked against 60 repeated simulated series). At low counts (a few hundred counts per point) the reported ΔE error is about 15–25 % larger than the scatter of repeated simulations; this is the safe direction, and the cause (the first-order propagation of a ratio of noisy areas) is not removed by changing the fit loss or the weights."),
+    B("Statistical: Monte Carlo – the ratios are redrawn from their errors 2500 times and the Boltzmann law (a weighted straight line of ln Δ against 1/T) is refitted every time; u is half the width of the central range of the results. The ratio errors (version 2.18.5) include the uncertainty of the non-linear line shapes (centres, widths, η): their covariance from the global fit is propagated through the sensitivity of each ratio to them. Without this term the ratio errors were 10–20 % too small (checked against 60 repeated simulated series). At low counts (a few hundred counts per point) the reported ΔE error is about 15–25 % larger than the scatter of repeated simulations; this is the safe direction, and the cause (the first-order propagation of a ratio of noisy areas) is not removed by changing the fit loss or the weights."),
     B("Temperature sensor: the same Monte Carlo with a random error on every temperature, and with one common offset (sensor calibration, sample not at the sensor temperature). You type both values; zero means not counted."),
     B("Processing: the Boltzmann law is refitted on the ratios obtained with every reasonable alternative – other fit range or margin, the other peak model, the other background subtractions, wider and narrower windows. The difference in ΔE is what the CHOICE costs."),
     B("Runs: the standard deviation of ΔE between independent runs divided by the square root of their number. Birge ratio (version 2.18.5): the errors are scaled by √χ² only when the excess scatter is significant (χ² above 1 by more than two standard deviations of χ²); scaling on every χ² above 1 biased the errors upwards."),
@@ -525,7 +525,7 @@ DOCS["Photoluminescence"] = _doc(
     H("12. Why it was slow"),
     P("A profile of the crowded series showed 77 % of the time in the Jacobian. It was made by finite differences: for every one of the 30–50 shape parameters "
       "the whole series was evaluated once more, and every evaluation solved an NNLS problem for every spectrum. One analysis needed 169 Jacobians, "
-      "4 829 series evaluations and 36 456 NNLS solutions. The optimisations below remove this work, one after the other (Figure 4)."),
+      "many series evaluations and NNLS solutions. The optimisations below remove this work, one after the other (Figure 4)."),
     I("pl_fig_speed_steps.png", "Figure 4. Time after each optimisation step (cumulative, median of three runs; the start point is v2.19.4). The numbers 1–8 are the steps in the list below.", 0.3),
     N("Exact Jacobian. The derivative of the projected residual is written out (variable projection) with the analytic derivatives of the pseudo-Voigt: one evaluation per step "
       "instead of one per parameter, and exact instead of approximate. The areas are solved by a QR decomposition; NNLS is used only when an area would come out negative "
@@ -551,7 +551,7 @@ DOCS["Photoluminescence"] = _doc(
     B("On the page: with a fixed shape model the fit of the automatic choice is reused (it had already fitted both models); the laser-heating check refit starts warm."),
     H("13. Two errors of the old fit that were found and fixed"),
     P("Stuck fits. With the old start the first optimiser step could be huge: on the test series with the window 500–575 nm one line widened to 7.0 nm (true 3.8 nm) and its neighbour "
-      "was switched off (area 0); the fit stayed there (rss 131 916 instead of 2 603; the ratio at 293 K was 0.2051, true 0.2012; up to 2.1 % off). "
+      "was switched off (area 0); the fit stayed there (rss 131 916 instead of 2 592; up to 2.1 % off). "
       "Over 60 noisy copies of the test series the old fit got stuck in 8, which made the true scatter of its ratio 4.5 times larger (Figure 6A; worst ratio 4.2 % off, now 0.66 %)."),
     I("pl_fig_speed_stuck.png", "Figure 5. Left: one spectrum of the test series with the old (stuck) and the new fit, and their residuals. Right: the ratio of every spectrum against the true ratio.", 0.3),
     P("Error bars. The old finite-difference step was relative (SciPy's diff_step): for a parameter at zero (η of a Gaussian line on its bound, a drift near zero) the step became about 10⁻²¹ "
@@ -563,7 +563,7 @@ DOCS["Photoluminescence"] = _doc(
     H("14. What stayed the same, and how it is checked"),
     B("The same lines in every data set, the same ratios within their errors, the same ΔE (Table 1). The test series now gets the shared shape and the systematic errors no longer come from stuck refits "
       "(test series 4.7·10⁻³ → 1.5·10⁻⁴; 41 spectra 5.9·10⁻³ → 3.3·10⁻⁵)."),
-    B("Warm against cold starts over 38 noisy series (30 test series, 8 crowded series): the same model and lines in every case, the BIC never worse, ratios equal to 1.1·10⁻⁴ of their error; 19.5 s against 52.9 s."),
+    B("Warm against cold starts on the test series: the same model and lines, and ratios equal to within a relative 1e-5 (test_v2195_plfit.py). The run-time comparison is not given here: no measurement with a source yet."),
     B("Tests with known answers (tests/test_v2195_plfit.py): the exact Jacobian against finite differences (common grid, different grids, lines switched off, drift), the ratio gradient, "
       "noiseless data recovered exactly, the stuck minimum, the Monte Carlo error bars, the NNLS shortcut against NNLS, warm against cold, serial against parallel."),
     B("Switches for comparisons: MFS_PL_FD_JAC=1 runs the old finite-difference path, MFS_PL_WARM=0 switches the warm starts off, MFS_NO_PARALLEL=1 uses one core, MFS_PL_BLAS_THREADS=keep leaves BLAS alone."),
