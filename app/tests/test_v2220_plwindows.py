@@ -1,4 +1,7 @@
-"""PL thermometry on user windows (mfs.plwindows): synthetic spectra with a KNOWN ratio. Only the data inside the windows are used."""
+"""PL thermometry on user windows (mfs.plwindows): synthetic spectra with a KNOWN ratio. Only the data inside the windows are used.
+
+The fit is a JOINT fit of both windows with both bands in both windows, so the neighbour band's tail is modelled. The synthetic data
+use the same pseudo-Voigt shape as the model; a shape mismatch in real spectra is NOT tested here."""
 import math
 import os
 import sys
@@ -21,6 +24,13 @@ def _spectrum(A1, A2, seed, c1=524.0, c2=566.0, w1=9.0, w2=10.0, scale=1.0):
     return x, rng.poisson(y).astype(float)
 
 
+def _noise_free(A1=3000.0, A2=1000.0, scale=30.0):
+    # 480-600 nm: both bands' tails (band 1 reaches ~497 nm) lie inside the measured range
+    x = np.arange(480.0, 600.0, 0.4)
+    y = scale * (A1 * pv_unit(x, 524.0, 9.0, 0.5) + A2 * pv_unit(x, 566.0, 10.0, 0.5)) + 40.0 + 0.2 * (x - 500.0)
+    return x, y
+
+
 def test_ratio_recovered_on_clean_synthetic_pair():
     # areas: I1 = 3 * I2 for a clean pair with plenty of counts
     x, y = _spectrum(3000.0, 1000.0, seed=1, scale=30.0)
@@ -29,6 +39,13 @@ def test_ratio_recovered_on_clean_synthetic_pair():
     assert not any("poor fit" in f or "not significant" in f for f in r["flags"])
     assert abs(r["ratio"] - 3.0) / 3.0 < 0.03
     assert np.isfinite(r["ratio_err"]) and r["ratio_err"] > 0
+
+
+def test_neighbour_tail_is_modelled_no_bias_on_noise_free_pair():
+    # the previous separate-window fit was biased by +1.06 % here; the joint fit removes it (noise-free, so only the model can bias)
+    x, y = _noise_free()
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    assert abs(100 * (r["ratio"] - 3.0) / 3.0) < 0.05
 
 
 def test_error_is_calibrated_over_seeds():
@@ -66,11 +83,20 @@ def test_series_keeps_order_and_temperature():
     assert rows[0]["ratio"] > rows[1]["ratio"] > rows[2]["ratio"]
 
 
-def test_window_cutting_the_band_is_flagged():
-    # window 1 ends 4 nm after the band centre: the band tail is cut, the area is an extrapolation
-    x, y = _spectrum(3000.0, 1000.0, seed=3, scale=30.0)
-    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], (512.0, 528.0), W2)[0]
-    assert any("I1: tail outside window" in f for f in r["flags"])
+def test_tail_inside_the_used_range_is_not_flagged():
+    # windows wide enough that both bands' tails (band 1 to ~497 nm, band 2 to ~596 nm) lie inside the used range: no tail warning
+    x, y = _noise_free()
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], (490.0, 540.0), (552.0, 600.0))[0]
+    assert not any("tail" in f for f in r["flags"])
+
+
+def test_band_tail_beyond_the_measured_range_is_flagged():
+    # the measured range ends at 530 nm; band 1 (centre 524, FWHM 9) extends to ~551 nm, beyond the data: the area is an extrapolation
+    x = np.arange(500.0, 530.0, 0.4)
+    y = 30.0 * 3000.0 * pv_unit(x, 524.0, 9.0, 0.5) + 40.0 + 0.2 * (x - 500.0)
+    rng = np.random.default_rng(3)
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": rng.poisson(y).astype(float)}], (512.0, 520.0), (521.0, 530.0))[0]
+    assert any("I1: tail outside measured range" in f for f in r["flags"])
 
 
 def test_too_few_points_is_reported_not_fitted():
@@ -102,11 +128,10 @@ def test_bad_window_input_is_refused(bad):
 
 
 def test_insignificant_band_gives_no_ratio_and_a_flag():
-    x, y = _spectrum(3000.0, 0.0, seed=9, scale=30.0)     # band 2 absent: only the tail of band 1 reaches window 2
-    a = PW.fit_window(x, y, W2, None, True)
-    assert "not significant" in a["flags"] or "no area" in a["flags"]
+    x, y = _spectrum(3000.0, 0.0, seed=9, scale=30.0)     # band 2 absent: the joint fit has no area for band 2
     r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
     assert math.isnan(r["ratio"])
+    assert any(f.startswith("I2:") and ("not significant" in f or "no area" in f) for f in r["flags"])
 
 
 def test_window_systematic_is_reported_and_grows_with_the_error_budget():
@@ -114,8 +139,9 @@ def test_window_systematic_is_reported_and_grows_with_the_error_budget():
     r = PW.window_systematics([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
     assert r["n_variants"] == 8
     assert np.isfinite(r["ratio_sys"]) and r["ratio_sys"] > 0
-    assert r["ratio_total"] == pytest.approx(math.hypot(r["ratio_err"], r["ratio_sys"]))
-    assert r["ratio_total"] >= r["ratio_err"]
+    assert r["ratio_err_stat_sys"] == pytest.approx(math.hypot(r["ratio_err"], r["ratio_sys"]))
+    assert r["ratio_err_stat_sys"] >= r["ratio_err"]
+    assert "bias_note_pct" not in r                                  # no separate bias term any more: the neighbour tail is in the model
 
 
 def test_window_systematic_stays_small_on_a_clean_pair():
@@ -132,12 +158,92 @@ def test_window_systematic_skips_variants_that_overlap():
     assert 0 < r["n_variants"] < 8
 
 
-PINNED_SEEDS = {1: 1.058, 2: 1.522, 3: 1.982}   # measured relative bias (%) of the nominal ratio vs the true 3.0 on the clean pair
+# CHARACTERISATION (not a correctness check): the bias that a band-SHAPE mismatch causes in the joint fit, noise-free, measured when the
+# fit was built. The model fixes eta = 0.5; real bands with another eta or width give a bias of this size. A real spectrum is not tested.
+SHAPE_MISMATCH = [  # (true eta, true FWHM 1, FWHM 2, bias % measured)
+    (0.00, 9.0, 10.0, -1.125),
+    (0.25, 9.0, 10.0, -0.453),
+    (1.00, 9.0, 10.0, +1.135),
+    (0.00, 6.0, 7.0, -3.345),
+    (1.00, 14.0, 15.0, +2.817),
+]
+
+
+@pytest.mark.parametrize("eta,w1,w2,bias_pct", SHAPE_MISMATCH)
+def test_characterised_shape_mismatch_bias(eta, w1, w2, bias_pct):
+    # the FIXED-eta model (free_eta=False, the earlier default): this is the bias that the shape mismatch causes
+    x = np.arange(500.0, 600.0, 0.4)
+    y = 30.0 * (3000.0 * pv_unit(x, 524.0, w1, eta) + 1000.0 * pv_unit(x, 566.0, w2, eta)) + 40.0 + 0.2 * (x - 500.0)
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2, True, False)[0]
+    assert abs(100 * (r["ratio"] - 3.0) / 3.0 - bias_pct) < 0.1
+
+
+@pytest.mark.parametrize("eta,w1,w2,bias_pct", SHAPE_MISMATCH)
+def test_free_eta_removes_the_shape_bias_on_noise_free_data(eta, w1, w2, bias_pct):
+    # S-PL-1: eta is fitted. On data generated with the SAME pseudo-Voigt family (any eta) the bias is gone. A real band that is not a
+    # pseudo-Voigt is NOT tested here, and the error grows (see the ratio_err of these cases)
+    x = np.arange(500.0, 600.0, 0.4)
+    y = 30.0 * (3000.0 * pv_unit(x, 524.0, w1, eta) + 1000.0 * pv_unit(x, 566.0, w2, eta)) + 40.0 + 0.2 * (x - 500.0)
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2, True, True)[0]  # opt-in free eta
+    assert abs(100 * (r["ratio"] - 3.0) / 3.0) < 0.1
+
+
+# REGRESSION GUARD ONLY: these values are the CURRENT output of the joint fit, pinned so that a change is noticed. They are NOT evidence
+# that the ratio is correct: the synthetic data share the model's shape, and the residual error on real spectra is not known.
+PINNED_SEEDS = {1: 0.009, 2: 0.464, 3: 0.916}
 
 
 @pytest.mark.parametrize("seed,bias_pct", sorted(PINNED_SEEDS.items()))
 def test_regression_pinned_relative_bias_on_known_overlap(seed, bias_pct):
-    # pinned at the value measured when the fit was built; a change of more than 0.5 percentage points is a regression to look at
+    # pins the current output (regression guard, not a correctness check); a change of more than 0.5 percentage points is to be looked at
     x, y = _spectrum(3000.0, 1000.0, seed=seed, scale=30.0)
     r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
     assert abs(100 * (r["ratio"] - 3.0) / 3.0 - bias_pct) < 0.5
+
+
+# S-PL-2: one joint fit of the series with SHARED band widths and eta. Assumption: the widths do not change with temperature.
+def _series_const_width(n=5, w1=9.0, w2=10.0, scale=30.0, noise=False):
+    x = np.arange(500.0, 600.0, 0.4)
+    ratios = [3.0, 2.5, 2.0, 1.5, 1.0]
+    out = []
+    for k in range(n):
+        A2 = 1000.0
+        y = scale * (ratios[k] * A2 * pv_unit(x, 524.0, w1, 0.5) + A2 * pv_unit(x, 566.0, w2, 0.5)) + 40.0 + 0.2 * (x - 500.0)
+        if noise:
+            y = np.random.default_rng(10 + k).poisson(y).astype(float)
+        out.append({"T": 290.0 + 10.0 * k, "x": x, "y": y})
+    return out, ratios
+
+
+def test_shared_fit_is_exact_on_noise_free_series_with_constant_widths():
+    specs, ratios = _series_const_width()
+    rows = PW.window_ratio_series_shared(specs, W1, W2)
+    for r, truth in zip(rows, ratios):
+        assert abs(100 * (r["ratio"] - truth) / truth) < 0.05
+
+
+def test_shared_fit_error_is_smaller_than_per_spectrum_on_constant_width_series():
+    specs, _ = _series_const_width()
+    per = PW.window_ratio_series(specs, W1, W2)
+    sh = PW.window_ratio_series_shared(specs, W1, W2)
+    assert np.mean([r["ratio_err"] / r["ratio"] for r in sh]) < np.mean([r["ratio_err"] / r["ratio"] for r in per])
+
+
+def test_shared_fit_biases_a_series_whose_width_changes_with_temperature():
+    # characterisation of the stated assumption: a width that drifts 0.5 nm per step is NOT described by one shared width.
+    x = np.arange(500.0, 600.0, 0.4)
+    ratios = [3.0, 2.5, 2.0, 1.5, 1.0]
+    specs = []
+    for k in range(5):
+        w1 = 8.0 + 0.5 * k
+        y = 30.0 * (ratios[k] * 1000.0 * pv_unit(x, 524.0, w1, 0.5) + 1000.0 * pv_unit(x, 566.0, 10.0, 0.5)) + 40.0 + 0.2 * (x - 500.0)
+        specs.append({"T": 290.0 + 10.0 * k, "x": x, "y": y})
+    rows = PW.window_ratio_series_shared(specs, W1, W2)
+    assert max(abs(100 * (r["ratio"] - t) / t) for r, t in zip(rows, ratios)) > 2.0
+
+
+def test_shared_fit_returns_one_row_per_spectrum_in_order():
+    specs, _ = _series_const_width(n=3)
+    rows = PW.window_ratio_series_shared(specs, W1, W2)
+    assert [r["T"] for r in rows] == [290.0, 300.0, 310.0]
+    assert all("flags" in r and "ratio_err" in r for r in rows)
