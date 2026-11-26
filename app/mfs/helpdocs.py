@@ -42,7 +42,7 @@ DOCS["Getting started"] = _doc(
     N("Rename the samples and put them in the order you want in the sample list. Colours follow that order (colour-blind-safe Okabe-Ito palette by default). "
       "A colour rule in the sidebar keeps a colour for a sample in every figure."),
     N("Choose the processing (baseline, smoothing, normalisation, offset) and the figure width (ACS single column 3.25 in, double column 7 in, Wiley 8.5 or 17.5 cm)."),
-    N("Open 'Figure controls' under the figure to change title, axes, units, ticks, legend and colours. Presets can be saved as JSON; the sidebar holds a global house style."),
+    N("Open '🎛️ Customise this figure' under the figure to change title, axes, units, ticks, legend and colours. Presets can be saved as JSON; the sidebar holds a global house style."),
     N("Download the figure as SVG, PDF, TIFF (600 dpi), PNG (600 dpi), the processed data as CSV, or everything as one ZIP. "
       "If your browser blocks downloads, use 'Save to folder'."),
     N("Use 'Add to combined figure' to put panels of different techniques into one figure, and tick 'Collect figures for the SI bundle' to get the SI export."),
@@ -55,10 +55,10 @@ DOCS["Getting started"] = _doc(
       "Developer adds diagnostics. You can set it for all modules or for one module. "
       "Not every page follows the level yet: the Structure (CIF) tables and two Microscopy sections do; the other technique pages are being audited."),
     H("Simple mode"),
-    P("Under a figure, Figure controls → Style & colours, 'Simple mode' makes the figure black only and tells the samples apart by shape: one black symbol per sample for data "
+    P("Under a figure, 🎛️ Customise this figure → Style & colours, 'Simple mode' makes the figure black only and tells the samples apart by shape: one black symbol per sample for data "
       "points, one line style per sample for continuous curves, grey bars with a hatch per series. Legends follow. Switch it off to get the colours back."),
     H("Style rules"),
-    B("Arial or Helvetica 7–9 pt, inward ticks on four sides, no grid, no title by default (each can be changed in Figure controls)."),
+    B("Arial or Helvetica 7–9 pt, inward ticks on four sides, no grid, no title by default (each can be changed in 🎛️ Customise this figure)."),
     B("Units in parentheses, for example 2θ (°) or Wavenumber (cm⁻¹). Unit conversion only relabels the ticks; the CSV keeps the original units."),
     H("Limits"),
     B("The file readers were built from published format descriptions and tested on synthetic and some real files. If an import fails, export plain text as described in the Export guide; two-column text always works."),
@@ -81,7 +81,7 @@ DOCS["PXRD"] = _doc(
     N("Upload the patterns (STOE WinXPOW .xy/.dat/.txt/.csv; Rigaku .rasx/.ras). Order and rename them in the sample list."),
     N("Choose the processing: background removal (asymmetric least squares, rolling ball or polynomial), smoothing, normalisation, offset."),
     N("Optional: add a simulated pattern from a CIF (Cu Kα1, pseudo-Voigt peaks) as a grey trace or sticks, and highlight bands."),
-    N("Adjust the figure in Figure controls and download."),
+    N("Adjust the figure in 🎛️ Customise this figure and download."),
     H("Tutorial: solid solution, Vegard shift (opt-in)"),
     N("Switch on 'Solid solution: Vegard shift'. Choose two cubic end members from the library (A and B) and the composition x with the slider (x = fraction of A)."),
     N("The program computes the cell a(x) = x·a_A + (1 − x)·a_B and moves the reference peaks; the predicted positions are drawn over the measured pattern."),
