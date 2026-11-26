@@ -10,3 +10,8 @@ tests/data/olympus_sis/
 tests/data/*_REAL.*
 
 tests/data/*.dts
+
+# privé-data (nooit in de repo): TEM-archieven, Rigaku/zetasizer-metingen, XRD/XRF-sets
+*.rar
+*.ho
+*.dts
