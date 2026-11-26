@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.24.0 — 2026-11-27 (release: goedgekeurde branches samengevoegd)
+
+- **Vegard (PXRD)**: schatting van de samenstelling uit meerdere pieken; tetragonale en hexagonale eindleden (lineair).
+- **Structuur**: indexering met cel-controle; niet-I-afwezigheden; cel-only Le Bail versus structuurroute gecontroleerd.
+- **PL-vensters**: minimum aantal tellingen per venster (100, synthetisch), gedeelde ratio-helper, signaalvlaggen; reproduceerbaar controlescript voor de vensterfit.
+- **Reticon**: navigatienaam-test; Edge-versie in contactvel en log; palet-tokens bij export.
+- **TEM**: regressietestbestand (LF); polydispersiteitstest en edge-profieltest voor de precieze bolmodus (synthetisch); testomgeving gedocumenteerd.
+- **Info-documenten**: naam van de figuurbesturing gelijkgetrokken ("🎛️ Customise this figure"); getallentest voor bronloze getallen (plafond 3); verwijzing in de ontwikkelrichtlijn.
+
 ## 2.23.0 — 2026-11-26 (release: goedgekeurde branches samengevoegd)
 
 - **Info-PDF's** voor 24 modules (reproduceerbaar), en een concept-PDF voor TEM (CONCEPT_, niet definitief).
