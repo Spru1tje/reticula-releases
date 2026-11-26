@@ -3,7 +3,7 @@ discs with a known radius (own model, not validated against the instrument). Syn
 
 Test environment (documentation only; no test depends on it beyond the skips already in the suite):
   - Tesseract is needed for the real OCR tests. These tests replace OCR with a fake, so they run without it.
-  - threadpoolctl is optional for this module; without it test_v2195_plfit is skipped (seen with Python 3.12 venv, 2026-11-26).
+  - threadpoolctl is optional for this module; without it test_v2195_plfit is skipped (seen with a Python 3.12 venv).
   - The CI totals differ between machines when these optional packages or MFS_TEST_DTS* files differ; record them with the result."""
 import numpy as np
 import pytest
