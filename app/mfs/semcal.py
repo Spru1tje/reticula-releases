@@ -404,6 +404,10 @@ def calibrate(img8: np.ndarray, meta_pixel_nm=None, meta_mag=None, meta_source=N
             notes.append(("info", f"OCR read '{ocr['label']['text']}' – interpreted as {v:g} µm (µ is often read as p)."))
     if ocr["label"]:
         ocr["label"]["shown"] = f"{ocr['label']['value']:g} {ocr['label']['unit']}"
+    if ocr["label"] and not _is_standard(ocr["label"]["nm"]) and not meta_pixel_nm:
+        # the value is used as read; a non-standard bar length (not 1, 2 or 5 x 10^n nm) is flagged for a check by the user
+        notes.append(("warn", f"The OCR label '{ocr['label']['shown']}' is not a standard bar length (1, 2 or 5 x 10^n). "
+                      "It was used as read and there is no file metadata to cross-check it. Check it against the printed bar."))
     if ocr.get("label_conflict"):
         notes.append(("warn", "The OCR passes read different scale labels: " + ", ".join(ocr["label_conflict"])
                       + f". Used {ocr['label']['shown']} (most votes; a tie goes to a standard bar length). "
