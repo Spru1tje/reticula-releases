@@ -22,14 +22,30 @@ BROWSERS = (
 )
 
 
-def find_browser() -> str:
-    for path in BROWSERS:
-        if pathlib.Path(path).is_file():
-            return path
-    raise SystemExit("No headless Edge or Chrome found; install one or edit BROWSERS.")
+def find_browsers() -> list[str]:
+    found = [path for path in BROWSERS if pathlib.Path(path).is_file()]
+    if not found:
+        raise SystemExit("No headless Edge or Chrome found; install one or edit BROWSERS.")
+    return found
 
 
-def render(browser: str, svg: pathlib.Path, png: pathlib.Path, size: int) -> None:
+def render(browsers: list[str], svg: pathlib.Path, png: pathlib.Path, size: int) -> None:
+    """Try each browser in order; a timeout or missing PNG falls back to the next."""
+    errors: list[str] = []
+    for browser in browsers:
+        try:
+            png.unlink(missing_ok=True)  # an old PNG must never count as a fresh render
+            _render_once(browser, svg, png, size)
+        except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
+            errors.append(f"{pathlib.Path(browser).name}: {type(exc).__name__}")
+            continue
+        if png.is_file() and png.stat().st_size > 0:
+            return
+        errors.append(f"{pathlib.Path(browser).name}: no PNG written")
+    raise RuntimeError(f"{svg.name} {size}px failed: " + "; ".join(errors))
+
+
+def _render_once(browser: str, svg: pathlib.Path, png: pathlib.Path, size: int) -> None:
     page = (
         '<html><head><meta charset="utf-8"></head>'
         '<body style="margin:0;background:#FFFFFF">'
@@ -59,18 +75,24 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=pathlib.Path)
     args = ap.parse_args()
 
-    browser = find_browser()
+    browsers = find_browsers()
     args.out.mkdir(parents=True, exist_ok=True)
     svgs = sorted(args.src.glob("*.svg"))
     if not svgs:
         print(f"no SVG files in {args.src}")
         return 1
+    failures = 0
     for svg in svgs:
         for size in SIZES:
             png = args.out / f"{svg.stem}_{size}.png"
-            render(browser, svg, png, size)
+            try:
+                render(browsers, svg, png, size)
+            except RuntimeError as exc:
+                failures += 1
+                print(f"FAIL {exc}")
+                continue
             print(f"ok {png.name}")
-    return 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

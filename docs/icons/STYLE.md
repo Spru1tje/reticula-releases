@@ -51,3 +51,18 @@ our own drawings. No BioRender or other commercial icon sets are copied.
 - PNG export at 24, 48, 96 and 192 px from the SVG source (renderer to be fixed in the pipeline).
 - Proof renders are made with headless Edge; the contact sheet is `icons_proof/contact_sheet.png`.
 - Every icon renders to PNG and passes the checks above before it is added to the library.
+
+## Proposal: one source for colour tokens (not yet in code)
+
+Status: proposal only. The code change waits for expert-reviewer approval.
+
+- Today the palette exists in more than one place: this guide, and `app/mfs/reticon/core.py`:
+  main `#1E293B` at line 35 (not in this proposal), teal `#14B8A6` and amber `#F59E0B` at lines 36–37,
+  and a second palette block at lines 347–355 with `#2E6F95` and `#1F2D3D`. Gradients are defined at
+  lines 386–402 (stop `#FFFFFF`, opacity 0.9 at offset 0.22). These do not agree with this guide.
+- Proposed: one token file (for example `app/mfs/reticon/tokens.py`) that holds exactly the four
+  tokens above (ink, accent, muted, paper) plus a dark-theme mapping. The generator and this guide
+  both read from it; the guide lists the values, the code reads them.
+- Why: a single source keeps light and dark output consistent and makes a palette change one edit.
+- Impact: icon colours change only where the code currently uses other colours; the proof set in
+  `app/assets/icons_proof/` already uses only the four tokens and would not change.
