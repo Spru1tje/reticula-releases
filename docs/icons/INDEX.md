@@ -15,11 +15,26 @@ No external artwork, no BioRender or other commercial sets, no CC0 sources used.
 | ftir_spectrum | FTIR | own drawing | own work (Reticula) | 64 |
 | zeta_potential | Zetasizer | own drawing | own work (Reticula) | 64 |
 | structure_cell | Structure (unit cell) | own drawing | own work (Reticula) | 64 |
+| tga_curve | TGA | own drawing | own work (Reticula) | 64 |
+| dsc_curve | DSC | own drawing | own work (Reticula) | 64 |
+| icp_bars | ICP | own drawing | own work (Reticula) | 64 |
+| uvvis_spectrum | UV/Vis | own drawing | own work (Reticula) | 64 |
+| xps_peaks | XPS | own drawing | own work (Reticula) | 64 |
 
 Exports: `app/assets/icons_proof/png/<name>_<size>.png` at 24, 48, 96 and 192 px,
 made with `app/tools/export_icons.py` (headless Edge).
 Contact sheet: `app/assets/icons_proof/contact_sheet.png`.
 
 Migration of the 24-grid navigation icons (`app/assets/nav_icons`, still used by the app and left unchanged):
-- nmr -> nmr_spectrum; ftir -> ftir_spectrum; zeta -> zeta_potential; structure_cif -> structure_cell.
-- sorption -> sorption_isotherm (already in this set; no new drawing).
+- nmr -> nmr_spectrum
+- ftir -> ftir_spectrum
+- zeta -> zeta_potential
+- structure_cif -> structure_cell
+- sorption -> sorption_isotherm
+- sem -> sem_particle
+- pxrd -> pxrd_pattern
+- tga -> tga_curve
+- dsc -> dsc_curve
+- icp -> icp_bars
+- uvvis -> uvvis_spectrum
+- xps -> xps_peaks
