@@ -21,6 +21,7 @@ ORDER = [
     "pxrd_pattern", "tem_instrument", "tem_lattice", "sem_particle", "mof_pore_frame", "sorption_isotherm",
     "nmr_spectrum", "ftir_spectrum", "zeta_potential", "structure_cell",
     "tga_curve", "dsc_curve", "icp_bars", "uvvis_spectrum", "xps_peaks",
+    "kinetics_decay", "photolum_peak", "sds_bands", "sample_grid", "export_document",
 ]
 OWN = {"source": "own drawing", "license": "own work (Reticula)"}
 METADATA = {
@@ -39,6 +40,11 @@ METADATA = {
     "icp_bars": {"domain": "ICP", **OWN},
     "uvvis_spectrum": {"domain": "UV/Vis", **OWN},
     "xps_peaks": {"domain": "XPS", **OWN},
+    "kinetics_decay": {"domain": "Kinetics", **OWN},
+    "photolum_peak": {"domain": "Photoluminescence", **OWN},
+    "sds_bands": {"domain": "SDS-PAGE", **OWN},
+    "sample_grid": {"domain": "Sample database", **OWN},
+    "export_document": {"domain": "Export", **OWN},
 }
 # legacy 24-grid nav icon -> 64-grid icon in this set
 LEGACY_MAP = {
@@ -54,6 +60,11 @@ LEGACY_MAP = {
     "icp": "icp_bars",
     "uvvis": "uvvis_spectrum",
     "xps": "xps_peaks",
+    "kinetics": "kinetics_decay",
+    "photolum": "photolum_peak",
+    "sds": "sds_bands",
+    "sample_db": "sample_grid",
+    "si_export": "export_document",
 }
 HEADER = """# Reticon proof set: source index
 

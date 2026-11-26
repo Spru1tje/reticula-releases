@@ -69,6 +69,57 @@ def _render_once(browser: str, svg: pathlib.Path, png: pathlib.Path, size: int) 
         subprocess.run(cmd, check=True, capture_output=True, timeout=60)
 
 
+CELL = 240  # px per row; a row shows one icon at each size
+LABEL_W = 200
+
+
+def build_contact_sheet(browsers: list[str], svgs: list[pathlib.Path], sheet_png: pathlib.Path) -> None:
+    """Screenshot a review sheet: one row per icon, each shown at 24, 48, 96 and 192 px.
+
+    Generated automatically after the PNG export, so the visual review is always current.
+    Tries each browser in order, like render().
+    """
+    rows = []
+    for svg in svgs:
+        imgs = "".join(
+            f'<img src="{svg.resolve().as_uri()}" width="{s}" height="{s}" style="display:block;margin-right:16px">'
+            for s in SIZES
+        )
+        rows.append(
+            '<div style="display:flex;align-items:flex-end;height:%dpx;border-bottom:1px solid #DDD;">'
+            '<div style="width:%dpx;font:13px sans-serif;color:#1F2D3D">%s</div>%s</div>'
+            % (CELL, LABEL_W, svg.stem, imgs)
+        )
+    page = (
+        '<html><head><meta charset="utf-8"></head>'
+        '<body style="margin:0;padding:12px;background:#FFFFFF">' + "".join(rows) + "</body></html>"
+    )
+    width = LABEL_W + sum(SIZES) + 16 * len(SIZES) + 24
+    height = CELL * len(svgs) + 24
+    errors: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        page_path = pathlib.Path(tmp) / "sheet.html"
+        page_path.write_text(page, encoding="utf-8")
+        for browser in browsers:
+            sheet_png.unlink(missing_ok=True)
+            try:
+                subprocess.run(
+                    [
+                        browser, "--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
+                        f"--window-size={width},{height}", f"--screenshot={sheet_png.resolve()}",
+                        page_path.resolve().as_uri(),
+                    ],
+                    check=True, capture_output=True, timeout=120,
+                )
+            except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
+                errors.append(f"{pathlib.Path(browser).name}: {type(exc).__name__}")
+                continue
+            if sheet_png.is_file() and sheet_png.stat().st_size > 0:
+                return
+            errors.append(f"{pathlib.Path(browser).name}: no PNG written")
+    raise RuntimeError("contact sheet failed: " + "; ".join(errors))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", required=True, type=pathlib.Path)
@@ -92,6 +143,13 @@ def main() -> int:
                 print(f"FAIL {exc}")
                 continue
             print(f"ok {png.name}")
+    sheet = args.out.parent / "contact_sheet.png"
+    try:
+        build_contact_sheet(browsers, svgs, sheet)
+        print(f"ok {sheet.name}")
+    except RuntimeError as exc:
+        failures += 1
+        print(f"FAIL {exc}")
     return 1 if failures else 0
 
 

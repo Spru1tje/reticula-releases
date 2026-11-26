@@ -20,6 +20,11 @@ No external artwork, no BioRender or other commercial sets, no CC0 sources used.
 | icp_bars | ICP | own drawing | own work (Reticula) | 64 |
 | uvvis_spectrum | UV/Vis | own drawing | own work (Reticula) | 64 |
 | xps_peaks | XPS | own drawing | own work (Reticula) | 64 |
+| kinetics_decay | Kinetics | own drawing | own work (Reticula) | 64 |
+| photolum_peak | Photoluminescence | own drawing | own work (Reticula) | 64 |
+| sds_bands | SDS-PAGE | own drawing | own work (Reticula) | 64 |
+| sample_grid | Sample database | own drawing | own work (Reticula) | 64 |
+| export_document | Export | own drawing | own work (Reticula) | 64 |
 
 Exports: `app/assets/icons_proof/png/<name>_<size>.png` at 24, 48, 96 and 192 px,
 made with `app/tools/export_icons.py` (headless Edge).
@@ -38,3 +43,8 @@ Migration of the 24-grid navigation icons (`app/assets/nav_icons`, still used by
 - icp -> icp_bars
 - uvvis -> uvvis_spectrum
 - xps -> xps_peaks
+- kinetics -> kinetics_decay
+- photolum -> photolum_peak
+- sds -> sds_bands
+- sample_db -> sample_grid
+- si_export -> export_document
