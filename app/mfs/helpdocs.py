@@ -192,8 +192,8 @@ DOCS["Structure solution (unknown compound)"] = _doc(
     P("The linker is treated as a rigid molecule. The cost is the scaled R factor on squared intensities, with the symmetry images of the linker. "
       "The search has two stages: a grid of orientations (evaluated in parallel), then simulated annealing from the best three to five orientations, with translation, rotation and face radii free."),
     F(r"$R_{F^2} = \sum_h |F_o^2 - k\,F_c^2| \,/\, \sum_h F_o^2$"),
-    P("Over three seeds, a 150-point orientation grid with 300 steps and five refined starts gives R 0.196 (spread 0.001). The earlier 500-point grid with 150 steps gave 0.197–0.202."),
-    I("struct_fig_speed.png", "Figure 5. Left: the same lead-sulfate refinement with float64 and float32 arithmetic (the program uses float32 in the peak profile): 89 s versus 48 s, Rwp 0.086712 versus 0.086710. Right: R over three seeds for four search settings.", 0.27),
+    P("Over three seeds, a 150-point orientation grid with 300 steps and five refined starts gives R 0.196 (spread 0.001). The program's default search is a 500-point grid with 2000 steps."),
+    I("struct_fig_speed.png", "Figure 5. Left: the same lead-sulfate refinement with float64 and float32 arithmetic (the program uses float32 in the peak profile): 89 s versus 48 s, Rwp 0.086712 versus 0.086710. Right: R over three seeds for four search settings. The grid of 150 points, 300 steps and five starts is the study setting, not the program's default (500 points, 2000 steps).", 0.27),
     H("What is checked"),
     K("Charge flipping recovers the Zr and O framework from simulated UiO-66 powder data with 5 % intensity noise (Zr at least 90 %, O at least 80 % matched within 0.5–0.7 Å). The two regression tests take about 8 s together."),
     B("The rigid-body fit on simulated UiO-66 data reaches R about 0.20 (the true model gives 0.19). A wrong topology gives 0.6 or more."),
