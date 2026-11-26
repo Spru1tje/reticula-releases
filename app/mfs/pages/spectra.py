@@ -103,6 +103,9 @@ def page_pxrd():
     if LV.opt_in("🧮 Rietveld / Le Bail refinement (cell, phases, weight fractions)", "pxrd_rv",
                  help="Off until you switch it on: choose the phases (CIF) and press Refine – everything else is automatic."):
         _rietveld_ui(raws, lo, hi, ref_mode, subst)
+    if LV.opt_in("🧬 Solid solution: Vegard shift of the reference peaks (cubic end members)", "pxrd_vegard",
+                 help="Off until you switch it on: choose two cubic end members and the composition x; the reference peaks move by Vegard's law."):
+        _vegard_ui(raws, lo, hi)
     with LV.gate("Developer", globals()):
         with st.expander("📏 Peak width / Scherrer crystallite size (with instrumental correction)"):
             if traces:
@@ -183,6 +186,92 @@ def page_pxrd():
                     ax.set_ylabel(r"$\Delta 2\theta$ vs reference (m°)"); ax.legend(frameon=False)
                 fig, ax = newfig(); draw_sh(ax)
                 show(fig, "PXRD_peak_shifts", tdf, draw_sh, "Peak shifts")
+
+
+def _vegard_ui(raws, lo, hi):
+    """v2.23.0: solid solution of two cubic end members (Vegard, linear). The reference peaks move with the composition x.
+    Source: Vegard (1921), Z. Phys. 5, 17–26, doi:10.1007/BF01349680. Cubic cells only."""
+    import math
+    from mfs import rietveld as RV
+    from mfs import phaseid as PID
+    from mfs import vegard as VG
+    if not raws:
+        st.info("Load a pattern first.")
+        return
+    cubic = []
+    for e in PID.library():
+        c = e.get("cell") or []
+        if len(c) == 6 and abs(c[0] - c[1]) < 1e-6 and abs(c[1] - c[2]) < 1e-6 and all(abs(v - 90.0) < 1e-6 for v in c[3:]):
+            cubic.append(e)
+    if len(cubic) < 2:
+        st.info("Fewer than two cubic reference structures in the library.")
+        return
+    box = st.container(border=True, key="vg_box")
+    by_label = {f"{e['name']} ({e['source']})": e for e in cubic}
+    names = list(by_label)
+    c1, c2, c3 = box.columns([2, 2, 3])
+    nm = c1.selectbox("Pattern", list(raws), key="vg_sample")
+    la = c2.selectbox("End member A", names, index=0, key="vg_A")
+    lb = c2.selectbox("End member B", names, index=1, key="vg_B")
+    x = c3.slider("x (fraction of A)", 0.0, 1.0, 0.5, 0.01, key="vg_x")
+    if la == lb:
+        box.warning("Choose two different end members.")
+        return
+    wl = RV.RADIATION["Cu Kα1"][0][0]
+    dmin = wl / (2.0 * math.sin(math.radians(hi / 2.0)))
+    ea, eb = by_label[la], by_label[lb]
+    try:
+        pa = RV.Phase.from_cif(ea["path"]).build(dmin)
+        pb = RV.Phase.from_cif(eb["path"]).build(dmin)
+    except Exception as exc:  # a reference that the reader rejects is reported, not hidden
+        box.error(f"Could not read an end member: {type(exc).__name__}: {exc}")
+        return
+    aA, aB = float(pa.cell0[0]), float(pb.cell0[0])
+    a_x = VG.lattice_from_composition(x, aA, aB)
+    hk = np.asarray(pa.hkl, float)
+    norm = (hk ** 2).sum(1)
+    th_x = np.array([VG.two_theta_for_lattice(a_x, n, wl) for n in norm])
+    th_A = np.array([VG.two_theta_for_lattice(aA, n, wl) for n in norm])
+    th_B = np.array([VG.two_theta_for_lattice(aB, n, wl) for n in norm])
+    xo, yo = raws[nm]
+    xo, yo = np.asarray(xo, float), np.asarray(yo, float)
+    m = (xo >= lo) & (xo <= hi)
+    box.caption(f"a(A) = {aA:.4f} Å, a(B) = {aB:.4f} Å, a(x = {x:.2f}) = {a_x:.4f} Å (Vegard, linear). "
+                "Dashed: end members. Solid: predicted position at x. Cu Kα1 assumed.")
+
+    def draw(ax, xo=xo, yo=yo, th_x=th_x, th_A=th_A, th_B=th_B):
+        ax.plot(xo[m], yo[m], lw=0.8, color="0.2", label="measured")
+        for t in th_A[np.isfinite(th_A)]:
+            if lo <= t <= hi:
+                ax.axvline(t, color="C0", ls="--", lw=0.7)
+        for t in th_B[np.isfinite(th_B)]:
+            if lo <= t <= hi:
+                ax.axvline(t, color="C1", ls="--", lw=0.7)
+        for t in th_x[np.isfinite(th_x)]:
+            if lo <= t <= hi:
+                ax.axvline(t, color="C3", lw=0.9)
+        ax.set_xlim(lo, hi)
+        ax.set_xlabel(r"2$\theta$ (°)"); ax.set_ylabel("intensity")
+
+    fig, ax = newfig(aspect=0.75)
+    draw(ax)
+    show(fig, f"PXRD_Vegard_{nm}", pd.DataFrame({"two_theta": xo[m], "observed": yo[m]}), draw, "Solid solution (Vegard shift)",
+         units={"x": "2theta"})
+    with box.expander("Estimate x from one observed peak (end members A and B; outside the range nothing is estimated)", expanded=False):
+        labels_r = [f"({int(h)} {int(k)} {int(l)})" for h, k, l in hk]
+        if not labels_r:
+            st.info("No reflections in this 2θ range.")
+            return
+        r_sel = st.selectbox("Reflection (of end member A)", labels_r, key="vg_refl")
+        obs = st.number_input("Observed 2θ of that reflection (°)", min_value=0.0, max_value=180.0, value=float(lo),
+                              step=0.01, format="%.3f", key="vg_obs")
+        if st.button("Estimate x", key="vg_est"):
+            idx = labels_r.index(r_sel)
+            r = VG.x_from_two_theta(float(obs), float(norm[idx]), wl, aA, aB)
+            if r["status"] == "ok":
+                st.success(f"x(A) ≈ {r['x']:.3f} (a_obs = {r['a_obs']:.4f} Å)")
+            else:
+                st.warning(f"Not estimated: {r.get('reason', r['status'])}")
 
 
 def _crystal_size_ui(traces, lo, hi):

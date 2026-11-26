@@ -82,6 +82,12 @@ DOCS["PXRD"] = _doc(
     N("Choose the processing: background removal (asymmetric least squares, rolling ball or polynomial), smoothing, normalisation, offset."),
     N("Optional: add a simulated pattern from a CIF (Cu Kα1, pseudo-Voigt peaks) as a grey trace or sticks, and highlight bands."),
     N("Adjust the figure in Figure controls and download."),
+    H("Tutorial: solid solution, Vegard shift (opt-in)"),
+    N("Switch on 'Solid solution: Vegard shift'. Choose two cubic end members from the library (A and B) and the composition x with the slider (x = fraction of A)."),
+    N("The program computes the cell a(x) = x·a_A + (1 − x)·a_B and moves the reference peaks; the predicted positions are drawn over the measured pattern."),
+    N("Optionally estimate x from one observed peak: pick the reflection, type its 2θ and press 'Estimate x'. Nothing is estimated outside the range between the two end members."),
+    P("Source: Vegard (1921), Die Konstitution der Mischkristalle und die Raumfüllung der Atome, Z. Phys. 5, 17–26, doi:10.1007/BF01349680. "
+      "Vegard's law is an approximation; many solid solutions deviate from it (a bowing term is in mfs/vegard.py but not in the panel). Only cubic cells are supported."),
     H("Tutorial: crystallite size and microstrain (opt-in)"),
     N("Switch on 'Crystallite size and microstrain'. Peaks are fitted automatically."),
     N("Choose the instrumental broadening: typical laboratory value (0.05°), a standard you measured (LaB₆ or Si), or a value you know."),
