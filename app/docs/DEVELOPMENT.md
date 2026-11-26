@@ -13,4 +13,4 @@
 6. Optional / heavy tools (e.g. Rietveld, crystallite size) stay **hidden until the user clicks them open**.
 7. Tests: `pytest tests/` – new behaviour needs a test on synthetic data with a known answer.
 8. **Info documents**: after every big change (new module, method, default, file format or output) update the module's document in `mfs/helpdocs.py` (the *Help and info*
-   module and the 📖 PDF button), in the same release. English; write abbreviations out first; mark unchecked advice as *General practice*. See also `AGENTS.md` at the repo root.
+   module and the 📖 PDF button), in the same release. English; write abbreviations out first; mark unchecked advice as *General practice*. See also `AGENTS.md` at the repo root. Check the numbers with `pytest tests/test_helpdoc_numbers_sourced.py`: it counts the prose numbers that occur nowhere in the code, tests or notes, and fails above the ceiling `MAX_UNSOURCED` (a count only; the numbers are not shown).
