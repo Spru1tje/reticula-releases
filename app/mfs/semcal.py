@@ -426,6 +426,13 @@ def calibrate(img8: np.ndarray, meta_pixel_nm=None, meta_mag=None, meta_source=N
     for c in cands[1:]:
         a, b = cands[0]["nm_per_px"], c["nm_per_px"]
         dv = 100 * (b - a) / a
+        if c["method"].startswith("scale bar") and abs(dv) >= 2:
+            # the OCR label disagrees with the metadata pixel size: say which numbers disagree; nothing is changed automatically
+            notes.append(("warn", f"The OCR scale label '{ocr['label']['shown']}' does not match the metadata pixel size "
+                          f"{a:.4g} nm/px. The detected scale bar is {c['bar_px']:.0f} px, which gives {b:.4g} nm/px "
+                          f"({dv:+.1f} %). The label and the metadata disagree; neither was changed automatically. "
+                          "Check the printed label against the bar."))
+            continue
         is_mag = c["method"].startswith("magnification")
         lvl = "ok" if abs(dv) < 2 else ("info" if is_mag else "warn")
         notes.append((lvl, f"Cross-check – {c['method']}: {b:.4g} nm/px ({dv:+.1f} % vs {cands[0]['method']})"
