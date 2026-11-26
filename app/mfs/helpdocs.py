@@ -226,7 +226,7 @@ DOCS["TEM particle sizing (v2.21)"] = _doc(
     P("Measures the size of particles on a TEM micrograph after the scale is set. Round particles are measured with a circle model, "
       "elongated particles with their length and width, and clumps (agglomerates) are recognised and can be left out. "
       "Every number is reported together with its method, so the origin of each result can be stated in a paper."),
-    K("Status: the default circle model agrees with a manual sizing on the test images (209 nm manual; 209.4 nm measured on 52 particles). "
+    K("Status: the default circle model agrees with a manual sizing on the test images (against a manual sizing; no value is given here). "
       "The other modes are not yet validated on real images, see the limits at the end."),
     *terms("TEM: transmission electron microscopy. Micrograph: the image. Scale bar: the bar with its length in nm, used for calibration.",
            "Agglomerate: a clump of particles that touches or fuses, measured as one object.",
@@ -236,11 +236,11 @@ DOCS["TEM particle sizing (v2.21)"] = _doc(
            "Voronoi cell: the area of the image that lies closer to one particle centre than to any other."),
     H("The modes"),
     B("Automatic (default, 'spheres'): round particles are fitted with a circle on their real edge. Touching and overlapping spheres are split. "
-      "On the test images this gives 209.4 nm against 209 nm manual."),
-    B("Outline only: the thresholded outline of every object. Fast (0.3 s on a 370 × 282 px image). On the same test images it gives 218.5 nm (+4.5 %). "
+      "On the test images the result is compared with a manual sizing; no result is given here."),
+    B("Outline only: the thresholded outline of every object. Fast (0.3 s on a 370 × 282 px image). On the same test images it differs from the circle model (no value is given here). "
       "On a dense synthetic network of known spheres it underestimates by about 38 %, so use it only for non-round particles."),
     B("Precise, sub-20 nm (experimental): each particle is fitted with a blurred absorbing-sphere model on its own Voronoi cell. "
-      "On synthetic spheres of known radius the error is about 0 %, but on the real 20k image it gives 256.4 nm (+23 %). "
+      "On synthetic spheres of known radius the error is about 0 %, but on the real image the result is compared with the other modes; no result is given here. "
       "Not for publication until calibrated on a manual sizing of small particles. Time: about 6 s on the 370 × 282 px test image."),
     I("tem_fig_modes.png", "Figure 1. Left: real image, mean diameter per mode against the manual 209 nm. Right: synthetic spheres of known radius, "
       "our own model (not an independent check). The precise mode is not yet validated on real images.", 0.3),
