@@ -9,7 +9,7 @@ Order of reliability used by calibrate():
   3. magnification (metadata or OCR) with the instrument's reference display width (127 mm for Philips/FEI XL)
   4. manual: the user marks the two bar ends and types the value."""
 from __future__ import annotations
-import os, re, shutil, sys
+import math, os, re, shutil, sys
 import numpy as np
 
 UNIT_NM = {"pm": 1e-3, "å": 0.1, "a": 0.1, "nm": 1.0, "µm": 1e3, "um": 1e3, "μm": 1e3, "mm": 1e6, "m": 1e9}
@@ -264,7 +264,11 @@ _EXCL = re.compile(r"(WD|W\.D\.|HFW|FWD|FOV|Width|Spot|Dwell|HV|EHT|kV|Det|Probe
 def _fix_ocr(t: str) -> str:
     """Common OCR slips in a scale label: l/I/| for 1, O for 0, 'urn' for 'um'."""
     t = re.sub(r"(?<![A-Za-z])[lI|](?=\s*(?:\d|[.,]?\d*\s*(?:[µu]m|nm)))", "1", t)
-    t = re.sub(r"(?<=\d)[oO]|[oO](?=[.,]?\d)", "0", t)
+    for _ in range(3):      # every O of a run after a digit: "1OO" -> "10O" -> "100" (one pass only fixed the first O)
+        t2 = re.sub(r"(?<=\d)[oO]|[oO](?=[.,]?\d)", "0", t)
+        if t2 == t:
+            break
+        t = t2
     t = t.replace("urn", "um").replace("pum", "µm")
     return re.sub(r"(?<=\d)(\s*)(?:[yjqµ]u?|u)m(?![a-zA-Z])", r"\1µm", t)      # µ read as y / j / q
 
@@ -284,6 +288,21 @@ def _near_bar(box, bar, h):
     cy = (box["y0"] + box["y1"]) / 2
     yin = (bar["y0"] - 4 * th - 10) <= cy <= (bar["y1"] + 4 * th + 10)
     return xin and yin
+
+
+def _is_standard(nm) -> bool:
+    """A scale-bar length of 1, 2 or 5 × 10^n (nm): the lengths instruments draw bars with (400 nm is not one)."""
+    if not nm or nm <= 0:
+        return False
+    m = nm / 10 ** math.floor(math.log10(nm))
+    return any(abs(m - s) < 1e-9 for s in (1.0, 2.0, 5.0))
+
+
+def _pick_vote(votes: dict):
+    """The scale label with the most votes over the OCR passes. A tie goes to a standard bar length, then to the reading
+    that came first. votes: {(value, unit, nm): [count, text, boxes]}. Returns (label, its entry, the other readings)."""
+    ranked = sorted(votes.items(), key=lambda kv: (-kv[1][0], not _is_standard(kv[0][2])))
+    return ranked[0][0], ranked[0][1], [k for k, _ in ranked[1:]]
 
 
 def read_strip(img8: np.ndarray, strip_row=None, bar=None):
@@ -341,7 +360,9 @@ def read_strip(img8: np.ndarray, strip_row=None, bar=None):
                     break
             p = None
             if votes:
-                p, (n, txt, ws) = max(votes.items(), key=lambda kv: kv[1][0])
+                p, (n, txt, ws), others = _pick_vote(votes)
+                if others:       # the passes disagree (e.g. 100 vs 400 nm): kept for the notes in calibrate()
+                    res["label_conflict"] = [f"{k[0]:g} {k[1]} ({votes[k][0]}×)" for k in [p] + others]
             if p:
                 res["label"] = {"value": p[0], "unit": p[1], "nm": p[2], "text": txt,
                                 "box": (min(t["x0"] for t in ws), min(t["y0"] for t in ws), max(t["x1"] for t in ws), max(t["y1"] for t in ws))}
@@ -383,6 +404,10 @@ def calibrate(img8: np.ndarray, meta_pixel_nm=None, meta_mag=None, meta_source=N
             notes.append(("info", f"OCR read '{ocr['label']['text']}' – interpreted as {v:g} µm (µ is often read as p)."))
     if ocr["label"]:
         ocr["label"]["shown"] = f"{ocr['label']['value']:g} {ocr['label']['unit']}"
+    if ocr.get("label_conflict"):
+        notes.append(("warn", "The OCR passes read different scale labels: " + ", ".join(ocr["label_conflict"])
+                      + f". Used {ocr['label']['shown']} (most votes; a tie goes to a standard bar length). "
+                      "Check the printed label against the bar, or give the scale by hand."))
     if bar and ocr["label"]:
         cands.append({"method": "scale bar (detected) + OCR label", "nm_per_px": ocr["label"]["nm"] / bar["length_px"],
                       "bar_px": bar["length_px"], "value": ocr["label"]["value"], "unit": ocr["label"]["unit"]})
