@@ -32,6 +32,14 @@ from mfs.plratio import pv_unit
 ETA = 0.5          # Lorentzian share of the pseudo-Voigt; fixed (see the module docstring)
 MIN_POINTS = 12
 SIGNIFICANCE = 3.0  # a band area must exceed this many of its own errors to give a ratio
+# S-Figuryte-1: minimum mean counts per point in a window. Below it the ratio is not given ("too little signal").
+# Measured on our own synthetic Poisson series (same two-band model, 60 seeds per level, window-1 mean counts):
+#   mean counts  1.5   2.5   3.5   5.5   8.5   10.5  15.5  30.4  50.6   100.2  200.5
+#   bias (%)     +63   +60  +108   +32  +26   +23   +12   +3.9  +2.0   -0.03  -0.56
+#   z-std        1.7   0.9   0.9   0.8   1.0   1.0   0.9   1.0   1.1    0.9    1.2   (1.0 = error bars calibrated)
+# 100 is the first level where the bias is within its own standard error (+-0.5 %) and the error bars are calibrated.
+# This is a property of the synthetic case; real spectra may need a different value. Pass min_mean_counts to change it.
+MIN_MEAN_COUNTS = 100.0
 
 
 def _check_window(w, name):
@@ -46,7 +54,7 @@ def _check_window(w, name):
 def _fail(n, msg):
     nan = float("nan")
     return {"A1": nan, "A2": nan, "eA1": nan, "eA2": nan, "cov12": nan, "c1": nan, "c2": nan, "w1": nan, "w2": nan,
-            "chi2_red": nan, "n": n, "flags1": [msg], "flags2": [msg]}
+            "chi2_red": nan, "n": n, "flags1": [msg], "flags2": [msg], "mean1": nan, "mean2": nan}
 
 
 def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False):
@@ -138,10 +146,21 @@ def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False):
 
     return {"A1": A1, "A2": A2, "eA1": eA1, "eA2": eA2, "cov12": cov12, "c1": c1, "c2": c2, "w1": u1, "w2": u2,
             "eta": float(p[10]) if free_eta else ETA, "chi2_red": chi2_red, "n": int(len(xs)),
+            "mean1": float(np.mean(ys[sel1])) if sel1.any() else float("nan"),
+            "mean2": float(np.mean(ys[sel2])) if sel2.any() else float("nan"),
             "flags1": flags_for(A1, eA1, c1, u1, lo1, hi1), "flags2": flags_for(A2, eA2, c2, u2, lo2, hi2)}
 
 
-def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False):
+def _ratio_and_error(A1, eA1, A2, eA2, cov12, ok):
+    """S-Figuryte-2: the one place where the ratio A1/A2 and its error are formed. Returns (ratio, ratio_err, usable)."""
+    if ok and np.isfinite(A1) and np.isfinite(A2) and A1 > 0 and A2 > 0 and np.isfinite(eA1) and np.isfinite(eA2):
+        R = A1 / A2
+        v = (eA1 / A1) ** 2 + (eA2 / A2) ** 2 - 2.0 * cov12 / (A1 * A2)
+        return R, (R * math.sqrt(max(v, 0.0)) if np.isfinite(v) else float("nan")), True
+    return float("nan"), float("nan"), False
+
+
+def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_counts=MIN_MEAN_COUNTS):
     """Ratio I1/I2 per spectrum from the joint two-window fit.
 
     spectra = [{'T': K, 'x': nm, 'y': counts, optional 'var': array}, ...]. Returns one dict per spectrum (same order):
@@ -155,22 +174,21 @@ def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False):
     for s in spectra:
         f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta)
         flags = [f"I1: {x}" for x in f["flags1"]] + [f"I2: {x}" for x in f["flags2"]]
-        blocking = ("no area", "not significant", "few points", "fit failed")
-        ok = not any(any(b in x for b in blocking) for x in f["flags1"] + f["flags2"])
-        ratio = ratio_err = float("nan")
-        if ok and np.isfinite(f["A1"]) and np.isfinite(f["A2"]) and f["A1"] > 0 and f["A2"] > 0:
-            R = f["A1"] / f["A2"]
-            v = (f["eA1"] / f["A1"]) ** 2 + (f["eA2"] / f["A2"]) ** 2 - 2.0 * f["cov12"] / (f["A1"] * f["A2"])
-            ratio = R
-            ratio_err = R * math.sqrt(max(v, 0.0)) if np.isfinite(v) else float("nan")
-        else:
+        if counts and not (f["mean1"] >= min_mean_counts):
+            flags.append("I1: too little signal (mean counts per point below min_mean_counts, default 100)")
+        if counts and not (f["mean2"] >= min_mean_counts):
+            flags.append("I2: too little signal (mean counts per point below min_mean_counts, default 100)")
+        blocking = ("no area", "not significant", "few points", "fit failed", "too little signal")
+        ok = not any(any(b in x for b in blocking) for x in flags)
+        ratio, ratio_err, usable = _ratio_and_error(f["A1"], f["eA1"], f["A2"], f["eA2"], f["cov12"], ok)
+        if not usable:
             flags.append("ratio undefined")
         out.append({"T": float(s["T"]), "I1": f["A1"], "I1_err": f["eA1"], "I2": f["A2"], "I2_err": f["eA2"],
                     "ratio": ratio, "ratio_err": ratio_err, "flags": flags})
     return out
 
 
-def window_ratio_series_shared(spectra, w1, w2, counts=True, free_eta=False):
+def window_ratio_series_shared(spectra, w1, w2, counts=True, free_eta=False, min_mean_counts=MIN_MEAN_COUNTS):
     """S-PL-2: ONE joint least-squares fit of the whole temperature series. The band widths (FWHM 1, FWHM 2) and eta are shared by all
     spectra; each spectrum keeps its own areas A1, A2, centres c1, c2 and its own two background lines. Start values come from the
     separate per-spectrum fits (fit_pair), so the joint fit starts warm. Ratio error: the joint covariance of each spectrum's own
@@ -265,14 +283,14 @@ def window_ratio_series_shared(spectra, w1, w2, counts=True, free_eta=False):
             flags.append("I2: tail outside measured range")
         if chi2_red > 2.0:
             flags.append("poor fit (joint series)")
-        ok_row = not any(("no area" in f) or ("not significant" in f) for f in flags)
-        ratio = ratio_err = float("nan")
-        if ok_row and A1 > 0 and A2 > 0 and np.isfinite(eA1) and np.isfinite(eA2):
-            R = A1 / A2
-            v = (eA1 / A1) ** 2 + (eA2 / A2) ** 2 - 2.0 * cov12 / (A1 * A2)
-            ratio = R
-            ratio_err = R * math.sqrt(max(v, 0.0)) if np.isfinite(v) else float("nan")
-        else:
+        if counts:
+            if not (float(np.mean(sp["ys"][sp["sel1"]])) >= min_mean_counts):
+                flags.append("I1: too little signal (mean counts per point below min_mean_counts, default 100)")
+            if not (float(np.mean(sp["ys"][sp["sel2"]])) >= min_mean_counts):
+                flags.append("I2: too little signal (mean counts per point below min_mean_counts, default 100)")
+        ok_row = not any(("no area" in f) or ("not significant" in f) or ("too little signal" in f) for f in flags)
+        ratio, ratio_err, usable = _ratio_and_error(A1, eA1, A2, eA2, cov12, ok_row)
+        if not usable:
             flags.append("ratio undefined")
         out.append({"T": sp["T"], "I1": A1, "I1_err": eA1, "I2": A2, "I2_err": eA2, "ratio": ratio, "ratio_err": ratio_err,
                     "flags": flags, "w1": float(p[0]), "w2": float(p[1]), "eta": float(p[2]) if free_eta else ETA})

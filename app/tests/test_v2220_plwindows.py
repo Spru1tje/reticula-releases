@@ -247,3 +247,40 @@ def test_shared_fit_returns_one_row_per_spectrum_in_order():
     rows = PW.window_ratio_series_shared(specs, W1, W2)
     assert [r["T"] for r in rows] == [290.0, 300.0, 310.0]
     assert all("flags" in r and "ratio_err" in r for r in rows)
+
+
+# S-Figuryte-1: a window with too few counts per point gives no ratio (no fit is trusted there)
+def _dim_spectrum(seed=3):
+    rng = np.random.default_rng(seed)
+    x = np.arange(500.0, 600.0, 0.4)
+    mean = 0.2 * (3000.0 * pv_unit(x, 524.0, 9.0, 0.5) + 1000.0 * pv_unit(x, 566.0, 10.0, 0.5)) + 0.5
+    return x, rng.poisson(mean).astype(float)
+
+
+def test_too_little_signal_gives_no_ratio_and_a_flag():
+    x, y = _dim_spectrum()
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    assert math.isnan(r["ratio"])
+    assert any("too little signal" in f for f in r["flags"])
+
+
+def test_too_little_signal_also_applies_to_the_shared_series_fit():
+    x, y = _dim_spectrum()
+    r = PW.window_ratio_series_shared([{"T": 300.0, "x": x, "y": y}, {"T": 310.0, "x": x, "y": y}], W1, W2)[0]
+    assert math.isnan(r["ratio"])
+    assert any("too little signal" in f for f in r["flags"])
+
+
+def test_enough_signal_is_not_flagged():
+    x, y = _spectrum(3000.0, 1000.0, seed=1, scale=30.0)
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    assert not any("too little signal" in f for f in r["flags"])
+
+
+def test_min_mean_counts_is_a_parameter_and_the_default_is_the_measured_value():
+    # the default is the value measured on the synthetic series (see plwindows.py); a lower threshold lets the dim spectrum through
+    assert PW.MIN_MEAN_COUNTS == 100.0
+    x, y = _dim_spectrum()
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2, True, False, 0.0)[0]
+    assert not any("too little signal" in f for f in r["flags"])
+
