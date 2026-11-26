@@ -64,8 +64,8 @@ def test_reflection_beyond_the_wavelength_limit_is_nan():
 
 
 def test_vegard_panel_runs_and_plots_the_shifted_figure(monkeypatch):
-    """Smoke test of the PXRD panel (bare mode, plotting helpers stubbed as the app injects them)."""
-    pytest.importorskip("gemmi")
+    """Smoke test of the PXRD panel (bare mode, plotting helpers stubbed as the app injects them).
+    gemmi and pymatgen are declared requirements: no importorskip, a missing package must fail."""
     import numpy as np
     import matplotlib
     matplotlib.use("Agg")
@@ -87,3 +87,65 @@ def test_vegard_panel_runs_and_plots_the_shifted_figure(monkeypatch):
     SP._vegard_ui({"S1": (x, y)}, 5.0, 60.0)
     assert calls.get("name") == "PXRD_Vegard_S1"
     assert calls.get("cols") == ["two_theta", "observed"]
+
+
+def test_multi_peak_estimate_gives_the_mean_and_zero_spread_for_exact_peaks():
+    """v2.23.1 (S-Structuur-2): several exact peaks of the same composition give that x with zero spread."""
+    x = 0.3
+    a_x = VG.lattice_from_composition(x, A_CU, A_AU)
+    peaks = [(VG.two_theta_for_lattice(a_x, n, WL), n) for n in (3, 4, 8, 11)]
+    r = VG.x_from_peaks(peaks, WL, A_CU, A_AU)
+    assert r["status"] == "ok" and r["n"] == 4
+    assert r["x"] == pytest.approx(x, abs=1e-6)
+    assert r["sd"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_one_bad_peak_makes_the_whole_estimate_fail():
+    a_x = VG.lattice_from_composition(0.5, A_CU, A_AU)
+    good = (VG.two_theta_for_lattice(a_x, 3, WL), 3)
+    bad = (VG.two_theta_for_lattice(4.5, 4, WL), 4)      # outside the two end members
+    r = VG.x_from_peaks([good, bad], WL, A_CU, A_AU)
+    assert r["status"] == "outside range"
+    assert "x" not in r and len(r["bad_peaks"]) == 1
+
+
+def test_a_single_peak_is_too_few_for_a_spread():
+    a_x = VG.lattice_from_composition(0.5, A_CU, A_AU)
+    r = VG.x_from_peaks([(VG.two_theta_for_lattice(a_x, 3, WL), 3)], WL, A_CU, A_AU)
+    assert r["status"] == "too few peaks"
+
+
+# ---------------------------------------------------------------- v2.23.1 (S-Structuur-3): non-cubic systems
+# d-spacings are checked against pymatgen's Lattice.d_hkl (an independent implementation), on repo reference cells
+CORUNDUM = (4.7606, 4.7606, 12.994, 90.0, 90.0, 120.0)   # hexagonal, repo reference
+RUTILE = (4.5937, 4.5937, 2.9587, 90.0, 90.0, 90.0)      # tetragonal, repo reference
+
+
+@pytest.mark.parametrize("cell,hkl", [(CORUNDUM, (1, 0, 4)), (CORUNDUM, (0, 1, 2)), (CORUNDUM, (1, 1, 0)),
+                                      (RUTILE, (1, 1, 0)), (RUTILE, (1, 0, 1)), (RUTILE, (2, 1, 3))])
+def test_d_spacing_matches_pymatgen(cell, hkl):
+    # no importorskip: pymatgen is a declared requirement; if it is missing this test must FAIL, not pass silently
+    from pymatgen.core import Lattice
+    ref = Lattice.from_parameters(*cell).d_hkl(hkl)
+    assert VG.d_spacing(cell, hkl) == pytest.approx(ref, rel=1e-9)
+
+
+def test_system_detection_on_repo_cells():
+    assert VG.system_of(CORUNDUM) == "hexagonal"
+    assert VG.system_of(RUTILE) == "tetragonal"
+    assert VG.system_of((5.4113, 5.4113, 5.4113, 90, 90, 90)) == "cubic"
+    assert VG.system_of((4.0, 5.0, 6.0, 90, 90, 90)) == ""
+
+
+def test_hexagonal_vegard_endpoints_and_midpoint():
+    B = (4.9, 4.9, 13.5, 90.0, 90.0, 120.0)
+    assert VG.cell_from_composition(1.0, CORUNDUM, B) == pytest.approx(CORUNDUM, abs=1e-9)
+    assert VG.cell_from_composition(0.0, CORUNDUM, B) == pytest.approx(B, abs=1e-9)
+    mid = VG.cell_from_composition(0.5, CORUNDUM, B)
+    assert mid[0] == pytest.approx((CORUNDUM[0] + B[0]) / 2, abs=1e-9)
+    assert mid[2] == pytest.approx((CORUNDUM[2] + B[2]) / 2, abs=1e-9)
+
+
+def test_different_systems_are_refused():
+    with pytest.raises(ValueError):
+        VG.cell_from_composition(0.5, CORUNDUM, (5.4113, 5.4113, 5.4113, 90, 90, 90))
