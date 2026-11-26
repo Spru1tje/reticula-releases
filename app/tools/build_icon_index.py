@@ -2,6 +2,8 @@
 
 Domain, source and licence come from METADATA below. A new SVG without metadata is an error,
 so the index can never list an icon without a declared source and licence.
+LEGACY_MAP lists which 24-grid navigation icon (assets/nav_icons, unchanged) each 64-grid icon replaces.
+The index text is generated from LEGACY_MAP, so the mapping cannot drift from the index.
 Usage (from app/):  python tools/build_icon_index.py [--check]
 """
 from __future__ import annotations
@@ -13,8 +15,14 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1]
 PROOF = APP / "assets" / "icons_proof"
+NAV_LEGACY = APP / "assets" / "nav_icons"
 INDEX = APP.parent / "docs" / "icons" / "INDEX.md"
-ORDER = ["pxrd_pattern", "tem_instrument", "tem_lattice", "sem_particle", "mof_pore_frame", "sorption_isotherm"]
+ORDER = [
+    "pxrd_pattern", "tem_instrument", "tem_lattice", "sem_particle", "mof_pore_frame", "sorption_isotherm",
+    "nmr_spectrum", "ftir_spectrum", "zeta_potential", "structure_cell",
+    "tga_curve", "dsc_curve", "icp_bars", "uvvis_spectrum", "xps_peaks",
+    "kinetics_decay", "photolum_peak", "sds_bands", "sample_grid", "export_document",
+]
 OWN = {"source": "own drawing", "license": "own work (Reticula)"}
 METADATA = {
     "pxrd_pattern": {"domain": "PXRD", **OWN},
@@ -23,17 +31,61 @@ METADATA = {
     "sem_particle": {"domain": "SEM", **OWN},
     "mof_pore_frame": {"domain": "MOF / porous materials", **OWN},
     "sorption_isotherm": {"domain": "Sorption", **OWN},
+    "nmr_spectrum": {"domain": "NMR", **OWN},
+    "ftir_spectrum": {"domain": "FTIR", **OWN},
+    "zeta_potential": {"domain": "Zetasizer", **OWN},
+    "structure_cell": {"domain": "Structure (unit cell)", **OWN},
+    "tga_curve": {"domain": "TGA", **OWN},
+    "dsc_curve": {"domain": "DSC", **OWN},
+    "icp_bars": {"domain": "ICP", **OWN},
+    "uvvis_spectrum": {"domain": "UV/Vis", **OWN},
+    "xps_peaks": {"domain": "XPS", **OWN},
+    "kinetics_decay": {"domain": "Kinetics", **OWN},
+    "photolum_peak": {"domain": "Photoluminescence", **OWN},
+    "sds_bands": {"domain": "SDS-PAGE", **OWN},
+    "sample_grid": {"domain": "Sample database", **OWN},
+    "export_document": {"domain": "Export", **OWN},
+}
+# legacy 24-grid nav icon -> 64-grid icon in this set
+LEGACY_MAP = {
+    "nmr": "nmr_spectrum",
+    "ftir": "ftir_spectrum",
+    "zeta": "zeta_potential",
+    "structure_cif": "structure_cell",
+    "sorption": "sorption_isotherm",
+    "sem": "sem_particle",
+    "pxrd": "pxrd_pattern",
+    "tga": "tga_curve",
+    "dsc": "dsc_curve",
+    "icp": "icp_bars",
+    "uvvis": "uvvis_spectrum",
+    "xps": "xps_peaks",
+    "kinetics": "kinetics_decay",
+    "photolum": "photolum_peak",
+    "sds": "sds_bands",
+    "sample_db": "sample_grid",
+    "si_export": "export_document",
 }
 HEADER = """# Reticon proof set: source index
 
 Branch `reticon/biorender-style`. All icons below are drawn for Reticula from scratch.
 No external artwork, no BioRender or other commercial sets, no CC0 sources used.
 """
-FOOTER = """
+FOOTER_TAIL = """
 Exports: `app/assets/icons_proof/png/<name>_<size>.png` at 24, 48, 96 and 192 px,
 made with `app/tools/export_icons.py` (headless Edge).
 Contact sheet: `app/assets/icons_proof/contact_sheet.png`.
 """
+
+
+def mapping_text() -> str:
+    lines = [
+        "",
+        "Migration of the 24-grid navigation icons (`app/assets/nav_icons`, still used by the app and left unchanged):",
+    ]
+    for legacy, new in LEGACY_MAP.items():
+        lines.append(f"- {legacy} -> {new}")
+    return "\n".join(lines) + "\n"
 
 
 def grid_of(svg: Path) -> str:
@@ -53,7 +105,7 @@ def build() -> str:
     for n in ordered:
         m = METADATA[n]
         rows.append(f"| {n} | {m['domain']} | {m['source']} | {m['license']} | {grid_of(PROOF / (n + '.svg'))} |")
-    return HEADER + "\n" + "\n".join(rows) + "\n" + FOOTER
+    return HEADER + "\n" + "\n".join(rows) + "\n" + FOOTER_TAIL + mapping_text()
 
 
 def main() -> int:
@@ -62,12 +114,12 @@ def main() -> int:
     args = ap.parse_args()
     text = build()
     if args.check:
-        if INDEX.read_text(encoding="utf-8") != text:
+        if INDEX.read_bytes().decode("utf-8") != text:
             print("INDEX.md is out of date; run tools/build_icon_index.py")
             return 1
         print("INDEX.md is up to date")
         return 0
-    INDEX.write_text(text, encoding="utf-8")
+    INDEX.write_bytes(text.encode("utf-8"))  # LF bytes, not the platform newline
     print(f"wrote {INDEX}")
     return 0
 
