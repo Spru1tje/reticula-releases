@@ -13,6 +13,6 @@
 - Helpdoc: onbronnige getallen uit de tekst verwijderd of gecorrigeerd (PL-rss, UV/Vis-tolerantie).
 
 ## Bekende beperkingen
-- De precieze deeltjesmodus en de PL-vensters met vrije eta blijven **experimenteel**; sub-20 nm-resultaten niet publiceren.
+- De precieze deeltjesmodus blijft **experimenteel**; sub-20 nm-resultaten niet publiceren.
 - TEM-helptekst en TEM-PDF zijn nog concept; drie TEM-getallen zonder bron wachten op een besluit.
 - Playwright-tests (browser-e2e) draaien alleen met `playwright` geïnstalleerd.
