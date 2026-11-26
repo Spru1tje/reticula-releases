@@ -107,3 +107,37 @@ def test_insignificant_band_gives_no_ratio_and_a_flag():
     assert "not significant" in a["flags"] or "no area" in a["flags"]
     r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
     assert math.isnan(r["ratio"])
+
+
+def test_window_systematic_is_reported_and_grows_with_the_error_budget():
+    x, y = _spectrum(3000.0, 1000.0, seed=1, scale=30.0)
+    r = PW.window_systematics([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    assert r["n_variants"] == 8
+    assert np.isfinite(r["ratio_sys"]) and r["ratio_sys"] > 0
+    assert r["ratio_total"] == pytest.approx(math.hypot(r["ratio_err"], r["ratio_sys"]))
+    assert r["ratio_total"] >= r["ratio_err"]
+
+
+def test_window_systematic_stays_small_on_a_clean_pair():
+    # the window choice changes the ratio by a few per cent on this pair, not by a factor
+    x, y = _spectrum(3000.0, 1000.0, seed=1, scale=30.0)
+    r = PW.window_systematics([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    assert r["ratio_sys"] / r["ratio"] < 0.10
+
+
+def test_window_systematic_skips_variants_that_overlap():
+    # windows that touch each other: the +10 % shifts of window 1 overlap window 2 and are skipped, the rest are fitted
+    x, y = _spectrum(3000.0, 1000.0, seed=2, scale=30.0)
+    r = PW.window_systematics([{"T": 300.0, "x": x, "y": y}], (512.0, 552.0), (552.0, 585.0))[0]
+    assert 0 < r["n_variants"] < 8
+
+
+PINNED_SEEDS = {1: 1.058, 2: 1.522, 3: 1.982}   # measured relative bias (%) of the nominal ratio vs the true 3.0 on the clean pair
+
+
+@pytest.mark.parametrize("seed,bias_pct", sorted(PINNED_SEEDS.items()))
+def test_regression_pinned_relative_bias_on_known_overlap(seed, bias_pct):
+    # pinned at the value measured when the fit was built; a change of more than 0.5 percentage points is a regression to look at
+    x, y = _spectrum(3000.0, 1000.0, seed=seed, scale=30.0)
+    r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    assert abs(100 * (r["ratio"] - 3.0) / 3.0 - bias_pct) < 0.5

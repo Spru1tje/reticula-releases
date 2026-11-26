@@ -134,3 +134,43 @@ def window_ratio_series(spectra, w1, w2, counts=True):
         out.append({"T": float(s["T"]), "I1": a["area"], "I1_err": a["area_err"], "I2": b["area"], "I2_err": b["area_err"],
                     "ratio": ratio, "ratio_err": ratio_err, "flags": flags})
     return out
+
+
+def window_systematics(spectra, w1, w2, shift=0.10, counts=True):
+    """Systematic error from the choice of the windows: each window is shifted by ±shift x its own width (both windows, same sign, and
+    the four sign combinations), the ratio is refitted, and the largest departure from the nominal ratio is the window systematic.
+
+    Returns one dict per spectrum: T, ratio (nominal), ratio_err (statistical), ratio_sys (window systematic, nan if no variant could be
+    fitted), ratio_total = sqrt(ratio_err² + ratio_sys²), n_variants (variants fitted), flags. A variant whose shifted windows overlap or
+    are invalid is skipped and counted as not fitted. This covers the window choice only; the tail of the neighbouring band (see the
+    module docstring) is not in it."""
+    lo1, hi1 = _check_window(w1, "window 1")
+    lo2, hi2 = _check_window(w2, "window 2")
+    nominal = window_ratio_series(spectra, (lo1, hi1), (lo2, hi2), counts)
+    wd1, wd2 = hi1 - lo1, hi2 - lo2
+    variants = []
+    for s1 in (-shift, 0.0, shift):
+        for s2 in (-shift, 0.0, shift):
+            if s1 == 0.0 and s2 == 0.0:
+                continue
+            try:
+                a = (lo1 + s1 * wd1, hi1 + s1 * wd1)
+                b = (lo2 + s2 * wd2, hi2 + s2 * wd2)
+                variants.append(window_ratio_series(spectra, a, b, counts))
+            except ValueError:
+                continue
+    out = []
+    for i, nom in enumerate(nominal):
+        dev = []
+        for v in variants:
+            r = v[i]["ratio"]
+            if np.isfinite(r) and np.isfinite(nom["ratio"]):
+                dev.append(abs(r - nom["ratio"]))
+        sys_ = max(dev) if dev else float("nan")
+        tot = math.hypot(nom["ratio_err"], sys_) if np.isfinite(sys_) and np.isfinite(nom["ratio_err"]) else float("nan")
+        flags = list(nom["flags"])
+        if not dev:
+            flags.append("no window variant could be fitted")
+        out.append({"T": nom["T"], "ratio": nom["ratio"], "ratio_err": nom["ratio_err"], "ratio_sys": sys_, "ratio_total": tot,
+                    "n_variants": len(dev), "flags": flags})
+    return out
