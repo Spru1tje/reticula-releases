@@ -1,4 +1,6 @@
-## 2.23.0 — release (goedgekeurde branches samengevoegd)
+# Changelog
+
+## 2.23.0 — 2026-11-26 (release: goedgekeurde branches samengevoegd)
 
 - **Info-PDF's** voor 24 modules (reproduceerbaar), en een concept-PDF voor TEM (CONCEPT_, niet definitief).
 - **TEM**: waarschuwing bij OCR-label vs metadata-afwijking (>2 %); scale-check; regressietests; raw-route voor de schaalbalk.
@@ -8,8 +10,6 @@
 - **Rods**: overlap-test (aanrakende staven als één object; bekende beperking).
 - **XRF**: piekzoeker met SNIP-achtergrond (experimenteel, alleen synthetisch getest); Rigaku .HO-reader (energie-as niet gekalibreerd).
 - **Helpdoc**: standaard zoekopdracht 500 punten / 2000 stappen; PXRD-grenswaarde; onbewezen getallen verwijderd.
-
-# Changelog
 
 ## 2.22.2 — 2026-11-25 (hotfix: TEM scale bar, circle exclusion, per-sample tags)
 
