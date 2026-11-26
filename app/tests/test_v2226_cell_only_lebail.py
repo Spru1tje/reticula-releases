@@ -99,3 +99,13 @@ def test_a_file_without_a_cell_or_space_group_still_fails(tmp_path):
     bad.write_text("data_x\n_chemical_name_common 'nothing useful'\n", encoding="utf-8")
     with pytest.raises(ValueError):
         RV.Phase.from_cif(str(bad))
+
+
+def test_unknown_space_group_name_is_an_error_not_a_silent_p1(tmp_path):
+    """Negative control (v2.22.7): a cell with an unknown space-group symbol and no atoms must raise, naming the
+    symbol, and never fall back silently to P1."""
+    pytest.importorskip("gemmi")
+    bad = tmp_path / "unknown_sg.cif"
+    bad.write_text(CELL_ONLY_I432.replace("'I 4 3 2'", "'X 9 9 9'").replace("_symmetry_Int_Tables_number 211\n", ""), encoding="utf-8")
+    with pytest.raises(ValueError, match="X 9 9 9"):
+        RV.Phase.from_cif(str(bad))
