@@ -17,6 +17,17 @@ our own drawings. No BioRender or other commercial icon sets are copied.
 - muted `#8FA3B5`: secondary parts (axes, supports, grid lines, shadow);
 - paper `#FFFFFF`: fill for solids. Nothing else.
 
+Data palette (separate, not for icons): the liquid colours in `app/mfs/reticon/core.py` (`liquids` and the
+named palettes `okabe_ito`, `pastel`, `vivid`) are a data palette. They carry meaning in scientific figures and
+are NOT mapped to accent or muted. The icon palette check (`tests/test_reticon_palette_tokens.py`) runs on icon
+SVGs only and never on the data palette.
+
+Canonical source: this section is the only definition of the icon palette. Code that draws icons must use
+exactly these four values. Other colours found in code (main `#1E293B` at `app/mfs/reticon/core.py` line 35,
+teal `#14B8A6` and amber `#F59E0B` at lines 36–37, the 2.19.0 block at lines 347–355 with `#2E6F95` and `#1F2D3D`,
+and the white-stop gradient at lines 386–402) are not part of this palette and must be removed or mapped
+to these tokens. Until that code change is reviewed, the code and this guide disagree; this guide is the target.
+
 ## Shadow
 
 - Flat, soft offset shadow only: a copy of the icon's main shapes, moved by (2, 2),
