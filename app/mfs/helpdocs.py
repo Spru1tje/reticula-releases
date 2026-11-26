@@ -89,7 +89,7 @@ DOCS["PXRD"] = _doc(
     F(r"$D = \dfrac{K\,\lambda}{\beta\,\cos\theta}$"),
     P("D is the crystallite size, K the shape factor (about 0.9), λ the wavelength, β the sample broadening in radians and θ the Bragg angle. "
       "The sample broadening is the measured width with the instrument's contribution removed (Gaussian: β² = β_obs² − β_inst²; Lorentzian: β = β_obs − β_inst)."),
-    K("A too small instrumental width gives a too large size. The program says so when the width was only assumed (0.05°) and when the sample width is as narrow as the instrument (size above about 100 nm: a lower limit)."),
+    K("A too small instrumental width gives a too large size. The program says so when the width was only assumed (0.05°) and when the sample width is as narrow as the instrument (size above about 100 nm: treat the size as a lower limit)."),
     H("Tutorial: Rietveld / Le Bail (opt-in)"),
     N("Switch on 'Rietveld / Le Bail refinement'. Choose the phases from the library or upload CIF files. Or press 'Identify the phases'; or the 'Do everything automatically' button."),
     N("Choose the method: Rietveld (structure known), Rietveld + refine the atoms, or Le Bail. Choose the 2θ range."),
