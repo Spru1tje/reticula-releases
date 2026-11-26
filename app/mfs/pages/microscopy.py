@@ -159,8 +159,11 @@ def calibration_panel(hk, m, fname):
     from mfs import semcal
     img = m["image"]; h, w = img.shape
     meta_mag = m["meta"].get("magnification")
-    # v2.22.2: calibrate on the unstretched values (the contrast stretch can erase a thin scale bar)
-    cal = _sem_calibrate(m.get("raw", img), m["pixel_nm"], meta_mag, m["meta"].get("calibration"))
+    # v2.22.2: calibrate on the unstretched values (the contrast stretch can erase a thin scale bar). Every reader returns
+    # 'raw'; a missing key is an error, not a silent fallback to the stretched image.
+    if "raw" not in m:
+        raise KeyError("calibration_panel: the reader did not return the unstretched array 'raw'")
+    cal = _sem_calibrate(m["raw"], m["pixel_nm"], meta_mag, m["meta"].get("calibration"))
     bar, lab, mo = cal.get("bar"), cal.get("label"), cal.get("mag_ocr")
     box = st.container(border=True, key=f"cal_{hk}")
     box.markdown('<div class="rt-sec">📐 Calibration from the original image</div>', unsafe_allow_html=True)
