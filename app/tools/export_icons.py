@@ -15,6 +15,8 @@ import sys
 import tempfile
 
 SIZES = (24, 48, 96, 192)
+# Palette tokens from docs/icons/STYLE.md. An icon using any other colour is not exported.
+ICON_TOKENS = frozenset({"#1F2D3D", "#2E6F95", "#8FA3B5", "#FFFFFF"})
 BROWSERS = (
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -27,6 +29,23 @@ def find_browsers() -> list[str]:
     if not found:
         raise SystemExit("No headless Edge or Chrome found; install one or edit BROWSERS.")
     return found
+
+
+def browser_version(path: str) -> str:
+    """Product version of the browser binary, for the export log and the contact sheet."""
+    cmd = ["powershell", "-NoProfile", "-Command", f"(Get-Item '{path}').VersionInfo.ProductVersion"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=True).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return "unknown"
+    return out or "unknown"
+
+
+def off_palette_colours(svg: pathlib.Path) -> set[str]:
+    """Hex colours in the SVG that are not one of the STYLE.md tokens (case-insensitive)."""
+    import re
+    found = {c.upper() for c in re.findall(r"#[0-9A-Fa-f]{6}\b", svg.read_text(encoding="utf-8"))}
+    return found - ICON_TOKENS
 
 
 def render(browsers: list[str], svg: pathlib.Path, png: pathlib.Path, size: int) -> None:
@@ -90,12 +109,16 @@ def build_contact_sheet(browsers: list[str], svgs: list[pathlib.Path], sheet_png
             '<div style="width:%dpx;font:13px sans-serif;color:#1F2D3D">%s</div>%s</div>'
             % (CELL, LABEL_W, svg.stem, imgs)
         )
+    caption = (
+        '<div style="font:12px sans-serif;color:#1F2D3D;padding-bottom:8px">'
+        f"rendered with {pathlib.Path(browsers[0]).name} {browser_version(browsers[0])}</div>"
+    )
     page = (
         '<html><head><meta charset="utf-8"></head>'
-        '<body style="margin:0;padding:12px;background:#FFFFFF">' + "".join(rows) + "</body></html>"
+        '<body style="margin:0;padding:12px;background:#FFFFFF">' + caption + "".join(rows) + "</body></html>"
     )
     width = LABEL_W + sum(SIZES) + 16 * len(SIZES) + 24
-    height = CELL * len(svgs) + 24
+    height = CELL * len(svgs) + 48  # + caption line
     errors: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         page_path = pathlib.Path(tmp) / "sheet.html"
@@ -127,6 +150,7 @@ def main() -> int:
     args = ap.parse_args()
 
     browsers = find_browsers()
+    print(f"browser: {pathlib.Path(browsers[0]).name} {browser_version(browsers[0])}")
     args.out.mkdir(parents=True, exist_ok=True)
     svgs = sorted(args.src.glob("*.svg"))
     if not svgs:
@@ -134,6 +158,11 @@ def main() -> int:
         return 1
     failures = 0
     for svg in svgs:
+        bad = off_palette_colours(svg)
+        if bad:
+            failures += 1
+            print(f"FAIL {svg.name}: colours not in STYLE.md tokens: {sorted(bad)}")
+            continue
         for size in SIZES:
             png = args.out / f"{svg.stem}_{size}.png"
             try:
