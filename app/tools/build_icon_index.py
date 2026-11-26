@@ -14,7 +14,10 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[1]
 PROOF = APP / "assets" / "icons_proof"
 INDEX = APP.parent / "docs" / "icons" / "INDEX.md"
-ORDER = ["pxrd_pattern", "tem_instrument", "tem_lattice", "sem_particle", "mof_pore_frame", "sorption_isotherm"]
+ORDER = [
+    "pxrd_pattern", "tem_instrument", "tem_lattice", "sem_particle", "mof_pore_frame", "sorption_isotherm",
+    "nmr_spectrum", "ftir_spectrum", "zeta_potential", "structure_cell",
+]
 OWN = {"source": "own drawing", "license": "own work (Reticula)"}
 METADATA = {
     "pxrd_pattern": {"domain": "PXRD", **OWN},
@@ -23,6 +26,10 @@ METADATA = {
     "sem_particle": {"domain": "SEM", **OWN},
     "mof_pore_frame": {"domain": "MOF / porous materials", **OWN},
     "sorption_isotherm": {"domain": "Sorption", **OWN},
+    "nmr_spectrum": {"domain": "NMR", **OWN},
+    "ftir_spectrum": {"domain": "FTIR", **OWN},
+    "zeta_potential": {"domain": "Zetasizer", **OWN},
+    "structure_cell": {"domain": "Structure (unit cell)", **OWN},
 }
 HEADER = """# Reticon proof set: source index
 
@@ -33,6 +40,10 @@ FOOTER = """
 Exports: `app/assets/icons_proof/png/<name>_<size>.png` at 24, 48, 96 and 192 px,
 made with `app/tools/export_icons.py` (headless Edge).
 Contact sheet: `app/assets/icons_proof/contact_sheet.png`.
+
+Migration of the 24-grid navigation icons (`app/assets/nav_icons`, still used by the app and left unchanged):
+- nmr -> nmr_spectrum; ftir -> ftir_spectrum; zeta -> zeta_potential; structure_cif -> structure_cell.
+- sorption -> sorption_isotherm (already in this set; no new drawing).
 """
 
 
@@ -62,12 +73,12 @@ def main() -> int:
     args = ap.parse_args()
     text = build()
     if args.check:
-        if INDEX.read_text(encoding="utf-8") != text:
+        if INDEX.read_bytes().decode("utf-8") != text:
             print("INDEX.md is out of date; run tools/build_icon_index.py")
             return 1
         print("INDEX.md is up to date")
         return 0
-    INDEX.write_text(text, encoding="utf-8")
+    INDEX.write_bytes(text.encode("utf-8"))  # LF bytes, not the platform newline
     print(f"wrote {INDEX}")
     return 0
 

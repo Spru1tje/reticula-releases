@@ -7,4 +7,4 @@ import build_icon_index as idx  # noqa: E402
 
 
 def test_index_matches_generated():
-    assert idx.INDEX.read_text(encoding="utf-8") == idx.build()
+    assert idx.INDEX.read_bytes().decode("utf-8") == idx.build()  # byte-exact, LF
