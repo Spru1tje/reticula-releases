@@ -142,7 +142,7 @@ def page_pxrd():
                         except Exception as e:
                             srows.append({"sample": nm, "2θ (°)": g, "note": f"fit failed ({e})"})
                 st.dataframe(pd.DataFrame(srows).style.format(precision=3), width="stretch", hide_index=True)
-                st.caption("pseudo-Voigt fit with linear background; D = Kλ/(β cos θ), λ = 1.540598 Å (Cu Kα1). Sizes > ~100 nm are not reliable.")
+                st.caption("pseudo-Voigt fit with linear background; D = Kλ/(β cos θ), λ = 1.540598 Å (Cu Kα1). Sizes > ~100 nm: treat the size as a lower limit.")
     with LV.gate("Advanced", globals()):
         with st.expander("💎 Crystallinity index vs a reference sample"):
             if len(traces) >= 2:
