@@ -75,7 +75,7 @@ def _cell_spacegroup_gemmi(path):
         return None
     sg = gemmi.find_spacegroup_by_name(sym)
     if sg is None:
-        return None
+        raise ValueError(f"space group '{sym}' is not recognised (gemmi): cannot build a cell-only phase")
     return ((cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma), sym, sg.operations())
 
 
