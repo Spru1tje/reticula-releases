@@ -227,11 +227,11 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
     return res
 
 
-def window_fit_table(spec, w1, w2, counts, D, D_stat):
+def window_fit_table(spec, w1, w2, counts, D, D_stat, weighting="sqrt"):
     """Experimental window fit (mfs/plwindows.py): per temperature the ratio from the two chosen windows, using only the data inside them,
     compared with the global-fit ratio D (error D_stat). Pure function (no Streamlit), so it can be tested on synthetic data."""
     from mfs import plwindows as PW
-    rows = PW.window_ratio_series(spec, tuple(w1), tuple(w2), counts=counts)
+    rows = PW.window_ratio_series(spec, tuple(w1), tuple(w2), counts=counts, weighting=weighting)
     T_arr = [float(q["T"]) for q in spec]
     cmp_ = PW.comparison_table(rows, T_arr, D, D_stat)          # S-Figuryte-3: the comparison is computed in plwindows only
     df = pd.DataFrame({
@@ -255,10 +255,15 @@ def window_fit_panel(spec, w1, w2, counts, D, D_stat, g):
                    "and the neighbour band inside the joint fit. The error is statistical only: a shape mismatch of the real bands and low counts "
                    "(below 100 counts per point) are NOT in it. A disagreement with the global fit above 3 combined errors is a warning.")
         from mfs import plwindows as PW
+        # the user chooses the weighting of the window fit; sqrt is the default, Poisson is opt-in (plwindows: weighting="poisson")
+        wchoice = st.radio("Weighting of the window fit", ["sqrt (default)", "Poisson (opt-in)"], horizontal=True, key="pl_winweight",
+                           help="sqrt: the default weights. Poisson: deviance weighting of the raw counts; it removes most of the low-count bias. "
+                                "Changes the window-fit numbers in this panel only.")
+        weighting = "poisson" if wchoice.startswith("Poisson") else "sqrt"
         for msg in PW.input_problems(spec, w1, w2)[:5]:           # S-Figuryte-3: say why a value may be missing or unreliable
             st.warning(msg)
         try:
-            t = window_fit_table(spec, w1, w2, counts, D, D_stat)
+            t = window_fit_table(spec, w1, w2, counts, D, D_stat, weighting)
         except ValueError as exc:
             st.warning(f"The window fit cannot be used: {exc}")
             return
@@ -665,7 +670,9 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
                 from mfs import plwindows as PW
                 (w1_, w2_) = info["windows"]
                 # same defaults as the ratio fit (free_eta=False, weighting="sqrt", warm_start=False); keep them in step if one changes
-                shapes = PW.window_fit_record(info["spec"], w1_, w2_, counts)
+                # the weighting the user chose in the window-fit panel (session key pl_winweight); sqrt when not chosen
+                wgt_ = "poisson" if str(ss.get("pl_winweight", "")).startswith("Poisson") else "sqrt"
+                shapes = PW.window_fit_record(info["spec"], w1_, w2_, counts, False, wgt_)
         except Exception:
             shapes = None
         rep_settings = {"sample": sample, "ratio method": info.get("method"), "windows or ranges (nm)": info.get("windows"),

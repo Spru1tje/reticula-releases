@@ -57,3 +57,14 @@ def test_invalid_windows_raise_so_the_panel_can_show_a_warning():
     spec = _spec()
     with pytest.raises(ValueError):
         PT.window_fit_table(spec, (520.0, 560.0), (550.0, 580.0), True, np.full(3, 3.0), np.full(3, 0.1))
+
+
+def test_weighting_choice_changes_the_table_and_sqrt_is_the_default():
+    # the panel's weighting choice reaches the table: Poisson gives other numbers, and the default equals the explicit sqrt
+    spec = _spec()
+    default = PT.window_fit_table(spec, W1, W2, True, np.full(3, 3.0), np.full(3, 0.1))
+    sqrt = PT.window_fit_table(spec, W1, W2, True, np.full(3, 3.0), np.full(3, 0.1), "sqrt")
+    poisson = PT.window_fit_table(spec, W1, W2, True, np.full(3, 3.0), np.full(3, 0.1), "poisson")
+    assert list(default["df"]["window ratio"]) == list(sqrt["df"]["window ratio"])
+    assert list(poisson["df"]["window ratio"]) != list(sqrt["df"]["window ratio"])
+

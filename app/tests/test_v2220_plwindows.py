@@ -445,3 +445,10 @@ def test_cache_hits_only_for_identical_inputs():
     PW.fit_pair_cached(x, y + 1.0, W1, W2)           # different data: a miss
     assert PW._FIT_CACHE_STATS == {"hits": 1, "misses": 2}
 
+
+# the analysis record shows the weighting that was actually used
+def test_window_fit_record_states_the_weighting_used():
+    specs, _ = _series_const_width(n=2)
+    assert all("weighting sqrt" in line for line in PW.window_fit_record(specs, W1, W2))
+    assert all("weighting poisson" in line for line in PW.window_fit_record(specs, W1, W2, True, False, "poisson"))
+

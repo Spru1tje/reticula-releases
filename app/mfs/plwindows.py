@@ -410,19 +410,20 @@ def input_problems(spectra, w1, w2):
     return msgs
 
 
-def window_fit_record(spectra, w1, w2, counts=True, free_eta=False):
+def window_fit_record(spectra, w1, w2, counts=True, free_eta=False, weighting="sqrt"):
     """S-Figuryte-3: the fitted shape parameters per spectrum (centres, FWHMs, eta, areas), as short text lines for the analysis record,
     so a reader can check which band shapes the fit actually used. Pure function; no change to the numbers."""
     lo1, hi1 = _check_window(w1, "window 1")
     lo2, hi2 = _check_window(w2, "window 2")
     lines = []
     for s_ in spectra:
-        f = fit_pair_cached(s_["x"], s_["y"], (lo1, hi1), (lo2, hi2), s_.get("var"), counts, free_eta)
+        f = fit_pair_cached(s_["x"], s_["y"], (lo1, hi1), (lo2, hi2), s_.get("var"), counts, free_eta, weighting)
         if not np.isfinite(f["A1"]):
             lines.append(f"{float(s_['T']):g} K: fit failed")
             continue
         lines.append(f"{float(s_['T']):g} K: band 1 centre {f['c1']:.2f} nm, FWHM {f['w1']:.2f} nm; band 2 centre {f['c2']:.2f} nm, "
-                     f"FWHM {f['w2']:.2f} nm; eta {f['eta']:.2f} ({'fitted' if free_eta else 'fixed'}); areas {f['A1']:.4g} / {f['A2']:.4g}")
+                     f"FWHM {f['w2']:.2f} nm; eta {f['eta']:.2f} ({'fitted' if free_eta else 'fixed'}); weighting {weighting}; "
+                     f"areas {f['A1']:.4g} / {f['A2']:.4g}")
     return lines
 
 
