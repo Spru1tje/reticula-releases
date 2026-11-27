@@ -58,3 +58,43 @@ def test_mil53_is_excluded_from_phase_identification_matching():
         y += 800 * np.exp(-((x - t) / 0.12) ** 2)
     res = PID.match(x, y, lib=lib)
     assert all(r["file"] != "MIL-53_Cr.cif" for r in res)
+
+
+def test_vegard_panel_does_not_offer_mil53(monkeypatch):
+    """S-Structuur-2: with PID.library() monkeypatched to include an excluded MIL-53 entry, the panel's end-member
+    choices (the library selectboxes) must not list it.
+    Dependencies (the test breaks if these change): (a) the library selectbox label starts with "End member" (the panel
+    code uses f"End member {which}"); (b) the panel calls selectbox on column objects, so the stub replaces
+    DeltaGenerator.selectbox; (c) the stub returns options[index], so the panel keeps its default choices."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from mfs import phaseid as PID
+    from mfs.pages import spectra as SP
+    from streamlit.delta_generator import DeltaGenerator
+    lib = [
+        {"name": "MIL-53(Cr)", "source": "COD 1502688", "file": "MIL-53_Cr.cif", "cell": [16.772, 13.145, 6.847, 90, 90, 90],
+         "path": "x", "exclude_matching": True},
+        {"name": "CeO2", "source": "COD test", "file": "CeO2.cif", "cell": [5.4113, 5.4113, 5.4113, 90, 90, 90], "path": "y"},
+        {"name": "Si", "source": "COD test", "file": "Si.cif", "cell": [5.431, 5.431, 5.431, 90, 90, 90], "path": "z"},
+    ]
+    monkeypatch.setattr(PID, "library", lambda: lib)
+    seen = []
+
+    def fake_selectbox(self, label, options, index=0, key=None, **kw):
+        # the panel calls selectbox on column objects (DeltaGenerator instances), so the class method is stubbed
+        seen.append((str(label), list(options)))
+        return options[index] if options else None
+
+    monkeypatch.setattr(DeltaGenerator, "selectbox", fake_selectbox)
+    monkeypatch.setattr(SP, "newfig", lambda aspect=1.0, **k: plt.subplots(), raising=False)
+    monkeypatch.setattr(SP, "show", lambda *a, **k: None, raising=False)
+    x = np.linspace(5, 60, 800)
+    y = 100 + 1000 * np.exp(-((x - 43.4) / 0.1) ** 2)
+    SP._vegard_ui({"S1": (x, y)}, 5.0, 60.0)
+    end_lists = [opts for label, opts in seen if label.startswith("End member")]
+    assert end_lists, "the panel did not show the end-member selectboxes"
+    for opts in end_lists:
+        assert not any("MIL-53" in o for o in opts)
+        assert any("CeO2" in o for o in opts)
