@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import base64
 import functools
+import logging
 import os
 
 import streamlit as st
 
 from mfs import pagestate as PS
 from mfs import ui as UI
+
+_LOG = logging.getLogger(__name__)
 
 ICON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "nav_icons")
 
@@ -79,6 +82,17 @@ def _pick(page: str):
     PS.request(page)
 
 
+def _streamlit_theme_is_dark() -> bool:
+    """The dark palette (light text) is only applied on a dark or unknown Streamlit theme. On a light theme
+    the light text is unreadable (v2.24.3); the sidebar switch stays, but then has no visible effect."""
+    try:
+        theme_type = st.context.theme.type
+    except Exception as exc:
+        _LOG.debug("Streamlit theme not available (%s); the dark palette is kept", exc)
+        return True
+    return theme_type != "light"
+
+
 def render(pages_in_nav: list[str]) -> str:
     """Draws the categories in the sidebar and returns the current page."""
     current = st.session_state.get("nav") or "Home"
@@ -100,7 +114,7 @@ def render(pages_in_nav: list[str]) -> str:
     # dark theme switch at the bottom of the sidebar (session setting; the sidebar itself stays dark)
     st.sidebar.markdown("---")
     dark = st.sidebar.toggle("Dark theme", key="rt_dark", value=st.session_state.get("rt_dark", True))   # v2.20: dark by default
-    if dark:
+    if dark and _streamlit_theme_is_dark():
         st.markdown(DARK_CSS, unsafe_allow_html=True)
     return current
 
