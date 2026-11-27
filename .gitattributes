@@ -2,3 +2,4 @@
 *.command text eol=lf
 *.spec text eol=lf
 *.bat text eol=crlf
+docs/icons/INDEX.md text eol=lf

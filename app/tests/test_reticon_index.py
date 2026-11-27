@@ -7,7 +7,9 @@ import build_icon_index as idx  # noqa: E402
 
 
 def test_index_matches_generated():
-    assert idx.INDEX.read_bytes().decode("utf-8") == idx.build()  # byte-exact, LF
+    raw = idx.INDEX.read_bytes()
+    assert b"\r" not in raw, "docs/icons/INDEX.md must use LF line endings (see .gitattributes)"
+    assert raw.decode("utf-8") == idx.build()  # byte-exact, LF
 
 
 def test_index_row_count_equals_svg_count():
