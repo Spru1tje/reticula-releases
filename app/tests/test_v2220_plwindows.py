@@ -284,3 +284,42 @@ def test_min_mean_counts_is_a_parameter_and_the_default_is_the_measured_value():
     r = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2, True, False, 0.0)[0]
     assert not any("too little signal" in f for f in r["flags"])
 
+
+# S-Figuryte-2: diagnosis of the neighbour band's share of each window's band signal
+def test_neighbour_share_on_the_clean_pair_matches_the_known_overlap():
+    x, y = _noise_free()
+    d = PW.neighbour_share([{"T": 300.0, "x": x, "y": y}], (490.0, 540.0), (552.0, 600.0))[0]
+    assert 0.03 < d["share2"] < 0.07        # band 1 reaches window 2 (about 4.9 % of that window's band signal)
+    assert d["share1"] < 0.02                # band 2 barely reaches window 1
+    assert not d["flags"]                    # below the 5 % flag
+
+
+def test_neighbour_share_flags_a_window_dominated_by_the_neighbour():
+    x, y = _noise_free()
+    d = PW.neighbour_share([{"T": 300.0, "x": x, "y": y}], (490.0, 540.0), (552.0, 600.0), True, False, 0.03)[0]
+    assert any(f.startswith("I2: neighbour band gives") for f in d["flags"])
+
+
+# S-Figuryte-1 (opt-in): Poisson deviance weighting. Default stays sqrt; this checks the opt-in on fixed seeds.
+def test_poisson_weighting_removes_the_low_count_bias_on_fixed_seeds():
+    base = 3000.0 * pv_unit(np.arange(500.0, 600.0, 0.4), 524.0, 9.0, 0.5) + 1000.0 * pv_unit(np.arange(500.0, 600.0, 0.4), 566.0, 10.0, 0.5)
+    x = np.arange(500.0, 600.0, 0.4)
+    m1 = (x >= W1[0]) & (x <= W1[1])
+    mu = (10.0 / base[m1].mean()) * base + 0.5
+    rel = []
+    for seed in range(1000, 1060):            # the 60 benchmark seeds; per-seed scatter is about 20 %, so the mean has an SE of about 2.6 %
+        y = np.random.default_rng(seed).poisson(mu).astype(float)
+        f = PW.fit_pair(x, y, W1, W2, None, True, False, "poisson")
+        r, e, ok = PW._ratio_and_error(f["A1"], f["eA1"], f["A2"], f["eA2"], f["cov12"], True)
+        if ok:
+            rel.append(100.0 * (r - 3.0) / 3.0)
+    assert len(rel) >= 55
+    assert abs(np.mean(rel)) < 4.0           # measured +1.5 % (poisson) vs +20.6 % (sqrt) on these seeds, see tools/benchmark_plwindows.py
+
+
+def test_default_weighting_is_still_sqrt():
+    x, y = _noise_free()
+    a = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2)[0]
+    b = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2, True, False, 100.0, "sqrt")[0]
+    assert a["ratio"] == b["ratio"]
+
