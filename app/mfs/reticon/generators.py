@@ -72,12 +72,80 @@ def parse_cif(text: str) -> dict:
     return {"cell": cell, "ops": ops or ["x,y,z"], "atoms": atoms}
 
 
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _affine(text: str, env: dict) -> float:
+    """Evaluate one CIF symmetry component (e.g. "-x+1/2") without eval.
+
+    Allowed: x, y, z; decimal numbers; fractions a/b (also x/b); + and - between terms; a leading sign.
+    Anything else raises ValueError, so a hostile CIF string never runs as code.
+    """
+    s = text.lower().replace(" ", "")
+    if not s:
+        raise ValueError("empty symmetry component")
+    pos = 0
+
+    def peek() -> str:
+        return s[pos] if pos < len(s) else ""
+
+    def number() -> float:
+        nonlocal pos
+        m = _NUMBER.match(s, pos)
+        if not m:
+            raise ValueError(f"expected a number in symmetry component {text!r}")
+        pos = m.end()
+        return float(m.group(0))
+
+    def divisor(value: float) -> float:
+        nonlocal pos
+        if peek() == "/":
+            pos += 1
+            d = number()
+            if d == 0:
+                raise ValueError(f"division by zero in symmetry component {text!r}")
+            return value / d
+        return value
+
+    def atom() -> float:
+        nonlocal pos
+        c = peek()
+        if c in ("x", "y", "z"):
+            pos += 1
+            return divisor(env[c])
+        if c.isdigit() or c == ".":
+            return divisor(number())
+        raise ValueError(f"unexpected character {c!r} in symmetry component {text!r}")
+
+    def term() -> float:
+        nonlocal pos
+        sign = 1.0
+        if peek() in ("+", "-"):
+            sign = -1.0 if peek() == "-" else 1.0
+            pos += 1
+        return sign * atom()
+
+    total = term()
+    while peek() in ("+", "-"):
+        op = peek()
+        pos += 1
+        value = term()
+        total = total + value if op == "+" else total - value
+    if pos != len(s):
+        raise ValueError(f"unexpected text in symmetry component {text!r}")
+    return total
+
+
 def _symop(op: str):
     parts = op.lower().replace(" ", "").split(",")
+    if len(parts) != 3:
+        raise ValueError(f"symmetry operation needs three components: {op!r}")
+    for p in parts:  # validate once, up front
+        _affine(p, {"x": 0.0, "y": 0.0, "z": 0.0})
 
     def f(x, y, z):
         env = {"x": x, "y": y, "z": z}
-        return tuple(eval(re.sub(r"(\d)\/(\d)", r"(\1/\2)", p), {"__builtins__": {}}, env) for p in parts)  # noqa: S307
+        return tuple(_affine(p, env) for p in parts)
     return f
 
 
