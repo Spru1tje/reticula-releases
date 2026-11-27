@@ -469,3 +469,23 @@ def ocr_missing_message():
     return ("Tesseract OCR was not found, so the scale bar cannot be read automatically. Enter the scale by hand, or install "
             "Tesseract: Windows - the app ships a copy, or install from github.com/UB-Mannheim/tesseract; Debian/Ubuntu - "
             "sudo apt install tesseract-ocr; macOS - brew install tesseract. You can also point $MFS_TESSERACT at the executable.")
+
+
+def scale_gate(nm_per_px_used, meta_nm_per_px, tol=0.02, confirmed=False):
+    """HELPER, not wired into any export yet: the scale check to call before a figure is exported. Returns (ok, message).
+    A difference of exactly tol (2 %) passes; a larger difference blocks. Also blocks when there is no metadata to check
+    against, or no calibration. With confirmed=True the user has confirmed the scale in the caller's UI, and the export may
+    go ahead (the message then says so). Without confirmed the message says what must be confirmed."""
+    if not nm_per_px_used or nm_per_px_used <= 0:
+        return False, "No scale is set: the figure cannot be exported without a calibration."
+    if not meta_nm_per_px or meta_nm_per_px <= 0:
+        if confirmed:
+            return True, "Scale confirmed by the user (no pixel-size metadata to check against)."
+        return False, "The file has no pixel-size metadata: confirm the scale against the printed bar to export."
+    dv = nm_per_px_used / meta_nm_per_px - 1.0
+    if abs(dv) > tol + 1e-9:                          # 1e-9: float rounding must not block a difference of exactly tol
+        if confirmed:
+            return True, f"Scale confirmed by the user despite a mismatch of {100 * dv:+.1f} %."
+        return False, (f"Scale mismatch: {nm_per_px_used:.4g} nm/px in use vs {meta_nm_per_px:.4g} nm/px in the file "
+                       f"({100 * dv:+.1f} %). Confirm the scale to export.")
+    return True, f"Scale check passed ({100 * dv:+.2f} % vs metadata)."
