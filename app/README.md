@@ -50,19 +50,19 @@ Windows installer and the macOS dmg, runs a self-test inside each built app and 
    - 3.25 in, ACS single column
    - 7 in, ACS double column
    - 8.5 cm or 17.5 cm, Wiley/Angew
-5. Optional: open **🎛 Figure controls** under the figure to change title, axes, units, ticks, legend and colours (see section 2a).
+5. Optional: open **🎛 Customise this figure** under the figure to change title, axes, units, ticks, legend and colours (see section 2a).
 6. Download the figure as SVG, PDF (fonts embedded as TrueType), 600 dpi TIFF (LZW), 600 dpi PNG, CSV of the processed data, or **ZIP (all)**. Files are generated when you click. If your browser blocks downloads, click **💾 Save to folder**: the files are written to `exports/` next to `app.py`, and the full paths are shown.
 7. Click **➕ Add this panel to the figure composer** under a figure. Then open *Figure composer* to build a multi-panel figure with (a)/(b)/(c) labels and export it as vector graphics.
 
 **Style.** Every figure follows the same rules:
 - Arial or Helvetica 7–9 pt. On Linux, Liberation Sans is used because it has identical metrics.
-- Axis and tick linewidth 0.6–0.8 pt; inward ticks on all four sides; no grid; no title (all of these are defaults, and each can be changed in Figure controls).
+- Axis and tick linewidth 0.6–0.8 pt; inward ticks on all four sides; no grid; no title (all of these are defaults, and each can be changed in Customise this figure).
 - Units in parentheses, e.g. *2θ (°)*, *Wavenumber (cm⁻¹)*, *δ (ppm)*, *Quantity adsorbed (cm³ g⁻¹ STP)*.
 - Offset spectra have no y tick labels ("a.u."). The legend or direct labels are placed at the trace ends.
 
-## 2a. Figure controls and scale bars (details of every release in `CHANGELOG.md`)
+## 2a. Customise this figure and scale bars (details of every release in `CHANGELOG.md`)
 
-**Figure controls (every technique).** The expander under each figure has these tabs:
+**Customise this figure (every technique).** The expander under each figure has these tabs:
 
 - *Title & axes*
   - Title and axis titles. Unicode works; so does `^`/`_`, e.g. `cm^3 g^{-1}`.
@@ -76,7 +76,7 @@ Windows installer and the macOS dmg, runs a self-test inside each built app and 
     - nm ↔ Å
     - mM ↔ µM
   - Unit conversion relabels the ticks. The CSV stays in the original units.
-- *Ticks*
+- *Axes & ticks*
   - Sides: all 4, 3, 2, 1 or custom.
   - Direction in/out/inout.
   - Major increment per axis: a slider and a number box, kept in sync; 0 = automatic.
@@ -87,7 +87,7 @@ Windows installer and the macOS dmg, runs a self-test inside each built app and 
   - Rename, reorder and hide entries in the table.
   - Location: every matplotlib position, or outside right/top/bottom/left.
   - Columns, font size, frame and marker scale.
-- *Colours*: a colour picker per series.
+- *Style & colours*: a colour picker per series.
 - *Preset*: save or load this figure's settings as JSON. The sidebar holds a global **house style** (JSON) that applies to every figure.
 
 **SEM / TEM / EDX scale bar.** Each image has its own scale-bar block:
@@ -214,7 +214,7 @@ On the synthetic examples the calculator recovers the compositions used to gener
 - **SEM pixel size.** The calibration panel compares the file metadata with the scale bar burned into the info strip (measured + OCR of its label) and the magnification. Without metadata the detected scale bar is used; if it cannot be read, click the two bar ends ("scale bar (mark ends)") and type the value. The 127 mm magnification estimate is only valid for Philips/FEI XL instruments.
 - **The real 3Flex file from the v2 bug report was not available while building 2.0.** The N₂ fix was developed and tested on a synthetic MicroActive full-report export that reproduces the reported symptoms (`example_data/Sorption/SampleA_3Flex_full_report_EXAMPLE.xls`). If your file still looks wrong, open *File structure* on the N₂ page and send that table.
 - **Reported vs computed BET.** MicroActive usually fits a fixed window (0.05–0.30). For Type I MOFs the app uses the Rouquerol window, which lies at much lower p/p₀. The two numbers differ by design. The app does not tune its value to match the report.
-- **Unit conversion** in Figure controls relabels the ticks only. Exported CSVs keep the original units.
+- **Unit conversion** in Customise this figure relabels the ticks only. Exported CSVs keep the original units.
 - **Figure composer panels** use the default style of each figure; the composer has its own controls.
 - **TEM readers** were tested on the openNCEM sample files (`tests/data`), not on files from your microscope.
 - **BET.** Ultramicroporous MOFs (MOF-801, UiO-66) often cannot meet Rouquerol criterion 3 or 4. The app flags this. In that case report a "BET-equivalent area" and give the p/p₀ range used.
