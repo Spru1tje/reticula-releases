@@ -161,3 +161,83 @@ def cell_from_composition(x: float, cell_A, cell_B):
         out.append(float(x) * float(cell_A[i]) + (1.0 - float(x)) * float(cell_B[i]))
     a_x, c_x = out
     return (a_x, a_x, c_x, float(cell_A[3]), float(cell_A[4]), float(cell_A[5]))
+
+
+# ---------------------------------------------------------------- v2.24.0: x from several peaks, any system (grid search)
+def estimate_x_grid(peaks, wavelength: float, cell_A, cell_B, tol_deg: float = 0.05, steps: int = 1001) -> dict:
+    """Composition x (fraction of A) from observed reflections of a cubic, tetragonal or hexagonal solid solution.
+    peaks: list of (two_theta_obs, (h, k, l)). For each x on a grid the cell a(x), c(x) is linear (cell_from_composition);
+    the 2θ of every reflection is predicted; the x with the smallest sum of squares wins. rms = root-mean-square residual (°).
+    Status: 'ok' (interior minimum with rms <= tol_deg); 'end member' (minimum at x = 0 or 1, rms <= tol_deg);
+    'outside range' (minimum at an end and rms > tol_deg: the peaks are not explained by A and B); 'too few peaks'."""
+    obs = [(float(t), tuple(float(v) for v in hkl)) for t, hkl in peaks if math.isfinite(float(t))]
+    if len(obs) < 2:
+        return {"status": "too few peaks", "n": len(obs)}
+    best = None
+    xs = [i / (steps - 1) for i in range(steps)]
+    for x in xs:
+        cell = cell_from_composition(x, cell_A, cell_B)
+        pred = [two_theta_for_cell(cell, hkl, wavelength) for _, hkl in obs]
+        if any(not math.isfinite(p) for p in pred):
+            continue
+        ss = sum((p - t) ** 2 for p, (t, _) in zip(pred, obs))
+        if best is None or ss < best[0]:
+            best = (ss, x)
+    if best is None:
+        return {"status": "outside range", "reason": "no composition predicts these reflections"}
+    ss, x = best
+    rms = math.sqrt(ss / len(obs))
+    if x <= xs[0] or x >= xs[-1]:
+        status = "end member" if rms <= tol_deg else "outside range"
+    else:
+        status = "ok" if rms <= tol_deg else "outside range"
+    return {"status": status, "x": x, "rms_deg": rms, "n": len(obs)}
+
+
+# ---------------------------------------------------------------- v2.24.0: end members from numbers or from a pattern
+def symmetric_cell(system: str, a: float, c: float | None = None) -> tuple:
+    """Exact cell of a system from its free parameters (removes the small asymmetry a refinement leaves):
+    cubic (a), tetragonal (a, c), hexagonal (a, c; gamma = 120)."""
+    a = float(a)
+    if system == "cubic":
+        return (a, a, a, 90.0, 90.0, 90.0)
+    if system == "tetragonal":
+        return (a, a, float(c), 90.0, 90.0, 90.0)
+    if system == "hexagonal":
+        return (a, a, float(c), 90.0, 90.0, 120.0)
+    raise ValueError(f"unsupported system {system!r} (cubic, tetragonal, hexagonal)")
+
+
+def cell_from_pattern(x, y, lo: float, hi: float, wavelength: float = 1.540593) -> dict:
+    """Start cell by indexing the peaks of a pattern (cubic, tetragonal, hexagonal), then a Le Bail fit with the cell-only
+    route (Phase.from_cell + quick_refine, mode 'lebail'). Returns status, the symmetric refined cell, its system, Rwp (%),
+    and the indexing solution used. Status 'no cell' when indexing finds nothing."""
+    import numpy as np
+    from mfs import phaseid as PID
+    from mfs import indexing as IX
+    from mfs import rietveld as RV
+    x = np.asarray(x, float); y = np.asarray(y, float)
+    m = (x >= lo) & (x <= hi)
+    x, y = x[m], y[m]
+    pk, _, _ = PID.exp_peaks(x, y)
+    peaks = [float(v) for v in np.asarray(pk, float)]
+    if len(peaks) < 4:
+        return {"status": "no cell", "reason": "too few peaks in the range"}
+    sols = IX.index(peaks, wavelength, systems=("cubic", "tetragonal", "hexagonal"), max_solutions=3)
+    if not sols:
+        return {"status": "no cell", "reason": "indexing found no cell"}
+    top = sols[0]
+    system = top["system"]
+    if system not in ("cubic", "tetragonal", "hexagonal"):
+        return {"status": "no cell", "reason": f"indexing gave a {system} cell (not supported by the panel)"}
+    cell0 = tuple(float(v) for v in top["cell"])
+    ph = RV.Phase.from_cell(cell0, "end member")
+    res = RV.quick_refine(x, y, [ph], radiation="Cu Kα1", mode="lebail", tt_range=(lo, hi))
+    refined = res["phases"][0]["cell"]
+    if system == "cubic":
+        a = (refined[0] + refined[1] + refined[2]) / 3.0
+        cell = symmetric_cell("cubic", a)
+    else:
+        a = (refined[0] + refined[1]) / 2.0
+        cell = symmetric_cell(system, a, refined[2])
+    return {"status": "ok", "cell": cell, "system": system, "rwp": 100.0 * float(res["stats"]["Rwp"]), "index": top}

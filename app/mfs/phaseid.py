@@ -147,6 +147,8 @@ def match(x, y, wavelength=1.540593, scale_range=0.025, tol=0.12, n_phases=3, li
     name, file, kind, source, formula, score (0-1), recall, precision, n_matched, n_expected, cell_scale (1 = as in the library), cell_change_pct, zero (°),
     explained (share of the pattern intensity explained after the previous phases were removed)."""
     lib = lib if lib is not None else library()
+    # v2.24.0: entries flagged exclude_matching (e.g. MIL-53 until its CIF is corrected) are not offered by the matching
+    lib = [e for e in lib if not e.get("exclude_matching")]
     pk, ph, fw = exp_peaks(x, y, min_prom)
     if len(pk) < 3:
         return []
