@@ -13,6 +13,8 @@
 - Helpdoc: onbronnige getallen uit de tekst verwijderd of gecorrigeerd (PL-rss, UV/Vis-tolerantie).
 
 ## Bekende beperkingen
+- Vegard-paneel (PXRD): een hexagonale pattern-route geeft de √3-supercel; die test is een bewuste strict xfail (test_v2242).
+- Vegard-paneel: de upload-route van het patroon en de knop 'Estimate x' zijn niet getest in een echte Streamlit-sessie.
 - De precieze deeltjesmodus blijft **experimenteel**; sub-20 nm-resultaten niet publiceren.
 - TEM-helptekst en TEM-PDF zijn nog concept; drie TEM-getallen zonder bron wachten op een besluit.
 - Playwright-tests (browser-e2e) draaien alleen met `playwright` geïnstalleerd.
