@@ -15,12 +15,21 @@ def test_composer_collects_panels():
     assert n == 2 and not errs and ndl >= 4
 
 
-def _goto(page):
+def _goto(page, attempts=3):
+    """Open a page in AppTest. On Windows, asyncio's socketpair can fail with WinError 10055 (loopback buffer/port exhaustion
+    after many test runs in a row); that is an environment error, so the session is retried a few times. Other errors are raised."""
+    import time
     from streamlit.testing.v1 import AppTest
     import os
-    at = AppTest.from_file(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"), default_timeout=300)
-    at.run(); at.button(key="nv_" + page).click().run()
-    return at
+    for i in range(attempts):
+        try:
+            at = AppTest.from_file(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"), default_timeout=300)
+            at.run(); at.button(key="nv_" + page).click().run()
+            return at
+        except OSError as e:
+            if getattr(e, "winerror", None) != 10055 or i == attempts - 1:
+                raise
+            time.sleep(2.0)
 
 
 def _ok(at):
@@ -55,3 +64,40 @@ def test_scalebar_controls_in_app():
     assert any("400 px = 2000 nm" in c.value and "'2 µm'" in c.value for c in at.caption)
     at.selectbox(key="sem_all_pos").set_value("upper left").run(); _ok(at)
     at.checkbox(key="sem_all_box").check().run(); _ok(at)
+
+
+def test_goto_retries_a_winerror_10055_and_then_succeeds(monkeypatch):
+    """The retry in _goto is proven with a simulated WinError 10055: the first two AppTest sessions fail, the third works."""
+    from streamlit.testing.v1 import AppTest
+    import test_app_smoke as me
+    real = AppTest.from_file
+    calls = {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            err = OSError("simulated socket buffer full")
+            err.winerror = 10055
+            raise err
+        return real(*a, **k)
+
+    monkeypatch.setattr(AppTest, "from_file", staticmethod(flaky))
+    # the 2 s pause in _goto is kept real: patching time.sleep globally would stall Streamlit's own run loop
+    at = me._goto("SEM / TEM / EDX")
+    assert calls["n"] == 3
+    assert not at.exception
+
+
+def test_goto_does_not_retry_other_oserrors(monkeypatch):
+    from streamlit.testing.v1 import AppTest
+    import test_app_smoke as me
+    calls = {"n": 0}
+
+    def broken(*a, **k):
+        calls["n"] += 1
+        raise OSError("disk on fire")
+
+    monkeypatch.setattr(AppTest, "from_file", staticmethod(broken))
+    with pytest.raises(OSError):
+        me._goto("SEM / TEM / EDX")
+    assert calls["n"] == 1
