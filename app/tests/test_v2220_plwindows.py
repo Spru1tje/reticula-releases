@@ -323,3 +323,30 @@ def test_default_weighting_is_still_sqrt():
     b = PW.window_ratio_series([{"T": 300.0, "x": x, "y": y}], W1, W2, True, False, 100.0, "sqrt")[0]
     assert a["ratio"] == b["ratio"]
 
+
+# S-Figuryte-2: warm start from the previous temperature gives the same ratios (same minimum)
+def test_warm_start_gives_the_same_ratios_as_the_cold_fit():
+    x = np.arange(500.0, 600.0, 0.4)
+    ratios = [3.0, 2.5, 2.0, 1.5, 1.0]
+    specs = []
+    for k, R in enumerate(ratios):
+        base = 30.0 * (R * 1000.0 * pv_unit(x, 524.0, 9.0, 0.5) + 1000.0 * pv_unit(x, 566.0, 10.0, 0.5)) + 40.0 + 0.2 * (x - 500.0)
+        specs.append({"T": 290.0 + 10.0 * k, "x": x, "y": np.random.default_rng(50 + k).poisson(base).astype(float)})
+    cold = PW.window_ratio_series(specs, W1, W2)
+    warm = PW.window_ratio_series(specs, W1, W2, warm_start=True)
+    for c, w in zip(cold, warm):
+        # measured largest relative difference 1.4e-7 on this series; the tolerance is 1e-6
+        assert w["ratio"] == pytest.approx(c["ratio"], rel=1e-6)
+
+
+# S-Figuryte-3: input check before the fit
+def test_input_problems_flags_too_few_points_and_an_edge_peak():
+    x = np.arange(500.0, 600.0, 0.4)
+    y = 30.0 * (3000.0 * pv_unit(x, 524.0, 9.0, 0.5) + 1000.0 * pv_unit(x, 566.0, 10.0, 0.5)) + 40.0
+    spec = [{"T": 300.0, "x": x, "y": y}]
+    assert PW.input_problems(spec, W1, W2) == []
+    msgs = PW.input_problems(spec, (524.0, 524.5), W2)
+    assert any("window 1 holds" in m for m in msgs)
+    msgs = PW.input_problems(spec, (500.0, 524.0), W2)   # the peak of band 1 (524 nm) is at the window edge
+    assert any("lies on its edge" in m for m in msgs)
+

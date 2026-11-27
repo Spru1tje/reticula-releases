@@ -57,7 +57,7 @@ def _fail(n, msg):
             "chi2_red": nan, "n": n, "flags1": [msg], "flags2": [msg], "mean1": nan, "mean2": nan}
 
 
-def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqrt"):
+def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqrt", warm=None):
     """Joint fit of the two windows of one spectrum. Only points inside w1 or w2 are used.
     free_eta=False (default, eta fixed at ETA = 0.5); free_eta=True (opt-in): the Lorentzian share eta of both bands is one shared fit parameter in [0, 1]."""
     lo1, hi1 = _check_window(w1, "window 1")
@@ -118,6 +118,9 @@ def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqr
         p0 += [ETA]
         lb += [0.0]
         ub += [1.0]
+    if warm is not None and len(warm) == len(p0):
+        # S-Figuryte-2: warm start from the previous temperature of the series; clipped to the bounds. Same model, same minimum.
+        p0 = [min(max(float(v), lo_), hi_) for v, lo_, hi_ in zip(warm, lb, ub)]
     try:
         r = least_squares(resid, p0, bounds=(lb, ub), x_scale="jac", max_nfev=4000)
     except Exception as exc:                                 # noqa: BLE001 - reported, not hidden
@@ -152,7 +155,7 @@ def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqr
         return f
 
     return {"A1": A1, "A2": A2, "eA1": eA1, "eA2": eA2, "cov12": cov12, "c1": c1, "c2": c2, "w1": u1, "w2": u2,
-            "eta": float(p[10]) if free_eta else ETA, "chi2_red": chi2_red, "n": int(len(xs)),
+            "eta": float(p[10]) if free_eta else ETA, "chi2_red": chi2_red, "n": int(len(xs)), "p": np.asarray(p, float),
             "mean1": float(np.mean(ys[sel1])) if sel1.any() else float("nan"),
             "mean2": float(np.mean(ys[sel2])) if sel2.any() else float("nan"),
             "flags1": flags_for(A1, eA1, c1, u1, lo1, hi1), "flags2": flags_for(A2, eA2, c2, u2, lo2, hi2)}
@@ -167,7 +170,7 @@ def _ratio_and_error(A1, eA1, A2, eA2, cov12, ok):
     return float("nan"), float("nan"), False
 
 
-def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_counts=MIN_MEAN_COUNTS, weighting="sqrt"):
+def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_counts=MIN_MEAN_COUNTS, weighting="sqrt", warm_start=False):
     """Ratio I1/I2 per spectrum from the joint two-window fit.
 
     spectra = [{'T': K, 'x': nm, 'y': counts, optional 'var': array}, ...]. Returns one dict per spectrum (same order):
@@ -178,8 +181,12 @@ def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_c
     if hi1 > lo2 and hi2 > lo1:
         raise ValueError("the two windows overlap; a band must not be counted in both")
     out = []
+    prev_p = None
     for s in spectra:
-        f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta, weighting)
+        f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta, weighting,
+                     warm=prev_p if warm_start else None)
+        if warm_start and np.isfinite(f["A1"]):
+            prev_p = f.get("p")
         flags = [f"I1: {x}" for x in f["flags1"]] + [f"I2: {x}" for x in f["flags2"]]
         if counts and not (f["mean1"] >= min_mean_counts):
             flags.append("I1: too little signal (mean counts per point below min_mean_counts, default 100)")
@@ -339,6 +346,30 @@ def neighbour_share(spectra, w1, w2, counts=True, free_eta=False, threshold=NEIG
             flags.append(f"I2: neighbour band gives {100 * sh2:.1f} % of the window signal")
         out.append({"T": float(s["T"]), "share1": sh1, "share2": sh2, "flags": flags})
     return out
+
+
+def input_problems(spectra, w1, w2):
+    """S-Figuryte-3: checks BEFORE the fit that the user can act on. Returns a list of messages (empty when the input is fine):
+    a window with fewer than MIN_POINTS points, and a window whose highest point lies on its edge (the band then probably lies outside
+    the window). The numbers are not changed; this only explains why a value may be missing or unreliable."""
+    lo1, hi1 = _check_window(w1, "window 1")
+    lo2, hi2 = _check_window(w2, "window 2")
+    msgs = []
+    for s_ in spectra:
+        x = np.asarray(s_["x"], float)
+        y = np.asarray(s_["y"], float)
+        T = float(s_["T"])
+        for k, (lo, hi) in enumerate(((lo1, hi1), (lo2, hi2)), start=1):
+            m = (x >= lo) & (x <= hi) & np.isfinite(y)
+            n = int(m.sum())
+            if n < MIN_POINTS:
+                msgs.append(f"{T:g} K: window {k} holds {n} points; at least {MIN_POINTS} are needed.")
+                continue
+            ys = y[m]
+            i = int(np.argmax(ys))
+            if i == 0 or i == n - 1:
+                msgs.append(f"{T:g} K: the highest point of window {k} lies on its edge; the band may lie outside the window. Widen the window.")
+    return msgs
 
 
 def window_systematics(spectra, w1, w2, shift=0.10, counts=True):

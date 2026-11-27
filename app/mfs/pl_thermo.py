@@ -254,6 +254,9 @@ def window_fit_panel(spec, w1, w2, counts, D, D_stat, g):
         st.caption("Each window is fitted on its own data: one pseudo-Voigt band with a fixed Lorentzian share (eta = 0.5), a straight background, "
                    "and the neighbour band inside the joint fit. The error is statistical only: a shape mismatch of the real bands and low counts "
                    "(below 100 counts per point) are NOT in it. A disagreement with the global fit above 3 combined errors is a warning.")
+        from mfs import plwindows as PW
+        for msg in PW.input_problems(spec, w1, w2)[:5]:           # S-Figuryte-3: say why a value may be missing or unreliable
+            st.warning(msg)
         try:
             t = window_fit_table(spec, w1, w2, counts, D, D_stat)
         except ValueError as exc:
