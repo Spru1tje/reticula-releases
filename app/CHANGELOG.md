@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.24.2 — 2026-11-27 (hotfix: versie-bump; v2.24.1 mislukt op de versie-controle)
+
+- **Versie 2.24.2.** De tag v2.24.1 bleef staan als mislukte release: app/mfs/__init__.py stond nog op 2.24.0.
+- **Reticon-index-test**: vergelijking byte voor byte, met een CR-controle; docs/icons/INDEX.md staat vast op LF (.gitattributes).
+- **Reticon CIF-symmetrie**: eval vervangen door een veilige affine parser (7b2cead).
+- **Vegard-paneel (PXRD)**: vier bronnen voor eindleden; beperkingen staan in de release-notes van 2.24.0.
+
 ## 2.24.0 — 2026-11-27 (release: goedgekeurde branches samengevoegd)
 
 - **Vegard (PXRD)**: schatting van de samenstelling uit meerdere pieken; tetragonale en hexagonale eindleden (lineair).
