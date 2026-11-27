@@ -933,3 +933,19 @@ DOCS["Export guide"] = _doc(
     H("Tip"),
     B("If an import fails, export plain text as described there; two-column text always works."),
 )
+
+# ---- S-PL-UI (experimental): window fit in the Photoluminescence thermometry tab
+DOCS["Photoluminescence"]["sections"] += [
+    H("Window fit (experimental)"),
+    P("An expander under the fit results fits the two windows you chose, using only the data inside them. Each window has one pseudo-Voigt band "
+      "with a fixed Lorentzian share (eta = 0.5) and a straight background; the neighbour band is part of the joint fit, so its tail inside a window is modelled. "
+      "The ratio I1/I2 is shown next to the global fit, with a cross-check: a disagreement above three combined errors is a warning."),
+    B("Terms: pseudo-Voigt = a mix of Gaussian and Lorentzian shapes; eta = the Lorentzian share; FWHM = full width at half maximum; "
+      "joint fit = one fit of both windows; cross-check = comparison with the global fit."),
+    B("Error: statistical only. A shape mismatch of the real bands and low counts are NOT in the error bar. Below 100 counts per point the program gives no ratio "
+      "('too little signal'); this value was measured on synthetic data and may differ for real spectra."),
+    B("Flags: 'tail outside measured range' (a band extends beyond the fitted x-range), 'not significant' (a band area below three times its error), "
+      "'poor fit' (reduced chi-square above 2)."),
+    P("General practice (not checked by the program): choose windows that include about three FWHM on each side of each band, and measure the real band shape "
+      "on a clean spectrum before you trust the fixed eta."),
+]

@@ -57,7 +57,7 @@ def _fail(n, msg):
             "chi2_red": nan, "n": n, "flags1": [msg], "flags2": [msg], "mean1": nan, "mean2": nan}
 
 
-def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False):
+def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqrt"):
     """Joint fit of the two windows of one spectrum. Only points inside w1 or w2 are used.
     free_eta=False (default, eta fixed at ETA = 0.5); free_eta=True (opt-in): the Lorentzian share eta of both bands is one shared fit parameter in [0, 1]."""
     lo1, hi1 = _check_window(w1, "window 1")
@@ -91,6 +91,13 @@ def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False):
         return A1 * pv_unit(xs, c1, u1, eta) + A2 * pv_unit(xs, c2, u2, eta) + bg
 
     def resid(p):
+        if weighting == "poisson":
+            # S-Figuryte-1 (opt-in): Poisson deviance residuals. Their sum of squares is the Poisson deviance, so the least-squares
+            # minimum is the Poisson maximum-likelihood fit of the same model (no sqrt weights, no low-count weighting bias).
+            mu = np.maximum(model(p), 1e-9)
+            term = np.where(ys > 0, ys * np.log(np.maximum(ys, 1e-300) / mu), 0.0)
+            d = np.maximum(2.0 * (mu - ys + term), 0.0)
+            return np.sign(ys - mu) * np.sqrt(d)
         return (model(p) - ys) / sig
 
     def start(sel, lo, hi):
@@ -160,7 +167,7 @@ def _ratio_and_error(A1, eA1, A2, eA2, cov12, ok):
     return float("nan"), float("nan"), False
 
 
-def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_counts=MIN_MEAN_COUNTS):
+def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_counts=MIN_MEAN_COUNTS, weighting="sqrt"):
     """Ratio I1/I2 per spectrum from the joint two-window fit.
 
     spectra = [{'T': K, 'x': nm, 'y': counts, optional 'var': array}, ...]. Returns one dict per spectrum (same order):
@@ -172,7 +179,7 @@ def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_c
         raise ValueError("the two windows overlap; a band must not be counted in both")
     out = []
     for s in spectra:
-        f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta)
+        f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta, weighting)
         flags = [f"I1: {x}" for x in f["flags1"]] + [f"I2: {x}" for x in f["flags2"]]
         if counts and not (f["mean1"] >= min_mean_counts):
             flags.append("I1: too little signal (mean counts per point below min_mean_counts, default 100)")
@@ -297,6 +304,43 @@ def window_ratio_series_shared(spectra, w1, w2, counts=True, free_eta=False, min
     return out
 
 
+NEIGHBOUR_SHARE_FLAG = 0.05  # S-Figuryte-2: flag when the neighbour band contributes more than this fraction of a window's band signal
+
+
+def neighbour_share(spectra, w1, w2, counts=True, free_eta=False, threshold=NEIGHBOUR_SHARE_FLAG):
+    """S-Figuryte-2 diagnosis: per temperature, the fraction of each window's band signal that comes from the NEIGHBOUR band.
+
+    Uses the fitted parameters of the joint fit (fit_pair): share1 = neighbour-band signal / (own + neighbour) inside window 1, and the
+    same for window 2. A share above `threshold` (default 5 %) is flagged: the neighbour band dominates that window, so the ratio depends
+    strongly on the neighbour model. Returns one dict per spectrum: T, share1, share2, flags. The share is a diagnosis, not a correction.
+    """
+    lo1, hi1 = _check_window(w1, "window 1")
+    lo2, hi2 = _check_window(w2, "window 2")
+    out = []
+    for s in spectra:
+        f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta)
+        x = np.asarray(s["x"], float)
+        if not np.isfinite(f["A1"]):
+            out.append({"T": float(s["T"]), "share1": float("nan"), "share2": float("nan"), "flags": ["fit failed: no share"]})
+            continue
+        eta = f["eta"]
+        m1 = (x >= lo1) & (x <= hi1)
+        m2 = (x >= lo2) & (x <= hi2)
+        own1 = f["A1"] * pv_unit(x[m1], f["c1"], f["w1"], eta)
+        nb1 = f["A2"] * pv_unit(x[m1], f["c2"], f["w2"], eta)
+        own2 = f["A2"] * pv_unit(x[m2], f["c2"], f["w2"], eta)
+        nb2 = f["A1"] * pv_unit(x[m2], f["c1"], f["w1"], eta)
+        sh1 = float(nb1.sum() / (own1.sum() + nb1.sum())) if (own1.sum() + nb1.sum()) > 0 else float("nan")
+        sh2 = float(nb2.sum() / (own2.sum() + nb2.sum())) if (own2.sum() + nb2.sum()) > 0 else float("nan")
+        flags = []
+        if np.isfinite(sh1) and sh1 > threshold:
+            flags.append(f"I1: neighbour band gives {100 * sh1:.1f} % of the window signal")
+        if np.isfinite(sh2) and sh2 > threshold:
+            flags.append(f"I2: neighbour band gives {100 * sh2:.1f} % of the window signal")
+        out.append({"T": float(s["T"]), "share1": sh1, "share2": sh2, "flags": flags})
+    return out
+
+
 def window_systematics(spectra, w1, w2, shift=0.10, counts=True):
     """Systematic error from the choice of the windows: each window is shifted by +-shift x its own width (the sign combinations
     of the two windows), the ratio is refitted, and the largest departure from the nominal ratio is the window systematic.
@@ -335,3 +379,34 @@ def window_systematics(spectra, w1, w2, shift=0.10, counts=True):
         out.append({"T": nom["T"], "ratio": nom["ratio"], "ratio_err": nom["ratio_err"], "ratio_sys": sys_,
                     "ratio_err_stat_sys": tot, "n_variants": len(dev), "flags": flags})
     return out
+
+
+def crosscheck(window_rows, global_T, global_ratio, global_err, k=3.0):
+    """Compare the window ratio with the global-fit ratio at the same temperatures.
+
+    window_rows = output of window_ratio_series; global_T, global_ratio, global_err = arrays from the global fit (same temperatures).
+    A temperature is compared only when both ratios and both errors are finite. The difference is judged against the combined error
+    sqrt(window_err² + global_err²); |difference| > k * combined error marks a disagreement. The method disagreement is a systematic
+    effect that the error bars do not contain (see the window-tail note in the module docstring), so a disagreement is a warning, not a
+    correction. Returns {'rows': [...], 'n_compared', 'n_disagree', 'median_rel_diff'}."""
+    gT = np.asarray(global_T, float)
+    gr = np.asarray(global_ratio, float)
+    ge = np.asarray(global_err, float)
+    rows = []
+    for r in window_rows:
+        i = int(np.argmin(np.abs(gT - r["T"]))) if len(gT) else -1
+        if i < 0 or abs(gT[i] - r["T"]) > 1e-6:
+            rows.append({"T": r["T"], "diff": float("nan"), "combined_err": float("nan"), "disagree": False, "note": "no global-fit point at this T"})
+            continue
+        a, ea, b, eb = r["ratio"], r["ratio_err"], gr[i], ge[i]
+        if not (np.isfinite(a) and np.isfinite(ea) and np.isfinite(b) and np.isfinite(eb)):
+            rows.append({"T": r["T"], "diff": float("nan"), "combined_err": float("nan"), "disagree": False, "note": "not compared (undefined value)"})
+            continue
+        comb = math.sqrt(ea * ea + eb * eb)
+        d = a - b
+        rows.append({"T": r["T"], "diff": d, "combined_err": comb, "disagree": bool(abs(d) > k * comb),
+                     "rel_diff": d / b if b else float("nan"), "note": ""})
+    cmp_rows = [r for r in rows if np.isfinite(r["diff"])]
+    rel = [abs(r["rel_diff"]) for r in cmp_rows if np.isfinite(r.get("rel_diff", float("nan")))]
+    return {"rows": rows, "n_compared": len(cmp_rows), "n_disagree": sum(r["disagree"] for r in cmp_rows),
+            "median_rel_diff": float(np.median(rel)) if rel else float("nan")}

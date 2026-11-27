@@ -222,7 +222,56 @@ def ratio_block(t_order, T, rng, norm, counts_default, g, METHODS, brush_picker,
                        "band system, for example the Stark-split lines of a lanthanide: the extra bands then absorb part of the ratio bands, and the ratio is not reliable.")
             st.button("🧩 Switch to the manifold fit (every line its own shape; choose two ranges)", key="pl_to_manifold",
                       on_click=lambda: st.session_state.update({"pl_method": METHODS[3]}))
-    return show_fit(fit, spec, T, Dw, sDw, (w1, w2), win_alts, method, counts, g, METHODS)
+    res = show_fit(fit, spec, T, Dw, sDw, (w1, w2), win_alts, method, counts, g, METHODS)
+    window_fit_panel(spec, w1, w2, counts, res[2], res[3], g)
+    return res
+
+
+def window_fit_table(spec, w1, w2, counts, D, D_stat):
+    """Experimental window fit (mfs/plwindows.py): per temperature the ratio from the two chosen windows, using only the data inside them,
+    compared with the global-fit ratio D (error D_stat). Pure function (no Streamlit), so it can be tested on synthetic data."""
+    from mfs import plwindows as PW
+    rows = PW.window_ratio_series(spec, tuple(w1), tuple(w2), counts=counts)
+    T_arr = [float(q["T"]) for q in spec]
+    cc = PW.crosscheck(rows, T_arr, np.asarray(D, float), np.asarray(D_stat, float))
+    df = pd.DataFrame({
+        "T (K)": T_arr,
+        "window ratio": [r["ratio"] for r in rows],
+        "window error": [r["ratio_err"] for r in rows],
+        "global ratio": np.asarray(D, float),
+        "global error": np.asarray(D_stat, float),
+        "difference": [c["diff"] for c in cc["rows"]],
+        "disagree (> 3 σ)": [bool(c["disagree"]) for c in cc["rows"]],
+        "flags": ["; ".join(r["flags"]) for r in rows],
+    })
+    return {"df": df, "n_compared": cc["n_compared"], "n_disagree": cc["n_disagree"], "rows": rows}
+
+
+def window_fit_panel(spec, w1, w2, counts, D, D_stat, g):
+    """Expander under the fit results: the window fit next to the global fit. Experimental; the flags say why a value is missing."""
+    show, newfig = g["show"], g["newfig"]
+    with st.expander("🪟 Window fit (experimental): ratio from the two chosen windows only", expanded=False):
+        st.caption("Each window is fitted on its own data: one pseudo-Voigt band with a fixed Lorentzian share (eta = 0.5), a straight background, "
+                   "and the neighbour band inside the joint fit. The error is statistical only: a shape mismatch of the real bands and low counts "
+                   "(below 100 counts per point) are NOT in it. A disagreement with the global fit above 3 combined errors is a warning.")
+        try:
+            t = window_fit_table(spec, w1, w2, counts, D, D_stat)
+        except ValueError as exc:
+            st.warning(f"The window fit cannot be used: {exc}")
+            return
+        df = t["df"]
+        st.dataframe(df, hide_index=True, width="stretch")
+        st.caption(f"{t['n_compared']} temperatures compared with the global fit; {t['n_disagree']} disagree by more than 3 combined errors.")
+
+        def draw(ax):
+            ax.errorbar(df["T (K)"], df["global ratio"], yerr=df["global error"], fmt="o", ms=3, color="#0072B2", label="global fit")
+            ax.errorbar(df["T (K)"], df["window ratio"], yerr=df["window error"], fmt="s", ms=3, mfc="none", color="#D55E00", label="window fit")
+            ax.set_xlabel("Temperature (K)")
+            ax.set_ylabel("Δ = $I_1$/$I_2$")
+            ax.legend(frameon=False, fontsize=6)
+        fig, ax = newfig(0.7)
+        draw(ax)
+        show(fig, "PL_window_fit", df, draw, "Window fit vs global fit")
 
 
 def show_fit(fit, spec, T, Dw, sDw, windows, win_alts, method, counts, g, METHODS):
