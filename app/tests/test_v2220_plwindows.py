@@ -408,3 +408,40 @@ def test_comparison_table_agrees_with_the_crosscheck():
     assert cmp_["n_compared"] == cc["n_compared"] and cmp_["n_disagree"] == cc["n_disagree"]
     assert len(cmp_["disagree"]) == 3 and len(cmp_["window ratio"]) == 3
 
+
+# S-Figuryte-3: the cache key covers every input; a hit never returns a result computed with other options
+def test_cache_key_covers_counts_weighting_eta_warm_start_and_windows():
+    x, y = _spectrum(3000.0, 1000.0, seed=21, scale=30.0)
+    PW._FIT_CACHE.clear()
+    PW._FIT_CACHE_STATS.update(hits=0, misses=0)
+    calls = [
+        dict(),                                   # base
+        dict(counts=False),                       # other counts option
+        dict(weighting="poisson"),                # other weighting
+        dict(free_eta=True),                      # other eta option
+        dict(warm=[1000.0] * 10),                 # other warm start
+        dict(w1=(510.0, 540.0)),                  # other window
+    ]
+    results = []
+    for kw in calls:
+        args = dict(x=x, y=y, w1=W1, w2=W2)
+        args.update(kw)
+        results.append(PW.fit_pair_cached(**args))
+    assert PW._FIT_CACHE_STATS["misses"] == len(calls) and PW._FIT_CACHE_STATS["hits"] == 0
+    # the weighting option changes the numbers, so the cache must not have mixed them up
+    plain = PW.fit_pair(x, y, W1, W2)
+    poisson = PW.fit_pair(x, y, W1, W2, None, True, False, "poisson")
+    assert results[0]["A1"] == pytest.approx(plain["A1"], rel=1e-12)
+    assert results[2]["A1"] == pytest.approx(poisson["A1"], rel=1e-12)
+    assert results[0]["A1"] != pytest.approx(results[2]["A1"], rel=1e-6)
+
+
+def test_cache_hits_only_for_identical_inputs():
+    x, y = _spectrum(3000.0, 1000.0, seed=22, scale=30.0)
+    PW._FIT_CACHE.clear()
+    PW._FIT_CACHE_STATS.update(hits=0, misses=0)
+    PW.fit_pair_cached(x, y, W1, W2)
+    PW.fit_pair_cached(x, y.copy(), W1, W2)          # same values, different array object: still a hit
+    PW.fit_pair_cached(x, y + 1.0, W1, W2)           # different data: a miss
+    assert PW._FIT_CACHE_STATS == {"hits": 1, "misses": 2}
+
