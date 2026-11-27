@@ -189,67 +189,108 @@ def page_pxrd():
 
 
 def _vegard_ui(raws, lo, hi):
-    """v2.23.0: solid solution of two cubic end members (Vegard, linear). The reference peaks move with the composition x.
-    Source: Vegard (1921), Z. Phys. 5, 17–26, doi:10.1007/BF01349680. Cubic cells only."""
+    """v2.24.0: solid solution of two end members (Vegard, linear per axis). Each end member comes from one of four sources:
+    the library, cell numbers, a pattern of the end member (indexing + Le Bail cell fit), or an own CIF. Both end members must be of
+    the same system (cubic, tetragonal or hexagonal). The reference peaks move with x. Source: Vegard (1921), Z. Phys. 5, 17–26,
+    doi:10.1007/BF01349680. No bowing in this panel."""
     import math
     from mfs import rietveld as RV
     from mfs import phaseid as PID
     from mfs import vegard as VG
+    from mfs import readers as RD
     if not raws:
         st.info("Load a pattern first.")
         return
-    cubic = []
-    for e in PID.library():
-        c = e.get("cell") or []
-        if len(c) == 6 and abs(c[0] - c[1]) < 1e-6 and abs(c[1] - c[2]) < 1e-6 and all(abs(v - 90.0) < 1e-6 for v in c[3:]):
-            cubic.append(e)
-    if len(cubic) < 2:
-        st.info("Fewer than two cubic reference structures in the library.")
-        return
-    box = st.container(border=True, key="vg_box")
-    by_label = {f"{e['name']} ({e['source']})": e for e in cubic}
+    lib = [e for e in PID.library() if not e.get("exclude_matching")]
+    by_label = {f"{e['name']} ({e['source']})": e for e in lib}
     names = list(by_label)
+    box = st.container(border=True, key="vg_box")
     c1, c2, c3 = box.columns([2, 2, 3])
     nm = c1.selectbox("Pattern", list(raws), key="vg_sample")
-    la = c2.selectbox("End member A", names, index=0, key="vg_A")
-    lb = c2.selectbox("End member B", names, index=1, key="vg_B")
-    x = c3.slider("x (fraction of A)", 0.0, 1.0, 0.5, 0.01, key="vg_x")
-    if la == lb:
-        box.warning("Choose two different end members.")
-        return
     wl = RV.RADIATION["Cu Kα1"][0][0]
     dmin = wl / (2.0 * math.sin(math.radians(hi / 2.0)))
-    ea, eb = by_label[la], by_label[lb]
-    try:
-        pa = RV.Phase.from_cif(ea["path"]).build(dmin)
-        pb = RV.Phase.from_cif(eb["path"]).build(dmin)
-    except Exception as exc:  # a reference that the reader rejects is reported, not hidden
-        box.error(f"Could not read an end member: {type(exc).__name__}: {exc}")
+    SRC = ["Library", "Cell numbers", "Pattern (indexing + Le Bail cell fit)", "Own CIF"]
+
+    def _end(which, col, default_index):
+        src = col.selectbox(f"Source of end member {which}", SRC, index=default_index, key=f"vg_src_{which}")
+        if src == "Library":
+            if not names:
+                col.warning("No library entries.")
+                return None, None, None
+            # default: the first cubic library entry (the default of cell numbers is cubic too), so the panel opens with a valid pair
+            cubic_idx = next((i for i, n in enumerate(names) if VG.system_of(tuple(by_label[n]["cell"])) == "cubic"), 0)
+            pick = col.selectbox(f"End member {which}", names, index=cubic_idx, key=f"vg_lib_{which}")
+            try:
+                ph = RV.Phase.from_cif(by_label[pick]["path"]).build(dmin)
+            except Exception as exc:
+                col.error(f"Could not read {pick}: {type(exc).__name__}: {exc}")
+                return None, None, None
+            return tuple(float(v) for v in ph.cell0), [tuple(int(v) for v in h) for h in ph.hkl], pick
+        if src == "Cell numbers":
+            sysn = col.selectbox(f"System {which}", ["cubic", "tetragonal", "hexagonal"], key=f"vg_sys_{which}")
+            a = col.number_input(f"a {which} (Å)", min_value=1.0, max_value=80.0, value=5.4113, step=0.0001, format="%.4f", key=f"vg_a_{which}")
+            c = a
+            if sysn != "cubic":
+                c = col.number_input(f"c {which} (Å)", min_value=1.0, max_value=80.0, value=float(a), step=0.0001, format="%.4f", key=f"vg_c_{which}")
+            cell = VG.symmetric_cell(sysn, a, c)
+            ph = RV.Phase.from_cell(cell, f"{which} (numbers)").build(dmin)
+            return cell, [tuple(int(v) for v in h) for h in ph.hkl], f"{which}: {sysn} a={a:.4f}" + ("" if sysn == "cubic" else f" c={c:.4f}") + " (cell-only)"
+        if src.startswith("Pattern"):
+            up = col.file_uploader(f"Pattern of end member {which}", type=["xy", "xye", "dat", "txt", "csv", "asc", "ras", "raw"], key=f"vg_pat_{which}")
+            if up is None:
+                return None, None, None
+            try:
+                df = RD.read_pxrd(up.getvalue(), up.name)
+                xe = df.iloc[:, 0].to_numpy(float); ye = df.iloc[:, 1].to_numpy(float)
+            except Exception as exc:
+                col.error(f"Could not read the pattern: {type(exc).__name__}: {exc}")
+                return None, None, None
+            res = VG.cell_from_pattern(xe, ye, lo, hi, wl)
+            if res["status"] != "ok":
+                col.warning(f"Cell not found for {which}: {res.get('reason', res['status'])}")
+                return None, None, None
+            cell = res["cell"]
+            col.caption(f"{which}: {res['system']} a={cell[0]:.4f} Å" + ("" if res["system"] == "cubic" else f" c={cell[2]:.4f} Å")
+                        + f" (Le Bail Rwp {res['rwp']:.2f} %; cell-only reflections)")
+            ph = RV.Phase.from_cell(cell, f"{which} (pattern)").build(dmin)
+            return cell, [tuple(int(v) for v in h) for h in ph.hkl], f"{which}: from pattern {up.name}"
+        up = col.file_uploader(f"CIF of end member {which}", type=["cif"], key=f"vg_up_{which}")
+        if up is None:
+            return None, None, None
+        try:
+            ph = RV.Phase.from_cif(up.getvalue(), name=up.name).build(dmin)
+        except Exception as exc:
+            col.error(f"Could not read the CIF: {type(exc).__name__}: {exc}")
+            return None, None, None
+        return tuple(float(v) for v in ph.cell0), [tuple(int(v) for v in h) for h in ph.hkl], f"uploaded: {up.name}"
+
+    cell_A, hkl_A, la = _end("A", c2, 0)
+    cell_B, hkl_B, lb = _end("B", c2, 1)
+    x = c3.slider("x (fraction of A)", 0.0, 1.0, 0.5, 0.01, key="vg_x")
+    if cell_A is None or cell_B is None:
+        box.info("Choose two end members.")
         return
-    aA, aB = float(pa.cell0[0]), float(pb.cell0[0])
-    a_x = VG.lattice_from_composition(x, aA, aB)
-    hk = np.asarray(pa.hkl, float)
-    norm = (hk ** 2).sum(1)
-    th_x = np.array([VG.two_theta_for_lattice(a_x, n, wl) for n in norm])
-    th_A = np.array([VG.two_theta_for_lattice(aA, n, wl) for n in norm])
-    th_B = np.array([VG.two_theta_for_lattice(aB, n, wl) for n in norm])
+    sA, sB = VG.system_of(cell_A), VG.system_of(cell_B)
+    if not sA or sA != sB:
+        box.warning(f"The end members must be of the same system (cubic, tetragonal or hexagonal): A is {sA or 'other'}, B is {sB or 'other'}.")
+        return
+    hkl = hkl_A
+    cell_x = VG.cell_from_composition(x, cell_A, cell_B)
+    th_x = [VG.two_theta_for_cell(cell_x, h, wl) for h in hkl]
+    th_A = [VG.two_theta_for_cell(cell_A, h, wl) for h in hkl]
+    th_B = [VG.two_theta_for_cell(cell_B, h, wl) for h in hkl]
     xo, yo = raws[nm]
     xo, yo = np.asarray(xo, float), np.asarray(yo, float)
     m = (xo >= lo) & (xo <= hi)
-    box.caption(f"a(A) = {aA:.4f} Å, a(B) = {aB:.4f} Å, a(x = {x:.2f}) = {a_x:.4f} Å (Vegard, linear). "
-                "Dashed: end members. Solid: predicted position at x. Cu Kα1 assumed.")
+    box.caption(f"System: {sA}. A: {la}. B: {lb}. a(x = {x:.2f}) = {cell_x[0]:.4f} Å. Dashed: end members. Solid: predicted at x. Cu Kα1 assumed.")
 
     def draw(ax, xo=xo, yo=yo, th_x=th_x, th_A=th_A, th_B=th_B):
         ax.plot(xo[m], yo[m], lw=0.8, color="0.2", label="measured")
-        for t in th_A[np.isfinite(th_A)]:
-            if lo <= t <= hi:
-                ax.axvline(t, color="C0", ls="--", lw=0.7)
-        for t in th_B[np.isfinite(th_B)]:
-            if lo <= t <= hi:
-                ax.axvline(t, color="C1", ls="--", lw=0.7)
-        for t in th_x[np.isfinite(th_x)]:
-            if lo <= t <= hi:
-                ax.axvline(t, color="C3", lw=0.9)
+        for series, style in ((th_A, dict(color="C0", ls="--", lw=0.7)), (th_B, dict(color="C1", ls="--", lw=0.7)),
+                              (th_x, dict(color="C3", lw=0.9))):
+            for t in series:
+                if math.isfinite(t) and lo <= t <= hi:
+                    ax.axvline(t, **style)
         ax.set_xlim(lo, hi)
         ax.set_xlabel(r"2$\theta$ (°)"); ax.set_ylabel("intensity")
 
@@ -257,21 +298,21 @@ def _vegard_ui(raws, lo, hi):
     draw(ax)
     show(fig, f"PXRD_Vegard_{nm}", pd.DataFrame({"two_theta": xo[m], "observed": yo[m]}), draw, "Solid solution (Vegard shift)",
          units={"x": "2theta"})
-    with box.expander("Estimate x from one observed peak (end members A and B; outside the range nothing is estimated)", expanded=False):
-        labels_r = [f"({int(h)} {int(k)} {int(l)})" for h, k, l in hk]
-        if not labels_r:
-            st.info("No reflections in this 2θ range.")
-            return
-        r_sel = st.selectbox("Reflection (of end member A)", labels_r, key="vg_refl")
-        obs = st.number_input("Observed 2θ of that reflection (°)", min_value=0.0, max_value=180.0, value=float(lo),
-                              step=0.01, format="%.3f", key="vg_obs")
+    with box.expander("Estimate x from observed peaks (several reflections; a spread is shown)", expanded=False):
+        labels_r = [f"({h[0]} {h[1]} {h[2]})" for h in hkl]
+        picked = st.multiselect("Reflections (of end member A)", labels_r, default=labels_r[:min(3, len(labels_r))], key="vg_refl")
+        peaks = []
+        for lab in picked:
+            i = labels_r.index(lab)
+            obs = st.number_input(f"Observed 2θ of {lab} (°)", min_value=0.0, max_value=180.0, value=float(lo), step=0.01,
+                                  format="%.3f", key=f"vg_obs_{lab}")
+            peaks.append((float(obs), hkl[i]))
         if st.button("Estimate x", key="vg_est"):
-            idx = labels_r.index(r_sel)
-            r = VG.x_from_two_theta(float(obs), float(norm[idx]), wl, aA, aB)
-            if r["status"] == "ok":
-                st.success(f"x(A) ≈ {r['x']:.3f} (a_obs = {r['a_obs']:.4f} Å)")
+            r = VG.estimate_x_grid(peaks, wl, cell_A, cell_B)
+            if r["status"] in ("ok", "end member"):
+                st.success(f"x(A) ≈ {r['x']:.3f} (rms residual {r['rms_deg']:.4f}°, {r['n']} reflections, status: {r['status']})")
             else:
-                st.warning(f"Not estimated: {r.get('reason', r['status'])}")
+                st.warning(f"Not estimated: {r.get('reason', r['status'])}" + (f" (rms {r['rms_deg']:.3f}°)" if "rms_deg" in r else ""))
 
 
 def _crystal_size_ui(traces, lo, hi):

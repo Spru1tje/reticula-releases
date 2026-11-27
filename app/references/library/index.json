@@ -115,6 +115,7 @@
   "file": "MIL-53_Cr.cif",
   "name": "MIL-53(Cr)",
   "kind": "MOF",
+  "exclude_matching": true,
   "source": "COD 1502688",
   "note": "C–O-geometrie inconsistent: geen carboxylaat-band (1.22–1.32 Å) in deze CIF; niet gebruiken voor O–C-validatie (zie test_v2227_mil53_cif_consistency.py)",
   "formula": "CrH4C8O5",
