@@ -4,7 +4,7 @@
 
 1. **Every graph goes through `show()`** in `app.py` (never `st.pyplot` / `st.image` directly). That gives it the *Customise this figure*
    panel, the exports (PNG/TIFF/SVG/PDF/ZIP with provenance), the SI collection and the *Add to combined figure* button.
-2. **Add the page to the figure-controls suite**: put its name in `PAGES` of `tests/test_figure_controls.py`. The suite runs every
+2. **Add the page to the figure-controls test suite** (a test, not the UI panel): put its name in `PAGES` of `tests/test_figure_controls.py`. The suite runs every
    customise option (legend font size, line width, axis limits, …) on every page and fails when an option has no effect.
 3. **Register the page** in `mfs/ui.py` (`NAV`), in `app.py` (page function) and give it a text in `mfs/summary.py`
    (`TECHNIQUE_METHODS`; a test fails when a technique has none).
