@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))      # repo root (mfs) when run from tests/
 from test_sem_e2e_browser import _browser
 from test_batchA_e2e_browser import _shot, _log
-from _e2e_util import nav, SIDEBAR_OPT, DIALOG
+from _e2e_util import nav, SIDEBAR_OPT, DIALOG, wait_sidebar
 from test_rigaku import _rasx
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,7 +58,7 @@ def _wait_text(pg, text, t=120000):
 def _open(p, url):
     b = _browser(p)
     pg = b.new_context(viewport={"width": 1500, "height": 1100}).new_page()
-    pg.goto(url); pg.wait_for_selector(SIDEBAR_OPT, timeout=180000); pg.wait_for_timeout(1500)
+    pg.goto(url); wait_sidebar(pg); pg.wait_for_timeout(1500)
     return b, pg
 
 

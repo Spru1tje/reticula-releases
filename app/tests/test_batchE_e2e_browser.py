@@ -20,7 +20,7 @@ def test_batchE_structure_page(url, tmp_path):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(accept_downloads=True, viewport={"width": 1500, "height": 1200}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
         _nav(pg, "Structure (CIF)"); pg.get_by_text("Upload a CIF").first.wait_for(timeout=120000)
         pg.locator("[data-testid='stMain'] [data-testid='stFileUploader'] input[type='file']").first.set_input_files(USER)
         pg.get_by_text("Space group").first.wait_for(timeout=120000)

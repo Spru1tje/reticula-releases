@@ -15,8 +15,8 @@ def test_dsc_real_mettler_upload(url, tmp_path):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(accept_downloads=True, viewport={"width": 1400, "height": 1000}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
-        pg.locator("[data-testid='stSidebar'] [data-testid='stRadioOption']", has_text="DSC").first.click()
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
+        from _e2e_util import nav; nav(pg, "DSC", answer=None)
         sel = "[class*='st-key-data_dsc'] input[type=file]"
         pg.wait_for_selector(sel, state="attached", timeout=120000); pg.wait_for_timeout(3000)
         pg.locator(sel).first.set_input_files(REAL)
@@ -47,8 +47,8 @@ def test_dsc_full_cycle_example(url, tmp_path):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(accept_downloads=True, viewport={"width": 1400, "height": 1000}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
-        pg.locator("[data-testid='stSidebar'] [data-testid='stRadioOption']", has_text="DSC").first.click()
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
+        from _e2e_util import nav; nav(pg, "DSC", answer=None)
         pg.get_by_text("Use the full-cycle example").first.wait_for(timeout=120000); pg.wait_for_timeout(2000)
         pg.get_by_text("Use the full-cycle example").first.click()
         pg.get_by_text("Cycle summary").first.wait_for(timeout=120000); pg.wait_for_timeout(3000)

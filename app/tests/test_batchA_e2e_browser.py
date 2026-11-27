@@ -28,7 +28,7 @@ def test_batchA_kinetics_n2_store_si(url, tmp_path):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(accept_downloads=True, viewport={"width": 1500, "height": 1100}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
         # kinetics
         _nav(pg, "Kinetics")
         pg.get_by_text("Use the temperature-series EXAMPLE").first.wait_for(timeout=120000); pg.wait_for_timeout(2000)

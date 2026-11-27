@@ -11,7 +11,7 @@ def test_batchD_pages(url, tmp_path):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(accept_downloads=True, viewport={"width": 1500, "height": 1100}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
         _nav(pg, "Batch processing"); pg.get_by_text("Process 5 file(s)").first.wait_for(timeout=120000)
         pg.get_by_text("Process 5 file(s)").first.click()
         pg.get_by_text("Batch done: 5 / 5").first.wait_for(timeout=180000); pg.wait_for_timeout(1500)

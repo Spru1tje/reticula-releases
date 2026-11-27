@@ -21,7 +21,7 @@ def test_batchB_pages(url):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(viewport={"width": 1500, "height": 1100}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
         _nav(pg, "FTIR"); pg.get_by_text("Reference band, peak labels").first.wait_for(timeout=120000)
         pg.get_by_text("Reference band, peak labels").first.click(); pg.wait_for_timeout(1500)
         for t in ("Normalise to a reference band", "Label peaks", "Zoomed inset"):

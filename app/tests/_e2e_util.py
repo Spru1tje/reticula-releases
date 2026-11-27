@@ -21,6 +21,12 @@ def _answer(pg, answer):
     return True
 
 
+def wait_sidebar(pg, timeout=180000):
+    """First load: the sidebar buttons are in the DOM, but they sit in collapsed categories until nav() opens one. Waiting for them to be
+    VISIBLE times out on a fresh store (every category closed), so wait for them to be attached only; nav() opens the category."""
+    pg.wait_for_selector(SIDEBAR_OPT, state="attached", timeout=timeout)
+
+
 def nav(pg, name, answer="discard", wait_ms=15000):
     """Switch the sidebar page. answer=None: click only and return False (the caller checks the dialog itself).
     Otherwise poll until either the save dialog appears (answered) or the page has switched (no dialog)."""

@@ -87,8 +87,8 @@ def test_auto_calibrate_to_exported_figure(url, fname, tmp_path):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(accept_downloads=True, viewport={"width": 1400, "height": 1000}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
-        pg.locator("[data-testid='stSidebar'] [data-testid='stRadioOption']", has_text="SEM / TEM").first.click()
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
+        from _e2e_util import nav; nav(pg, "SEM / TEM", answer=None)
         pg.wait_for_selector("input[type=file][accept*='.tif']", state="attached", timeout=120000); pg.wait_for_timeout(3000)
         pg.locator("input[type=file][accept*='.tif']").first.set_input_files(os.path.join(D, fname))
         auto = pg.get_by_role("button", name="⚡ Auto-calibrate").first

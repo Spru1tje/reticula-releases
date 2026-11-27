@@ -15,7 +15,7 @@ def test_batchC_pages(url):
     with sync_playwright() as p:
         b = _browser(p)
         pg = b.new_context(viewport={"width": 1500, "height": 1100}).new_page()
-        pg.goto(url); pg.wait_for_selector("[data-testid='stSidebar'] [data-testid='stRadioOption']", timeout=180000)
+        pg.goto(url); from _e2e_util import wait_sidebar; wait_sidebar(pg)
         _nav(pg, "SEM / TEM"); pg.get_by_text("Particle sizing").first.wait_for(timeout=180000); pg.wait_for_timeout(6000)
         from _e2e_util import bright_particles
         bright_particles(pg)
