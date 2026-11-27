@@ -233,18 +233,18 @@ def window_fit_table(spec, w1, w2, counts, D, D_stat):
     from mfs import plwindows as PW
     rows = PW.window_ratio_series(spec, tuple(w1), tuple(w2), counts=counts)
     T_arr = [float(q["T"]) for q in spec]
-    cc = PW.crosscheck(rows, T_arr, np.asarray(D, float), np.asarray(D_stat, float))
+    cmp_ = PW.comparison_table(rows, T_arr, D, D_stat)          # S-Figuryte-3: the comparison is computed in plwindows only
     df = pd.DataFrame({
-        "T (K)": T_arr,
-        "window ratio": [r["ratio"] for r in rows],
-        "window error": [r["ratio_err"] for r in rows],
-        "global ratio": np.asarray(D, float),
-        "global error": np.asarray(D_stat, float),
-        "difference": [c["diff"] for c in cc["rows"]],
-        "disagree (> 3 σ)": [bool(c["disagree"]) for c in cc["rows"]],
-        "flags": ["; ".join(r["flags"]) for r in rows],
+        "T (K)": cmp_["T"],
+        "window ratio": cmp_["window ratio"],
+        "window error": cmp_["window error"],
+        "global ratio": cmp_["global ratio"],
+        "global error": cmp_["global error"],
+        "difference": cmp_["difference"],
+        "disagree (> 3 σ)": cmp_["disagree"],
+        "flags": cmp_["flags"],
     })
-    return {"df": df, "n_compared": cc["n_compared"], "n_disagree": cc["n_disagree"], "rows": rows}
+    return {"df": df, "n_compared": cmp_["n_compared"], "n_disagree": cmp_["n_disagree"], "rows": rows}
 
 
 def window_fit_panel(spec, w1, w2, counts, D, D_stat, g):
@@ -658,7 +658,18 @@ def results(T, I1, I2, D, D_stat, info, t_order, offs, counts, sample, g, versio
     # v2.18.6: analysis report (PDF): verdict, settings, equations, calibration figure, table, budget, checks, limitations
     try:
         from mfs import plreport as PRPT
+        # S-Figuryte-3: the fitted band shapes per spectrum (only for the plain two-band fit; the record is text, the numbers are not changed)
+        shapes = None
+        try:
+            if info.get("method") == "fit" and info.get("spec") and info.get("windows"):
+                from mfs import plwindows as PW
+                (w1_, w2_) = info["windows"]
+                # same defaults as the ratio fit (free_eta=False, weighting="sqrt", warm_start=False); keep them in step if one changes
+                shapes = PW.window_fit_record(info["spec"], w1_, w2_, counts)
+        except Exception:
+            shapes = None
         rep_settings = {"sample": sample, "ratio method": info.get("method"), "windows or ranges (nm)": info.get("windows"),
+                        "fitted band shapes (window fit, per spectrum)": shapes,
                         "band swapped (Δ inverted)": swapped, "Boltzmann offset C": offs, "counts (Poisson weights)": counts,
                         "temperature random error (K)": sT_rand, "temperature offset (K)": sT_sys, "response uncertainty": resp_rel,
                         "fit bands (nm)": (info.get("fit") or {}).get("bands"), "fit model": (info.get("fit") or {}).get("model")}

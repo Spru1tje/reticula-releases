@@ -350,3 +350,61 @@ def test_input_problems_flags_too_few_points_and_an_edge_peak():
     msgs = PW.input_problems(spec, (500.0, 524.0), W2)   # the peak of band 1 (524 nm) is at the window edge
     assert any("lies on its edge" in m for m in msgs)
 
+
+# S-Figuryte-2: the default weighting is a decision for the user; a change of it must be made on purpose (this test then fails)
+def test_default_weighting_of_the_public_functions_is_sqrt():
+    import inspect
+    assert inspect.signature(PW.fit_pair).parameters["weighting"].default == "sqrt"
+    assert inspect.signature(PW.window_ratio_series).parameters["weighting"].default == "sqrt"
+
+
+# S-Figuryte-1: the shared-width fit flags a series whose band widths change; a constant-width series is not flagged
+def test_shared_fit_flags_a_series_whose_width_changes():
+    x = np.arange(500.0, 600.0, 0.4)
+    specs = []
+    for k in range(5):
+        w1 = 8.0 + 0.5 * k
+        y = 30.0 * (3000.0 * pv_unit(x, 524.0, w1, 0.5) + 1000.0 * pv_unit(x, 566.0, 10.0, 0.5)) + 40.0 + 0.2 * (x - 500.0)
+        specs.append({"T": 290.0 + 10.0 * k, "x": x, "y": y})
+    rows = PW.window_ratio_series_shared(specs, W1, W2)
+    assert all(any("shared width not supported" in f for f in r["flags"]) for r in rows)
+
+
+def test_shared_fit_does_not_flag_a_constant_width_series():
+    specs, _ = _series_const_width()
+    rows = PW.window_ratio_series_shared(specs, W1, W2)
+    assert not any("shared width not supported" in f for r in rows for f in r["flags"])
+
+
+# S-Figuryte-3: the fitted parameters per spectrum as text lines for the analysis record
+def test_window_fit_record_gives_one_line_per_spectrum_with_the_fitted_shape():
+    specs, _ = _series_const_width(n=3)
+    lines = PW.window_fit_record(specs, W1, W2)
+    assert len(lines) == 3
+    assert lines[0].startswith("290 K: band 1 centre")
+    assert "eta 0.50 (fixed)" in lines[0]
+
+
+# S-Figuryte-1: the per-window fit is cached; the numbers are the same as the uncached fit
+def test_fit_cache_gives_the_same_numbers_and_a_hit_on_the_second_call():
+    x, y = _spectrum(3000.0, 1000.0, seed=11, scale=30.0)
+    PW._FIT_CACHE.clear()
+    PW._FIT_CACHE_STATS.update(hits=0, misses=0)
+    a = PW.fit_pair_cached(x, y, W1, W2)
+    b = PW.fit_pair_cached(x, y, W1, W2)
+    c = PW.fit_pair(x, y, W1, W2)
+    assert PW._FIT_CACHE_STATS["hits"] == 1 and PW._FIT_CACHE_STATS["misses"] == 1
+    assert a is not b and a["flags1"] is not b["flags1"]   # copies: changing one result does not change the cache
+    assert a["A1"] == pytest.approx(c["A1"], rel=1e-12) and a["A2"] == pytest.approx(c["A2"], rel=1e-12)
+
+
+# S-Figuryte-3: the comparison (window vs global) is computed in one function and agrees with the cross-check
+def test_comparison_table_agrees_with_the_crosscheck():
+    specs = _series_const_width(n=3)[0]
+    rows = PW.window_ratio_series(specs, W1, W2)
+    T = [q["T"] for q in specs]
+    cmp_ = PW.comparison_table(rows, T, [3.0, 2.5, 2.0], [0.5, 0.5, 0.5])
+    cc = PW.crosscheck(rows, T, [3.0, 2.5, 2.0], [0.5, 0.5, 0.5])
+    assert cmp_["n_compared"] == cc["n_compared"] and cmp_["n_disagree"] == cc["n_disagree"]
+    assert len(cmp_["disagree"]) == 3 and len(cmp_["window ratio"]) == 3
+

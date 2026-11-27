@@ -22,6 +22,8 @@ Not checked here: the energy axis, the background outside the windows, the tempe
 """
 from __future__ import annotations
 
+import copy
+import hashlib
 import math
 
 import numpy as np
@@ -40,6 +42,9 @@ SIGNIFICANCE = 3.0  # a band area must exceed this many of its own errors to giv
 # 100 is the first level where the bias is within its own standard error (+-0.5 %) and the error bars are calibrated.
 # This is a property of the synthetic case; real spectra may need a different value. Pass min_mean_counts to change it.
 MIN_MEAN_COUNTS = 100.0
+# S-Figuryte-1: a fitted width that differs from the shared width by more than this fraction flags the shared series fit. The 10 % is a choice,
+# not a measured bound; it is reported as such.
+SHARED_WIDTH_TOL = 0.10
 
 
 def _check_window(w, name):
@@ -161,6 +166,30 @@ def fit_pair(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqr
             "flags1": flags_for(A1, eA1, c1, u1, lo1, hi1), "flags2": flags_for(A2, eA2, c2, u2, lo2, hi2)}
 
 
+_FIT_CACHE = {}
+_FIT_CACHE_MAX = 256
+_FIT_CACHE_STATS = {"hits": 0, "misses": 0}
+
+
+def fit_pair_cached(x, y, w1, w2, var=None, counts=True, free_eta=False, weighting="sqrt", warm=None):
+    """S-Figuryte-1: fit_pair with a small cache keyed on the input (data, windows, options). Same numbers as fit_pair; the panel and the
+    analysis record reuse one fit instead of fitting the same spectrum twice. Oldest entries are dropped beyond _FIT_CACHE_MAX."""
+    xa = np.ascontiguousarray(np.asarray(x, float))
+    ya = np.ascontiguousarray(np.asarray(y, float))
+    va = b"" if var is None else np.ascontiguousarray(np.asarray(var, float)).tobytes()
+    key = (hashlib.sha256(xa.tobytes() + ya.tobytes() + va).hexdigest(), tuple(float(v) for v in w1), tuple(float(v) for v in w2),
+           bool(counts), bool(free_eta), weighting, None if warm is None else tuple(float(v) for v in warm))
+    if key in _FIT_CACHE:
+        _FIT_CACHE_STATS["hits"] += 1
+        return copy.deepcopy(_FIT_CACHE[key])          # a copy: changing the result never changes the cache
+    _FIT_CACHE_STATS["misses"] += 1
+    res = fit_pair(x, y, w1, w2, var, counts, free_eta, weighting, warm)
+    if len(_FIT_CACHE) >= _FIT_CACHE_MAX:
+        _FIT_CACHE.pop(next(iter(_FIT_CACHE)))
+    _FIT_CACHE[key] = copy.deepcopy(res)
+    return copy.deepcopy(res)
+
+
 def _ratio_and_error(A1, eA1, A2, eA2, cov12, ok):
     """S-Figuryte-2: the one place where the ratio A1/A2 and its error are formed. Returns (ratio, ratio_err, usable)."""
     if ok and np.isfinite(A1) and np.isfinite(A2) and A1 > 0 and A2 > 0 and np.isfinite(eA1) and np.isfinite(eA2):
@@ -183,7 +212,7 @@ def window_ratio_series(spectra, w1, w2, counts=True, free_eta=False, min_mean_c
     out = []
     prev_p = None
     for s in spectra:
-        f = fit_pair(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta, weighting,
+        f = fit_pair_cached(s["x"], s["y"], (lo1, hi1), (lo2, hi2), s.get("var"), counts, free_eta, weighting,
                      warm=prev_p if warm_start else None)
         if warm_start and np.isfinite(f["A1"]):
             prev_p = f.get("p")
@@ -234,6 +263,13 @@ def window_ratio_series_shared(spectra, w1, w2, counts=True, free_eta=False, min
     eta_0 = float(np.median([f["eta"] for f in ok]))
     n_sh = 3 if free_eta else 2
     step = min(sp["step"] for sp in specs)
+    width_dev = 0.0
+    for f_ in ok:
+        for w_own, w_sh in ((f_["w1"], u1_0), (f_["w2"], u2_0)):
+            if np.isfinite(w_own) and w_sh > 0:
+                width_dev = max(width_dev, abs(w_own - w_sh) / w_sh)
+    width_flag = (f"shared width not supported: the fitted widths differ from the shared width by up to {100 * width_dev:.0f} % "
+                  f"(tolerance {100 * SHARED_WIDTH_TOL:.0f} %, a choice)") if width_dev > SHARED_WIDTH_TOL else None
     p0, lb, ub = [u1_0, u2_0], [1.5 * step, 1.5 * step], [hi1 - lo1, hi2 - lo2]
     if free_eta:
         p0 += [eta_0]
@@ -306,6 +342,8 @@ def window_ratio_series_shared(spectra, w1, w2, counts=True, free_eta=False, min
         ratio, ratio_err, usable = _ratio_and_error(A1, eA1, A2, eA2, cov12, ok_row)
         if not usable:
             flags.append("ratio undefined")
+        if width_flag:
+            flags.append(width_flag)
         out.append({"T": sp["T"], "I1": A1, "I1_err": eA1, "I2": A2, "I2_err": eA2, "ratio": ratio, "ratio_err": ratio_err,
                     "flags": flags, "w1": float(p[0]), "w2": float(p[1]), "eta": float(p[2]) if free_eta else ETA})
     return out
@@ -372,6 +410,22 @@ def input_problems(spectra, w1, w2):
     return msgs
 
 
+def window_fit_record(spectra, w1, w2, counts=True, free_eta=False):
+    """S-Figuryte-3: the fitted shape parameters per spectrum (centres, FWHMs, eta, areas), as short text lines for the analysis record,
+    so a reader can check which band shapes the fit actually used. Pure function; no change to the numbers."""
+    lo1, hi1 = _check_window(w1, "window 1")
+    lo2, hi2 = _check_window(w2, "window 2")
+    lines = []
+    for s_ in spectra:
+        f = fit_pair_cached(s_["x"], s_["y"], (lo1, hi1), (lo2, hi2), s_.get("var"), counts, free_eta)
+        if not np.isfinite(f["A1"]):
+            lines.append(f"{float(s_['T']):g} K: fit failed")
+            continue
+        lines.append(f"{float(s_['T']):g} K: band 1 centre {f['c1']:.2f} nm, FWHM {f['w1']:.2f} nm; band 2 centre {f['c2']:.2f} nm, "
+                     f"FWHM {f['w2']:.2f} nm; eta {f['eta']:.2f} ({'fitted' if free_eta else 'fixed'}); areas {f['A1']:.4g} / {f['A2']:.4g}")
+    return lines
+
+
 def window_systematics(spectra, w1, w2, shift=0.10, counts=True):
     """Systematic error from the choice of the windows: each window is shifted by +-shift x its own width (the sign combinations
     of the two windows), the ratio is refitted, and the largest departure from the nominal ratio is the window systematic.
@@ -410,6 +464,24 @@ def window_systematics(spectra, w1, w2, shift=0.10, counts=True):
         out.append({"T": nom["T"], "ratio": nom["ratio"], "ratio_err": nom["ratio_err"], "ratio_sys": sys_,
                     "ratio_err_stat_sys": tot, "n_variants": len(dev), "flags": flags})
     return out
+
+
+def comparison_table(window_rows, T, D, D_stat, k=3.0):
+    """S-Figuryte-3: the window-vs-global comparison in ONE place: the cross-check (crosscheck) and the per-temperature columns for the
+    panel. Returns a dict of lists plus the counts; the panel only formats it. No numbers are computed outside this function."""
+    cc = crosscheck(window_rows, [float(t) for t in T], np.asarray(D, float), np.asarray(D_stat, float), k=k)
+    return {
+        "T": [float(t) for t in T],
+        "window ratio": [r["ratio"] for r in window_rows],
+        "window error": [r["ratio_err"] for r in window_rows],
+        "global ratio": list(np.asarray(D, float)),
+        "global error": list(np.asarray(D_stat, float)),
+        "difference": [c["diff"] for c in cc["rows"]],
+        "disagree": [bool(c["disagree"]) for c in cc["rows"]],
+        "flags": ["; ".join(r["flags"]) for r in window_rows],
+        "n_compared": cc["n_compared"],
+        "n_disagree": cc["n_disagree"],
+    }
 
 
 def crosscheck(window_rows, global_T, global_ratio, global_err, k=3.0):
