@@ -257,7 +257,7 @@ def window_fit_panel(spec, w1, w2, counts, D, D_stat, g):
         from mfs import plwindows as PW
         # the user chooses the weighting of the window fit; sqrt is the default, Poisson is opt-in (plwindows: weighting="poisson")
         wchoice = st.radio("Weighting of the window fit", ["sqrt (default)", "Poisson (opt-in)"], horizontal=True, key="pl_winweight",
-                           help="sqrt: the default weights. Poisson: deviance weighting of the raw counts; it removes most of the low-count bias. "
+                           help="sqrt: the default weights. Poisson: deviance weighting of the raw counts; it removes most of the low-count bias (on synthetic data; not validated on real spectra). "
                                 "Changes the window-fit numbers in this panel only.")
         weighting = "poisson" if wchoice.startswith("Poisson") else "sqrt"
         for msg in PW.input_problems(spec, w1, w2)[:5]:           # S-Figuryte-3: say why a value may be missing or unreliable
