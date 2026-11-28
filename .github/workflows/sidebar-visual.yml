@@ -3,9 +3,16 @@ name: sidebar-visual
 # Visual regression of the navigation sidebar (tests/test_reticon_sidebar_visual.py).
 # Its own job: not a release gate. Needs Microsoft Edge (present on windows-latest) and Playwright.
 # Thresholds are PRELIMINARY until calibrated on this runner (see the test docstring).
+# update_baseline=true writes a NEW baseline on this runner and uploads it as an artifact;
+# commit it only after expert-reviewer approval, with the reason in the commit message.
 
 on:
   workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "Write a new baseline on this runner (artifact), instead of comparing"
+        type: boolean
+        default: false
 
 jobs:
   sidebar-visual:
@@ -23,10 +30,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest playwright pillow
+      - name: Record Edge version
+        shell: pwsh
+        run: |
+          $paths = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")
+          $p = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ($p) { "Edge: " + (Get-Item $p).VersionInfo.ProductVersion } else { "Edge: not found" }
       - name: Visual sidebar test
         env:
           RETICON_VISUAL: "1"
+          RETICON_VISUAL_UPDATE: ${{ inputs.update_baseline && '1' || '' }}
           MFS_NO_UPDATE_CHECK: "1"
           PYTHONUTF8: "1"
           PYTHONPATH: "."
         run: python -m pytest -q -p no:cacheprovider tests/test_reticon_sidebar_visual.py
+      - name: Upload baseline (update mode)
+        if: ${{ inputs.update_baseline }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidebar-standard-baseline
+          path: app/tests/golden/sidebar_visual/sidebar_standard.png
