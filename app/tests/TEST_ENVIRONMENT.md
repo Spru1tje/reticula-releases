@@ -19,7 +19,7 @@ Documentation only. It describes what the CI totals depend on; it changes no tes
 
 ## Measured CI totals (full suite, CI command above)
 
-Measured per tip on this machine; each run uses the command above, with `-rs`. Totals differ because each branch adds tests.
+Measured on this machine; each run uses the command above, with `-rs`. Totals differ because each branch adds tests.
 
 | Tip | Passed | Skipped | Log |
 |---|---|---|---|
@@ -30,7 +30,7 @@ Measured per tip on this machine; each run uses the command above, with `-rs`. T
 | tem/raw-route 104c8bb | 860 | 50 | raw_route_full_ci.log |
 | integration set (10 tips, local merge) | 888 | 50 | ci_final_set.log |
 
-The totals and skip counts come from the final pytest line of each log. The log files are in the author's working folder, not in the repository.
+The totals and skip counts come from the final pytest line of each log. The logs are kept by the author, outside the repository.
 
 ## Skip reasons (from the same logs)
 
